@@ -10,10 +10,24 @@ dependencies = [
     "plotly>=5.24.0",
     "pandas>=2.2.0",
     "pytz>=2024.1",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+llm = ["litellm>=1.70,<2"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.8",
+    "black>=24.10",
+    "mypy>=1.11",
+    "pandas-stubs>=2.2",
+    "types-requests>=2.31",
 ]
 
 [project.scripts]
 ingest = "data_dumps.ingest:main"
+enrich-musicbrainz = "data_dumps.enrich.musicbrainz:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -21,6 +35,44 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/data_dumps"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["src", "tests"]
+extend-exclude = ["notebooks", ".release-test-env", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+ignore = ["E501"]  # Black owns line length; SQL strings stay long
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+extend-exclude = '''
+/(
+    notebooks
+  | \.release-test-env
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+packages = ["data_dumps"]
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["duckdb", "duckdb.*", "plotly", "plotly.*", "litellm", "litellm.*", "marimo", "marimo.*"]
+ignore_missing_imports = true
 
 [tool.uv]
 package = true

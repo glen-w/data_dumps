@@ -4,10 +4,16 @@
 
 # local python / caches
 .venv
+.release-test-env
+.local
+dist
+build
+*.egg-info
 __pycache__
 *.pyc
 .pytest_cache
 .ruff_cache
+.mypy_cache
 __marimo__
 
 # personal data (bind-mounted at runtime, never baked in)

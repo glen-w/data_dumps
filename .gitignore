@@ -2,16 +2,27 @@
 *.zip
 raw/
 warehouse/
+warehouse/llm_cache/
 *.duckdb
 *.parquet
 *.csv
 
 # python
 .venv/
+.release-test-env/
+.local/
+dist/
+build/
+*.egg-info/
 __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+coverage.json
+htmlcov/
 
 # secrets
 .env
@@ -23,3 +34,6 @@ Thumbs.db
 
 # marimo
 __marimo__/
+
+# Cursor slash commands (local filled copies; templates live in cursor_commands)
+.cursor/commands/

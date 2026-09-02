@@ -1,5 +1,6 @@
 # Personal GDPR dumps: code in the image, data on the bind mount.
-# Stop `notebook` before re-running ingest (DuckDB single-writer).
+# ONE process at a time on warehouse/catalog.duckdb — see docs/WAREHOUSE.md.
+# Stop `app` before ingest or enrich-musicbrainz.
 
 services:
   app:
@@ -10,4 +11,7 @@ services:
       - .:/data:rw
     environment:
       DATA_DUMPS_ROOT: /data
+      DATA_DUMPS_LLM_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped

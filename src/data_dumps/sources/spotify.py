@@ -23,9 +23,20 @@ class SpotifySource:
         if path.is_file() and path.suffix.lower() == ".zip":
             with zipfile.ZipFile(path) as zf:
                 return any(HISTORY_FOLDER in n for n in zf.namelist())
-        if path.is_dir():
-            return any(path.glob(AUDIO_GLOB)) or any(path.glob(VIDEO_GLOB))
-        return False
+        return self._history_dir(path) is not None
+
+    def _history_dir(self, path: Path) -> Path | None:
+        """Directory that contains Streaming_History_*.json, or None."""
+        if not path.is_dir():
+            return None
+        if any(path.glob(AUDIO_GLOB)) or any(path.glob(VIDEO_GLOB)):
+            return path
+        nested = path / HISTORY_FOLDER
+        if nested.is_dir() and (
+            any(nested.glob(AUDIO_GLOB)) or any(nested.glob(VIDEO_GLOB))
+        ):
+            return nested
+        return None
 
     def tables(self) -> list[str]:
         return ["spotify.plays"]
@@ -35,19 +46,16 @@ class SpotifySource:
         json_glob = str(raw_dir / "Streaming_History_*.json").replace("'", "''")
         conn.execute("CREATE SCHEMA IF NOT EXISTS spotify")
         conn.execute("DROP TABLE IF EXISTS spotify.plays_raw")
-        conn.execute(
-            f"""
+        conn.execute(f"""
             CREATE TABLE spotify.plays_raw AS
             SELECT * FROM read_json(
                 '{json_glob}',
                 format = 'array',
                 union_by_name = true
             )
-            """
-        )
+            """)
         conn.execute("DROP TABLE IF EXISTS spotify.plays")
-        conn.execute(
-            """
+        conn.execute("""
             CREATE TABLE spotify.plays AS
             WITH base AS (
                 SELECT
@@ -145,8 +153,7 @@ class SpotifySource:
                 month(played_at) AS month
             FROM timed
             ORDER BY played_at
-            """
-        )
+            """)
         conn.execute("DROP TABLE spotify.plays_raw")
 
     def _materialize(self, path: Path) -> Path:
@@ -167,14 +174,16 @@ class SpotifySource:
                     shutil.move(str(f), str(spotify_raw / f.name))
                 nested.rmdir()
         else:
+            src = self._history_dir(path)
+            if src is None:
+                raise FileNotFoundError(f"No Spotify history JSON in {path}")
             for pattern in (AUDIO_GLOB, VIDEO_GLOB):
-                for f in path.glob(pattern):
+                for f in src.glob(pattern):
                     shutil.copy2(f, spotify_raw / f.name)
         return spotify_raw
 
     def inventory(self, conn: duckdb.DuckDBPyConnection) -> dict:
-        row = conn.execute(
-            """
+        row = conn.execute("""
             SELECT
                 count(*)::BIGINT AS n_plays,
                 round(sum(hours), 1) AS total_hours,
@@ -183,8 +192,8 @@ class SpotifySource:
                 round(100.0 * avg(CASE WHEN skipped THEN 1.0 ELSE 0.0 END), 1) AS skip_pct,
                 count(*) FILTER (WHERE year = 2017)::BIGINT AS plays_2017
             FROM spotify.plays
-            """
-        ).fetchone()
+            """).fetchone()
+        assert row is not None
         return {
             "n_plays": row[0],
             "total_hours": row[1],
