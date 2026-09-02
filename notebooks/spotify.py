@@ -8,9 +8,9 @@ app = marimo.App(width="medium")
 def _():
     import duckdb
     import plotly.express as px
-    from pathlib import Path
+    from data_dumps.paths import warehouse_db
 
-    db_path = Path(__file__).resolve().parents[1] / "warehouse" / "catalog.duckdb"
+    db_path = warehouse_db()
     if not db_path.exists():
         raise FileNotFoundError(
             f"No warehouse at {db_path}. Run: uv run ingest my_spotify_data.zip"

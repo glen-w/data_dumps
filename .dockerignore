@@ -1,0 +1,29 @@
+# git
+.git
+.gitignore
+
+# local python / caches
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+__marimo__
+
+# personal data (bind-mounted at runtime, never baked in)
+*.zip
+raw/
+warehouse/
+data/
+*.duckdb
+*.parquet
+*.csv
+inbox/
+
+# secrets
+.env
+.env.*
+
+# os
+.DS_Store
+Thumbs.db

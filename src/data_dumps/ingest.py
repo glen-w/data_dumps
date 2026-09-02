@@ -9,10 +9,11 @@ from pathlib import Path
 
 import duckdb
 
+from data_dumps.paths import warehouse_db
 from data_dumps.sources.spotify import SpotifySource
 
 SOURCES = [SpotifySource()]
-DEFAULT_DB = Path(__file__).resolve().parents[2] / "warehouse" / "catalog.duckdb"
+DEFAULT_DB = warehouse_db()
 
 
 def pick_source(path: Path):

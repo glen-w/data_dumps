@@ -1,0 +1,13 @@
+# Personal GDPR dumps: code in the image, data on the bind mount.
+# Stop `notebook` before re-running ingest (DuckDB single-writer).
+
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:2718:2718"
+    volumes:
+      - .:/data:rw
+    environment:
+      DATA_DUMPS_ROOT: /data
+    restart: unless-stopped

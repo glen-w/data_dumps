@@ -8,6 +8,8 @@ from pathlib import Path
 
 import duckdb
 
+from data_dumps.paths import raw_dir
+
 HISTORY_FOLDER = "Spotify Extended Streaming History"
 AUDIO_GLOB = "Streaming_History_Audio_*.json"
 VIDEO_GLOB = "Streaming_History_Video_*.json"
@@ -148,28 +150,27 @@ class SpotifySource:
         conn.execute("DROP TABLE spotify.plays_raw")
 
     def _materialize(self, path: Path) -> Path:
-        repo_root = Path(__file__).resolve().parents[3]
-        raw_dir = repo_root / "raw" / "spotify"
-        if raw_dir.exists():
-            shutil.rmtree(raw_dir)
-        raw_dir.mkdir(parents=True)
+        spotify_raw = raw_dir("spotify")
+        if spotify_raw.exists():
+            shutil.rmtree(spotify_raw)
+        spotify_raw.mkdir(parents=True)
 
         path = path.resolve()
         if path.is_file():
             with zipfile.ZipFile(path) as zf:
                 for name in zf.namelist():
                     if HISTORY_FOLDER in name and name.endswith(".json"):
-                        zf.extract(name, raw_dir)
-            nested = raw_dir / HISTORY_FOLDER
+                        zf.extract(name, spotify_raw)
+            nested = spotify_raw / HISTORY_FOLDER
             if nested.exists():
                 for f in nested.iterdir():
-                    shutil.move(str(f), str(raw_dir / f.name))
+                    shutil.move(str(f), str(spotify_raw / f.name))
                 nested.rmdir()
         else:
             for pattern in (AUDIO_GLOB, VIDEO_GLOB):
                 for f in path.glob(pattern):
-                    shutil.copy2(f, raw_dir / f.name)
-        return raw_dir
+                    shutil.copy2(f, spotify_raw / f.name)
+        return spotify_raw
 
     def inventory(self, conn: duckdb.DuckDBPyConnection) -> dict:
         row = conn.execute(
