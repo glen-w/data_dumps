@@ -276,9 +276,11 @@ def _(conn, filters, mo, top_artists):
 
 
 @app.cell
-def _(set_artist, top_artists_df, top_artists_table):
-    if top_artists_table.value is not None and len(top_artists_table.value) > 0:
-        set_artist(top_artists_df.iloc[top_artists_table.value[0]]["artist_name"])
+def _(set_artist, top_artists_table):
+    # table.value is a DataFrame of selected rows, not indices
+    _selected = top_artists_table.value
+    if _selected is not None and len(_selected) == 1:
+        set_artist(_selected.iloc[0]["artist_name"])
     return
 
 
