@@ -1,0 +1,26 @@
+# dumps and derived data
+*.zip
+raw/
+warehouse/
+*.duckdb
+*.parquet
+*.csv
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+uv.lock
+
+# secrets
+.env
+.env.*
+
+# os
+.DS_Store
+Thumbs.db
+
+# marimo
+__marimo__/
