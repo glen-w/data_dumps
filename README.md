@@ -45,11 +45,13 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
 
 ```bash
 # MusicBrainz genre/decade enrichment — stop dashboard first (see docs/WAREHOUSE.md)
-uv run enrich-musicbrainz --dry-run              # preview (default cap: 200 artists, 500 tracks)
-uv run enrich-musicbrainz --dry-run --artist-limit 0 --track-limit 0  # full counts
-uv run enrich-musicbrainz
+# --artist-limit / --track-limit default to 0 (no cap): full library is the assumed run.
+uv run enrich-musicbrainz --dry-run              # preview pending counts (uncapped)
+uv run enrich-musicbrainz                         # enrich everything above min-hours (~1 req/s)
+uv run enrich-musicbrainz --artist-limit 200 --track-limit 500  # optional smaller batch
 ```
 
+```bash
 # Optional: local LLM narratives (Ollama on loopback)
 export DATA_DUMPS_LLM_ENABLED=1
 export DATA_DUMPS_LLM_MODEL=qwen2.5:7b

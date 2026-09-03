@@ -31,26 +31,28 @@ uv run marimo edit notebooks/spotify.py --host 127.0.0.1 --port 2718
 
 ### MusicBrainz enrichment (genres / decades)
 
+`--artist-limit` and `--track-limit` default to **`0` (no cap)**. The CLI assumes you want the **full dataset** — every artist/track above the min lifetime hours — not a sample. MusicBrainz has no free-tier count quota; the only API constraint is **~1 request/second** per IP.
+
 1. **Stop** Marimo or `docker compose stop app`
-2. Preview scope (optional):
+2. Preview scope (optional; also uncapped unless you pass limits):
 
    ```bash
    uv run enrich-musicbrainz --dry-run
-   # full catalog counts (no cap):
-   uv run enrich-musicbrainz --dry-run --artist-limit 0 --track-limit 0
+   # optional smaller preview:
+   uv run enrich-musicbrainz --dry-run --artist-limit 200 --track-limit 500
    ```
 
-3. Run enrichment (defaults: top **200** artists, **500** tracks by lifetime hours — not your whole library):
+3. Run enrichment (default = full library):
 
    ```bash
    uv run enrich-musicbrainz
-   # larger batch:
-   uv run enrich-musicbrainz --artist-limit 1000 --track-limit 2000
+   # optional smaller batch:
+   uv run enrich-musicbrainz --artist-limit 200 --track-limit 500
    ```
 
 4. Start the dashboard again — genre/decade charts appear when `mb_match` has data
 
-MusicBrainz rate limit is ~1 request/second. A full artist crawl of thousands of names takes hours; the default limits are intentional for a first batch.
+Each artist/track takes two calls (search + lookup), so a full crawl of thousands of names takes hours. Pass `--artist-limit N` / `--track-limit N` only if you want a shorter batch.
 
 ### Docker
 

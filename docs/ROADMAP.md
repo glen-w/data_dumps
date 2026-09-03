@@ -30,6 +30,7 @@ Four phases, shippable independently after A:
 - **Local-first LLM** — Ollama default loopback; remote LiteLLM explicit opt-in
 - **Dump-only charts work** without enrichment or Ollama
 - Stop notebook before ingest/enrich (DuckDB single-writer)
+- **MusicBrainz is uncapped by default** — `--artist-limit` / `--track-limit` are `0` (full library). The API is free with no count quota; ~1 req/s is the only limit. See [WAREHOUSE.md](WAREHOUSE.md).
 
 ### Wave 2.1 — Hardening + tests
 

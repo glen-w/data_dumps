@@ -372,8 +372,8 @@ def count_pending(
 def run_enrichment(
     conn: duckdb.DuckDBPyConnection,
     *,
-    artist_limit: int | None = 200,
-    track_limit: int | None = 500,
+    artist_limit: int | None = None,
+    track_limit: int | None = None,
     min_artist_hours: float = 1.0,
     min_track_hours: float = 0.5,
 ) -> dict[str, int]:
@@ -389,8 +389,9 @@ def main(argv: list[str] | None = None) -> int:
         epilog=(
             "Stop the Marimo notebook or docker compose app before running — "
             "DuckDB single-writer (see docs/WAREHOUSE.md). "
-            "Default limits: 200 artists / 500 tracks by lifetime hours; "
-            "use --artist-limit 0 for no cap on dry-run counts."
+            "--artist-limit / --track-limit default to 0 (no cap): the full "
+            "library is the assumed run. MusicBrainz has no free-tier count "
+            "quota (only ~1 req/s). Pass a positive N to batch a smaller set."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -403,14 +404,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--artist-limit",
         type=int,
-        default=200,
-        help="Max artists to enrich (default 200)",
+        default=0,
+        help="Max artists to enrich (default 0 = full dataset, no cap)",
     )
     parser.add_argument(
         "--track-limit",
         type=int,
-        default=500,
-        help="Max tracks to enrich (default 500)",
+        default=0,
+        help="Max tracks to enrich (default 0 = full dataset, no cap)",
     )
     parser.add_argument(
         "--min-artist-hours",
@@ -445,13 +446,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    artist_limit = args.artist_limit or None
+    track_limit = args.track_limit or None
+
     try:
         if args.dry_run:
             create_schema(conn)
             stats = count_pending(
                 conn,
-                artist_limit=args.artist_limit,
-                track_limit=args.track_limit,
+                artist_limit=artist_limit,
+                track_limit=track_limit,
                 min_artist_hours=args.min_artist_hours,
                 min_track_hours=args.min_track_hours,
             )
@@ -461,7 +465,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"{stats['tracks_pending']} tracks pending "
                 f"(of {stats['tracks_total']})"
             )
-            if args.artist_limit and args.track_limit:
+            if artist_limit or track_limit:
                 print(
                     "note: counts are capped by --artist-limit / --track-limit "
                     "(not total library size). Use 0 for no cap."
@@ -469,8 +473,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         stats = run_enrichment(
             conn,
-            artist_limit=args.artist_limit,
-            track_limit=args.track_limit,
+            artist_limit=artist_limit,
+            track_limit=track_limit,
             min_artist_hours=args.min_artist_hours,
             min_track_hours=args.min_track_hours,
         )

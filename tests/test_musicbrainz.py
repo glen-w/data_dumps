@@ -74,6 +74,22 @@ def test_enrich_artists_mock(plays_conn):
     assert row is not None and row[0] == "mbid-test"
 
 
+def test_cli_defaults_are_uncapped(plays_conn):
+    conn, db_path = plays_conn
+    conn.close()
+    from data_dumps.enrich.musicbrainz import main
+
+    with patch(
+        "data_dumps.enrich.musicbrainz.run_enrichment",
+        return_value={"artists_enriched": 0, "tracks_enriched": 0},
+    ) as mock_run:
+        rc = main(["--db", str(db_path)])
+    assert rc == 0
+    kwargs = mock_run.call_args.kwargs
+    assert kwargs["artist_limit"] is None
+    assert kwargs["track_limit"] is None
+
+
 def test_dry_run_cli(plays_conn, tmp_path):
     conn, db_path = plays_conn
     conn.close()

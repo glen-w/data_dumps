@@ -640,7 +640,8 @@ def _(conn, decade_bars, filters, genre_treemap, mb_ready, mo, px):
         _mb = mo.md(
             "_Genre/decade charts need MusicBrainz enrichment. "
             "**Stop this notebook first**, then: `uv run enrich-musicbrainz` "
-            "(see docs/WAREHOUSE.md). Restart the dashboard after enrichment._"
+            "(defaults to the full library; `--artist-limit` / `--track-limit` "
+            "are 0). See docs/WAREHOUSE.md. Restart the dashboard after enrichment._"
         )
     _mb
     return
