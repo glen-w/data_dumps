@@ -6,6 +6,7 @@ warehouse/llm_cache/
 *.duckdb
 *.parquet
 *.csv
+Telegram_Export_*/
 
 # python
 .venv/

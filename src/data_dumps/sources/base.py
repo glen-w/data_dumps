@@ -25,3 +25,7 @@ class Source(Protocol):
     def tables(self) -> list[str]:
         """Qualified table names this source provides."""
         ...
+
+    def inventory(self, conn: duckdb.DuckDBPyConnection) -> dict:
+        """Row counts / span for the CLI. Must include a 'summary' string."""
+        ...

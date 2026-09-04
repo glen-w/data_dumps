@@ -194,7 +194,7 @@ class SpotifySource:
             FROM spotify.plays
             """).fetchone()
         assert row is not None
-        return {
+        inv = {
             "n_plays": row[0],
             "total_hours": row[1],
             "first_play": row[2],
@@ -202,3 +202,11 @@ class SpotifySource:
             "skip_pct": row[4],
             "plays_2017": row[5],
         }
+        inv["summary"] = (
+            f"spotify.plays: {inv['n_plays']:,} rows | "
+            f"{inv['total_hours']:,.1f} h | "
+            f"{inv['first_play']} → {inv['last_play']} | "
+            f"skip {inv['skip_pct']}% | "
+            f"2017 rows: {inv['plays_2017']}"
+        )
+        return inv

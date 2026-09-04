@@ -8,7 +8,7 @@ services:
     ports:
       - "127.0.0.1:2718:2718"
     volumes:
-      - .:/data:rw
+      - ${HOME}/Documents/data_dumps_raw:/data:rw
     environment:
       DATA_DUMPS_ROOT: /data
       DATA_DUMPS_LLM_BASE_URL: http://host.docker.internal:11434

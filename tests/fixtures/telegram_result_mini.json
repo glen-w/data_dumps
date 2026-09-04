@@ -1,0 +1,100 @@
+{
+  "about": "mini telegram desktop export for tests",
+  "personal_information": {
+    "first_name": "Test",
+    "last_name": "User",
+    "phone_number": "+10000000000",
+    "username": "testuser",
+    "user_id": 111,
+    "bio": ""
+  },
+  "contacts": {
+    "about": "contacts",
+    "list": [
+      {"first_name": "Ada", "last_name": "Lovelace", "phone_number": "+10000000001"}
+    ]
+  },
+  "sessions": {
+    "about": "sessions",
+    "list": [
+      {
+        "application_name": "Telegram macOS",
+        "application_version": "1.0",
+        "device_model": "Test Mac",
+        "platform": "macOS",
+        "created": "2024-01-01T12:00:00",
+        "last_active": "2024-06-01T12:00:00",
+        "last_country": "Milan, Italy",
+        "last_ip": "203.0.113.9"
+      }
+    ]
+  },
+  "chats": {
+    "about": "chats",
+    "list": [
+      {
+        "name": "Ada",
+        "type": "personal_chat",
+        "id": 222,
+        "messages": [
+          {
+            "id": 1,
+            "type": "message",
+            "date": "2024-01-15T10:00:00",
+            "date_unixtime": "1705312800",
+            "from": "Test",
+            "from_id": 111,
+            "text": "hello",
+            "photo": "chats/0000_Ada/photos/photo_1_0.jpg",
+            "width": 100,
+            "height": 80,
+            "reactions": [{"type": "emoji", "emoji": "👍", "count": 1}]
+          },
+          {
+            "id": 2,
+            "type": "message",
+            "date": "2024-01-15T10:01:00",
+            "date_unixtime": "1705312860",
+            "from": "Ada",
+            "from_id": 222,
+            "text": "hi back",
+            "reply_to_message_id": 1,
+            "forwarded_from": "Someone",
+            "edited": true,
+            "webpage": {
+              "url": "https://example.com",
+              "title": "Example"
+            }
+          },
+          {
+            "id": 3,
+            "type": "service",
+            "date": "2024-01-15T10:02:00",
+            "date_unixtime": "1705312920",
+            "action": "Ada set a new wallpaper for this chat"
+          }
+        ]
+      },
+      {
+        "name": "Sci Bot",
+        "type": "bot_chat",
+        "id": 333,
+        "messages": [
+          {
+            "id": 1,
+            "type": "message",
+            "date": "2023-06-01T08:00:00",
+            "date_unixtime": "1685606400",
+            "from": "Sci Bot",
+            "from_id": 333,
+            "text": "",
+            "file": "chats/0001_Sci_Bot/files/1_paper.pdf",
+            "file_name": "paper.pdf",
+            "media_type": "video_file",
+            "duration": "0:11"
+          }
+        ]
+      }
+    ]
+  }
+}

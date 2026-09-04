@@ -76,6 +76,8 @@ def test_load_mini_zip(tmp_path):
     source.load(zip_path, conn)
     inv = source.inventory(conn)
     assert inv["n_plays"] == 3
+    assert "summary" in inv
+    assert "spotify.plays" in inv["summary"]
     kinds = conn.execute(
         "SELECT DISTINCT kind FROM spotify.plays ORDER BY 1"
     ).fetchall()

@@ -10,13 +10,14 @@ from pathlib import Path
 import duckdb
 
 from data_dumps.paths import warehouse_db
+from data_dumps.sources.base import Source
 from data_dumps.sources.spotify import SpotifySource
+from data_dumps.sources.telegram import TelegramSource
 
-SOURCES = [SpotifySource()]
-DEFAULT_DB = warehouse_db()
+SOURCES: list[Source] = [SpotifySource(), TelegramSource()]
 
 
-def pick_source(path: Path):
+def pick_source(path: Path) -> Source | None:
     for source in SOURCES:
         if source.detect(path):
             return source
@@ -24,13 +25,14 @@ def pick_source(path: Path):
 
 
 def main(argv: list[str] | None = None) -> int:
+    db_default = warehouse_db()
     parser = argparse.ArgumentParser(description="Ingest a GDPR data dump into DuckDB")
     parser.add_argument("path", type=Path, help="Path to zip or extracted folder")
     parser.add_argument(
         "--db",
         type=Path,
-        default=DEFAULT_DB,
-        help=f"DuckDB catalog path (default: {DEFAULT_DB})",
+        default=db_default,
+        help=f"DuckDB catalog path (default: {db_default})",
     )
     args = parser.parse_args(argv)
 
@@ -50,13 +52,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"loading {path.name} via {source.name}…")
         source.load(path, conn)
         inv = source.inventory(conn)
-        print(
-            f"spotify.plays: {inv['n_plays']:,} rows | "
-            f"{inv['total_hours']:,.1f} h | "
-            f"{inv['first_play']} → {inv['last_play']} | "
-            f"skip {inv['skip_pct']}% | "
-            f"2017 rows: {inv['plays_2017']}"
-        )
+        print(inv["summary"])
         print(f"wrote {args.db}")
     finally:
         conn.close()

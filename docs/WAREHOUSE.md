@@ -1,6 +1,6 @@
 # Warehouse operations
 
-`warehouse/catalog.duckdb` is the single DuckDB catalog for this repo. **Only one process may use it at a time** for ingest, enrichment, or the Marimo dashboard.
+`~/Documents/data_dumps_raw/warehouse/catalog.duckdb` is the single DuckDB catalog. **Only one process may use it at a time** for ingest, enrichment, or the Marimo dashboard.
 
 DuckDB does not allow a second connection while another holds the file lock — even when the notebook opens the DB **read-only**. If you see `Conflicting lock` or `Cannot execute statement … read-only mode`, something else still has the warehouse open.
 
@@ -26,8 +26,14 @@ uv run marimo edit notebooks/spotify.py --host 127.0.0.1 --port 2718
 ### Ingest a new dump
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest my_spotify_data.zip`
+2. `uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_data.zip`
 3. Start the dashboard again
+
+### Ingest a Telegram Desktop export
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest ~/Documents/data_dumps_raw/telegram/Telegram_Export_2026-09-03`
+3. `uv run marimo edit notebooks/telegram.py`
 
 ### MusicBrainz enrichment (genres / decades)
 
@@ -58,7 +64,8 @@ Each artist/track takes two calls (search + lookup), so a full crawl of thousand
 
 ```bash
 docker compose stop app          # release warehouse lock
-docker compose run --rm --entrypoint ingest app /data/my_spotify_data.zip
+docker compose run --rm --entrypoint ingest app /data/spotify/my_spotify_data.zip
+docker compose run --rm --entrypoint ingest app /data/telegram/Telegram_Export_2026-09-03
 docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run
 docker compose up app
 ```

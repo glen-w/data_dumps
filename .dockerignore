@@ -25,6 +25,7 @@ data/
 *.parquet
 *.csv
 inbox/
+Telegram_Export_*/
 
 # secrets
 .env

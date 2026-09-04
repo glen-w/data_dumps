@@ -46,7 +46,8 @@ def _():
     db_path = warehouse_db()
     if not db_path.exists():
         raise FileNotFoundError(
-            f"No warehouse at {db_path}. Run: uv run ingest my_spotify_data.zip"
+            f"No warehouse at {db_path}. Run: "
+            "uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_data.zip"
         )
     conn = duckdb.connect(str(db_path), read_only=True)
     bounds = data_bounds(conn)

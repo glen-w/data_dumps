@@ -12,6 +12,13 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Docker compose for reproducible runs
 - `Source` Protocol for future dumps
 
+### Telegram Desktop export
+
+- `result.json` → DuckDB (`telegram.account|contacts|sessions|chats|messages|reactions`)
+- Media left on disk; warehouse stores relative paths
+- Marimo notebook: monthly volume, chat ranking, type/media mix, circadian
+- Dumps live under `~/Documents/data_dumps_raw` (outside the git tree)
+
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 
 Four phases, shippable independently after A:
@@ -65,4 +72,5 @@ Four phases, shippable independently after A:
 |-----|------|
 | [README.md](../README.md) | Setup, Docker, privacy |
 | [WAREHOUSE.md](WAREHOUSE.md) | **Single-writer lock** — UI vs ingest vs enrich |
-| [../notebooks/spotify.py](../notebooks/spotify.py) | Marimo dashboard |
+| [../notebooks/spotify.py](../notebooks/spotify.py) | Spotify Marimo dashboard |
+| [../notebooks/telegram.py](../notebooks/telegram.py) | Telegram Marimo dashboard |
