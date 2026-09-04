@@ -56,6 +56,7 @@ docker compose run --rm --entrypoint marimo app edit notebooks/telegram.py --hos
 - `result.json` → DuckDB (`telegram.chats`, `telegram.messages`, …)
 - Media stays on disk; the warehouse stores relative paths only
 - Message IDs are unique per chat: grain is `(chat_id, message_id)`
+- Explorer: Wrapped-style scoreboard, me vs them, calendar/bump, reply scatter, forgotten chats
 
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 

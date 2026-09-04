@@ -8,6 +8,13 @@ from typing import Any
 import duckdb
 import pandas as pd
 
+PEOPLE_CHAT_TYPES = [
+    "personal_chat",
+    "private_group",
+    "private_supergroup",
+    "saved_messages",
+]
+
 
 @dataclass
 class FilterState:
@@ -168,7 +175,45 @@ def filter_from_widgets(
     )
 
 
-def scoreboard(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+def scoreboard(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    compare_previous: bool = False,
+) -> pd.DataFrame:
+    current = _scoreboard_row(conn, f)
+    if not compare_previous or f.year_start is None or f.year_end is None:
+        current["window"] = "current"
+        return current
+
+    span = f.year_end - f.year_start + 1
+    prev_start = f.year_start - span
+    prev_end = f.year_start - 1
+    min_row = conn.execute("SELECT min(year)::INT FROM telegram.messages").fetchone()
+    assert min_row is not None
+    min_year = min_row[0]
+    if prev_start < min_year:
+        current["window"] = "current"
+        current["compare_note"] = (
+            f"previous window ({prev_start}–{prev_end}) predates data (min year {min_year})"
+        )
+        return current
+    prev_f = FilterState(
+        year_start=prev_start,
+        year_end=prev_end,
+        chat_types=list(f.chat_types),
+        chat_ids=list(f.chat_ids),
+        event_types=list(f.event_types),
+        media_kinds=list(f.media_kinds),
+        chat_name=f.chat_name,
+    )
+    prev = _scoreboard_row(conn, prev_f)
+    current["window"] = "current"
+    prev["window"] = f"previous ({prev_start}–{prev_end})"
+    return pd.concat([current, prev], ignore_index=True)
+
+
+def _scoreboard_row(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
     where, params = _where_and_params(f)
     sql = f"""
         SELECT
@@ -177,6 +222,12 @@ def scoreboard(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
             count(DISTINCT m.chat_id)::BIGINT AS chats,
             count(*) FILTER (WHERE m.media_kind <> 'none')::BIGINT AS with_media,
             count(*) FILTER (WHERE m.reply_to_message_id IS NOT NULL)::BIGINT AS replies,
+            round(
+                100.0 * avg(
+                    CASE WHEN m.reply_to_message_id IS NOT NULL THEN 1.0 ELSE 0.0 END
+                ),
+                1
+            ) AS reply_pct,
             min(m.ts_utc)::DATE AS first_day,
             max(m.ts_utc)::DATE AS last_day
         {_from_join()}
@@ -245,14 +296,20 @@ def messages_by_chat_type(
     return _query_df(conn, sql, params)
 
 
-def media_mix(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+def media_mix(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    exclude_none: bool = True,
+) -> pd.DataFrame:
     where, params = _where_and_params(f)
+    extra = " AND m.media_kind <> 'none'" if exclude_none else ""
     sql = f"""
         SELECT
             m.media_kind,
             count(*)::BIGINT AS events
         {_from_join()}
-        WHERE {where}
+        WHERE {where}{extra}
         GROUP BY 1
         ORDER BY events DESC
     """
@@ -270,5 +327,281 @@ def circadian_heatmap(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.Dat
         WHERE {where}
         GROUP BY 1, 2
         ORDER BY 1, 2
+    """
+    return _query_df(conn, sql, params)
+
+
+def streak_stats(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    sql = f"""
+        WITH daily AS (
+            SELECT m.ts_local::DATE AS day, count(*)::BIGINT AS events
+            {_from_join()}
+            WHERE {where}
+            GROUP BY 1
+        ),
+        ranked AS (
+            SELECT
+                day,
+                events,
+                day - (row_number() OVER (ORDER BY day))::INT AS grp
+            FROM daily
+        ),
+        streaks AS (
+            SELECT grp, count(*) AS streak_days, sum(events) AS streak_events
+            FROM ranked
+            GROUP BY grp
+        ),
+        busiest AS (
+            SELECT day, events
+            FROM daily
+            ORDER BY events DESC
+            LIMIT 1
+        )
+        SELECT
+            (SELECT max(streak_days) FROM streaks) AS longest_streak_days,
+            (SELECT max(streak_events) FROM streaks) AS longest_streak_events,
+            (SELECT day FROM busiest) AS busiest_day,
+            (SELECT events FROM busiest) AS busiest_day_events
+    """
+    return _query_df(conn, sql, params)
+
+
+def me_vs_them(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    sql = f"""
+        SELECT
+            m.year,
+            count(*) FILTER (
+                WHERE m.event_type = 'message' AND m.from_id = a.user_id
+            )::BIGINT AS me,
+            count(*) FILTER (
+                WHERE m.event_type = 'message'
+                  AND m.from_id IS DISTINCT FROM a.user_id
+            )::BIGINT AS them
+        {_from_join()}
+        CROSS JOIN telegram.account a
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY 1
+    """
+    return _query_df(conn, sql, params)
+
+
+def monthly_by_chat_type(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    sql = f"""
+        SELECT
+            m.year,
+            m.month,
+            c.type AS chat_type,
+            count(*)::BIGINT AS events
+        {_from_join()}
+        WHERE {where}
+        GROUP BY 1, 2, 3
+        ORDER BY 1, 2, 3
+    """
+    df = _query_df(conn, sql, params)
+    if not df.empty:
+        df["year_month"] = (
+            df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2)
+        )
+    return df
+
+
+def calendar_daily(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    sql = f"""
+        SELECT
+            m.ts_local::DATE AS day,
+            count(*)::BIGINT AS events
+        {_from_join()}
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY 1
+    """
+    return _query_df(conn, sql, params)
+
+
+def bump_chart_chats(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    top_n: int = 8,
+) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    params.append(top_n)
+    sql = f"""
+        WITH yearly AS (
+            SELECT m.year, c.name AS chat_name, count(*)::BIGINT AS events
+            {_from_join()}
+            WHERE {where}
+            GROUP BY 1, 2
+        ),
+        top_chats AS (
+            SELECT chat_name
+            FROM yearly
+            GROUP BY 1
+            ORDER BY sum(events) DESC
+            LIMIT ?
+        ),
+        ranked AS (
+            SELECT
+                y.year,
+                y.chat_name,
+                y.events,
+                row_number() OVER (PARTITION BY y.year ORDER BY y.events DESC) AS rank
+            FROM yearly y
+            INNER JOIN top_chats t ON y.chat_name = t.chat_name
+        )
+        SELECT year, chat_name, events, rank
+        FROM ranked
+        ORDER BY year, rank
+    """
+    return _query_df(conn, sql, params)
+
+
+def chat_reply_scatter(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    sql = f"""
+        SELECT
+            c.chat_id,
+            c.name AS chat_name,
+            c.type AS chat_type,
+            count(*)::BIGINT AS events,
+            round(
+                100.0 * avg(
+                    CASE WHEN m.reply_to_message_id IS NOT NULL THEN 1.0 ELSE 0.0 END
+                ),
+                1
+            ) AS reply_pct,
+            max(m.ts_utc)::DATE AS last_day
+        {_from_join()}
+        WHERE {where}
+        GROUP BY 1, 2, 3
+        ORDER BY events DESC
+    """
+    return _query_df(conn, sql, params)
+
+
+def forgotten_chats(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    min_events: int = 50,
+    silent_years: int = 2,
+    limit: int = 25,
+) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    params.extend([min_events, silent_years, limit])
+    sql = f"""
+        WITH chat_span AS (
+            SELECT
+                c.chat_id,
+                c.name AS chat_name,
+                c.type AS chat_type,
+                count(*)::BIGINT AS events,
+                max(m.ts_utc) AS last_ts
+            {_from_join()}
+            WHERE {where}
+            GROUP BY 1, 2, 3
+            HAVING count(*) >= ?
+        )
+        SELECT
+            chat_name,
+            chat_type,
+            events,
+            last_ts::DATE AS last_day
+        FROM chat_span
+        WHERE last_ts < current_timestamp - (? * INTERVAL '1 year')
+        ORDER BY events DESC
+        LIMIT ?
+    """
+    return _query_df(conn, sql, params)
+
+
+def comeback_chats(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    silent_years: int = 2,
+    limit: int = 25,
+) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    params.extend([silent_years, limit])
+    sql = f"""
+        WITH filtered AS (
+            SELECT c.chat_id, c.name AS chat_name, m.ts_utc
+            {_from_join()}
+            WHERE {where}
+        ),
+        chat_span AS (
+            SELECT
+                chat_id,
+                chat_name,
+                min(ts_utc) AS first_in_window,
+                max(ts_utc) AS last_in_window,
+                count(*)::BIGINT AS window_events
+            FROM filtered
+            GROUP BY 1, 2
+        ),
+        prior AS (
+            SELECT
+                m.chat_id,
+                max(m.ts_utc) AS last_before
+            FROM telegram.messages m
+            INNER JOIN chat_span a ON m.chat_id = a.chat_id
+            WHERE m.ts_utc < a.first_in_window
+            GROUP BY 1
+        )
+        SELECT
+            a.chat_name,
+            a.window_events,
+            p.last_before::DATE AS last_before,
+            a.first_in_window::DATE AS returned_on
+        FROM chat_span a
+        INNER JOIN prior p ON a.chat_id = p.chat_id
+        WHERE p.last_before < a.first_in_window - (? * INTERVAL '1 year')
+        ORDER BY a.window_events DESC
+        LIMIT ?
+    """
+    return _query_df(conn, sql, params)
+
+
+def reaction_mix(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    limit: int = 15,
+) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    params.append(limit)
+    sql = f"""
+        SELECT
+            r.emoji,
+            sum(r.count)::BIGINT AS reactions
+        FROM telegram.reactions r
+        JOIN telegram.messages m
+          ON m.chat_id = r.chat_id AND m.message_id = r.message_id
+        JOIN telegram.chats c ON c.chat_id = m.chat_id
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY reactions DESC
+        LIMIT ?
+    """
+    return _query_df(conn, sql, params)
+
+
+def calls_by_year(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    sql = f"""
+        SELECT
+            m.year,
+            count(*)::BIGINT AS calls
+        {_from_join()}
+        WHERE {where} AND m.action ILIKE '%call%'
+        GROUP BY 1
+        ORDER BY 1
     """
     return _query_df(conn, sql, params)

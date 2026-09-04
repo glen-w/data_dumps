@@ -16,7 +16,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 - `result.json` → DuckDB (`telegram.account|contacts|sessions|chats|messages|reactions`)
 - Media left on disk; warehouse stores relative paths
-- Marimo notebook: monthly volume, chat ranking, type/media mix, circadian
+- Marimo notebook: Wrapped-style explorer (scoreboard/streaks, me vs them, calendar, bump, reply scatter, forgotten/comebacks, reactions, calls)
 - Dumps live under `~/Documents/data_dumps_raw` (outside the git tree)
 
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
