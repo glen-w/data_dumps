@@ -8,6 +8,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOKS = [
+    ROOT / "notebooks" / "explorer.py",
     ROOT / "notebooks" / "spotify.py",
     ROOT / "notebooks" / "telegram.py",
 ]

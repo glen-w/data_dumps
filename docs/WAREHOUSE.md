@@ -19,7 +19,7 @@ DuckDB does not allow a second connection while another holds the file lock — 
 ### Explore listening (dashboard)
 
 ```bash
-uv run marimo edit notebooks/spotify.py --host 127.0.0.1 --port 2718
+uv run marimo edit notebooks/explorer.py --host 127.0.0.1 --port 2718
 # or: docker compose up app
 ```
 
@@ -33,7 +33,7 @@ uv run marimo edit notebooks/spotify.py --host 127.0.0.1 --port 2718
 
 1. **Stop** Marimo or `docker compose stop app`
 2. `uv run ingest ~/Documents/data_dumps_raw/telegram/Telegram_Export_2026-09-03`
-3. `uv run marimo edit notebooks/telegram.py`
+3. `uv run marimo edit notebooks/explorer.py` (Telegram tab)
 
 ### MusicBrainz enrichment (genres / decades)
 

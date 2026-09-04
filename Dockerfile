@@ -20,4 +20,4 @@ ENV DATA_DUMPS_ROOT=/data
 ENV PYTHONUNBUFFERED=1
 
 # Default: notebook (override for one-shot ingest via compose)
-CMD ["marimo", "run", "notebooks/spotify.py", "--host", "0.0.0.0", "--port", "2718", "--headless", "--token"]
+CMD ["marimo", "run", "notebooks/explorer.py", "--host", "0.0.0.0", "--port", "2718", "--headless", "--token"]

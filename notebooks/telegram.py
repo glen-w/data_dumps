@@ -1,10 +1,10 @@
 import marimo
 
-__generated_with = "0.9.0"
+__generated_with = "0.24.0"
 app = marimo.App(width="full")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import duckdb
     import marimo as mo
@@ -60,7 +60,6 @@ def _():
         circadian_heatmap,
         comeback_chats,
         conn,
-        data_bounds,
         dow_labels,
         filter_from_widgets,
         forgotten_chats,
@@ -73,12 +72,11 @@ def _():
         reaction_mix,
         scoreboard,
         streak_stats,
-        warehouse_db,
     )
 
 
-@app.cell
-def _(PEOPLE_CHAT_TYPES, bounds, mo):
+@app.cell(hide_code=True)
+def _(bounds, mo):
     year_start_slider = mo.ui.slider(
         start=bounds["min_year"],
         stop=bounds["max_year"],
@@ -174,7 +172,7 @@ def _(PEOPLE_CHAT_TYPES, bounds, mo):
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     PEOPLE_CHAT_TYPES,
     clear_chat_btn,
@@ -196,7 +194,7 @@ def _(
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     bounds,
     chat_type_select,
@@ -245,7 +243,7 @@ def _(
     return (filters,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(compare_toggle, conn, filters, mo, scoreboard, streak_stats):
     score_df = scoreboard(conn, filters, compare_previous=compare_toggle.value)
     streak_df = streak_stats(conn, filters)
@@ -260,7 +258,7 @@ def _(compare_toggle, conn, filters, mo, scoreboard, streak_stats):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(conn, filters, me_vs_them, mo, monthly_by_chat_type, px):
     monthly_df = monthly_by_chat_type(conn, filters)
     me_df = me_vs_them(conn, filters)
@@ -304,7 +302,7 @@ def _(conn, filters, me_vs_them, mo, monthly_by_chat_type, px):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(conn, filters, messages_by_chat, mo, px):
     chats_df = messages_by_chat(conn, filters, limit=25)
     chats_table = mo.ui.table(chats_df, selection="single")
@@ -330,7 +328,7 @@ def _(conn, filters, messages_by_chat, mo, px):
     return chats_table, rank_plot
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(chats_table, rank_plot, set_chat_name):
     _selected = chats_table.value
     if _selected is not None and len(_selected) == 1:
@@ -342,8 +340,16 @@ def _(chats_table, rank_plot, set_chat_name):
     return
 
 
-@app.cell
-def _(chat_reply_scatter, comeback_chats, conn, filters, forgotten_chats, mo, px):
+@app.cell(hide_code=True)
+def _(
+    chat_reply_scatter,
+    comeback_chats,
+    conn,
+    filters,
+    forgotten_chats,
+    mo,
+    px,
+):
     scatter_df = chat_reply_scatter(conn, filters)
     forgotten_df = forgotten_chats(conn, filters)
     comebacks_df = comeback_chats(conn, filters)
@@ -385,7 +391,7 @@ def _(chat_reply_scatter, comeback_chats, conn, filters, forgotten_chats, mo, px
     return (scatter_plot,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(scatter_plot, set_chat_name):
     if scatter_plot.value and scatter_plot.value.get("points"):
         point = scatter_plot.value["points"][0]
@@ -397,7 +403,7 @@ def _(scatter_plot, set_chat_name):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     bump_chart_chats,
     calendar_daily,
@@ -469,7 +475,7 @@ def _(
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(calls_by_year, conn, filters, media_mix, mo, px, reaction_mix):
     media_df = media_mix(conn, filters, exclude_none=True)
     react_df = reaction_mix(conn, filters)
@@ -509,7 +515,7 @@ def _(calls_by_year, conn, filters, media_mix, mo, px, reaction_mix):
     return (media_plot,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(media_plot, set_media_override):
     if media_plot.value and media_plot.value.get("points"):
         label = media_plot.value["points"][0].get("label")

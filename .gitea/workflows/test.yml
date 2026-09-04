@@ -14,4 +14,4 @@ jobs:
       - run: uv run ruff check src tests
       - run: uv run black --check src tests
       - run: uv run mypy src
-      - run: uv run python -m marimo check notebooks/spotify.py notebooks/telegram.py
+      - run: uv run python -m marimo check notebooks/explorer.py notebooks/spotify.py notebooks/telegram.py

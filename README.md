@@ -21,7 +21,9 @@ Full workflows, Docker, and troubleshooting: **[docs/WAREHOUSE.md](docs/WAREHOUS
 ```bash
 uv sync
 uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_data.zip
-uv run marimo edit notebooks/spotify.py
+uv run marimo edit notebooks/explorer.py
+# Spotify and Telegram are tabs. Source-only notebooks still work:
+# uv run marimo edit notebooks/spotify.py
 ```
 
 ### Docker (reproducible run)
@@ -43,14 +45,15 @@ Stop `app` before re-ingesting or enriching — see [Warehouse lock](#warehouse-
 
 ```bash
 uv run ingest ~/Documents/data_dumps_raw/telegram/Telegram_Export_2026-09-03
-uv run marimo edit notebooks/telegram.py
+uv run marimo edit notebooks/explorer.py
+# or: uv run marimo edit notebooks/telegram.py
 ```
 
 Docker (stop `app` first):
 
 ```bash
 docker compose run --rm --entrypoint ingest app /data/telegram/Telegram_Export_2026-09-03
-docker compose run --rm --entrypoint marimo app edit notebooks/telegram.py --host 0.0.0.0 --port 2718 --headless --token
+docker compose run --rm --entrypoint marimo app edit notebooks/explorer.py --host 0.0.0.0 --port 2718 --headless --token
 ```
 
 - `result.json` → DuckDB (`telegram.chats`, `telegram.messages`, …)
@@ -124,7 +127,7 @@ uv run pytest
 uv run ruff check src tests
 uv run black --check src tests
 uv run mypy src
-uv run python -m marimo check notebooks/spotify.py notebooks/telegram.py
+uv run python -m marimo check notebooks/explorer.py notebooks/spotify.py notebooks/telegram.py
 ```
 
 Do not run Black or Ruff on `notebooks/` — Marimo cell structure is not a formatter target.

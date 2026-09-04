@@ -4,7 +4,7 @@ __generated_with = "0.9.0"
 app = marimo.App(width="full")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import duckdb
     import marimo as mo
@@ -89,7 +89,7 @@ def _():
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(bounds, mo):
     year_start_slider = mo.ui.slider(
         start=bounds["min_year"],
@@ -181,7 +181,7 @@ def _(bounds, mo):
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     artist_search,
     clear_country_btn,
@@ -207,7 +207,7 @@ def _(
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     artist_search,
     bounds,
@@ -267,7 +267,7 @@ def _(
     return filters
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(conn, filters, mo, top_artists):
     top_artists_df = top_artists(conn, filters, limit=20)
     mo.md("## Top artists — select a row to filter")
@@ -276,7 +276,7 @@ def _(conn, filters, mo, top_artists):
     return top_artists_df, top_artists_table
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(set_artist, top_artists_table):
     # table.value is a DataFrame of selected rows, not indices
     _selected = top_artists_table.value
@@ -285,7 +285,7 @@ def _(set_artist, top_artists_table):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(conn, compare_toggle, filters, mo, scoreboard, streak_stats):
     score_df = scoreboard(conn, filters, compare_previous=compare_toggle.value)
     streak_df = streak_stats(conn, filters)
@@ -295,7 +295,7 @@ def _(conn, compare_toggle, filters, mo, scoreboard, streak_stats):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(conn, filters, mo, px, top_albums, top_artists, top_shows, top_tracks):
     artists_df = top_artists(conn, filters, limit=15)
     tracks_df = top_tracks(conn, filters, limit=15)
@@ -366,7 +366,7 @@ def _(conn, filters, mo, px, top_albums, top_artists, top_shows, top_tracks):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     conn,
     circadian_heatmap,
@@ -419,7 +419,7 @@ def _(
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(conn, comeback_artists, forgotten_artists, filters, mo):
     forgotten_df = forgotten_artists(conn, filters)
     comebacks_df = comeback_artists(conn, filters)
@@ -434,7 +434,7 @@ def _(conn, comeback_artists, forgotten_artists, filters, mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     conn,
     filters,
@@ -497,7 +497,7 @@ def _(
     return (platform_plot,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(platform_plot, set_platform_override):
     if platform_plot.value and platform_plot.value.get("points"):
         point = platform_plot.value["points"][0]
@@ -507,7 +507,7 @@ def _(platform_plot, set_platform_override):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     artist_hours_vs_skip,
     bump_chart_artists,
@@ -599,7 +599,7 @@ def _(
     return scatter_df, scatter_plot
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(scatter_df, scatter_plot, set_artist):
     if scatter_plot.value and scatter_plot.value.get("points") and not scatter_df.empty:
         idx = scatter_plot.value["points"][0].get("pointIndex", 0)
@@ -607,7 +607,7 @@ def _(scatter_df, scatter_plot, set_artist):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(conn, decade_bars, filters, genre_treemap, mb_ready, mo, px):
     if mb_ready:
         genre_df = genre_treemap(conn, filters)
@@ -648,7 +648,7 @@ def _(conn, decade_bars, filters, genre_treemap, mb_ready, mo, px):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(conn, filters, mo, narrate, narrate_btn, narrative_context):
     narrative_out = mo.md("_Click **Narrate this view** to generate prose (aggregates only)._")
     if narrate_btn.value:
