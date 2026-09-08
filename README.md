@@ -21,9 +21,8 @@ Full workflows, Docker, and troubleshooting: **[docs/WAREHOUSE.md](docs/WAREHOUS
 ```bash
 uv sync
 uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_data.zip
-uv run marimo edit notebooks/explorer.py
-# Spotify and Telegram are tabs. Source-only notebooks still work:
-# uv run marimo edit notebooks/spotify.py
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+# Charts-only app view (Spotify / Telegram tabs). Use `marimo edit` only when editing cells.
 ```
 
 ### Docker (reproducible run)
@@ -45,21 +44,73 @@ Stop `app` before re-ingesting or enriching — see [Warehouse lock](#warehouse-
 
 ```bash
 uv run ingest ~/Documents/data_dumps_raw/telegram/Telegram_Export_2026-09-03
-uv run marimo edit notebooks/explorer.py
-# or: uv run marimo edit notebooks/telegram.py
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 ```
 
 Docker (stop `app` first):
 
 ```bash
 docker compose run --rm --entrypoint ingest app /data/telegram/Telegram_Export_2026-09-03
-docker compose run --rm --entrypoint marimo app edit notebooks/explorer.py --host 0.0.0.0 --port 2718 --headless --token
+docker compose up app
 ```
 
 - `result.json` → DuckDB (`telegram.chats`, `telegram.messages`, …)
 - Media stays on disk; the warehouse stores relative paths only
 - Message IDs are unique per chat: grain is `(chat_id, message_id)`
 - Explorer: Wrapped-style scoreboard, me vs them, calendar/bump, reply scatter, forgotten chats
+
+## Spotify Account Data (library / playlists / searches)
+
+A different ZIP from Extended Streaming History. Ingest **does not replace** `spotify.plays`.
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_account_data_2026-09-06.zip
+```
+
+- Tables: `spotify.library_items`, `spotify.playlists`, `spotify.playlist_items`, `spotify.searches`, `spotify.account_plays` (1-year name-only slice)
+- Identity, addresses, payments, and ad identifiers are not loaded
+- Explorer Spotify tab grows a Library & playlists section when those tables exist
+
+## LinkedIn GDPR export
+
+Use the **Complete** archive (Basic is a subset). Stop the dashboard first.
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/linkedin/Complete_LinkedInDataExport_09-06-2026.zip.zip
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+```
+
+Docker:
+
+```bash
+docker compose run --rm --entrypoint ingest app /data/linkedin/Complete_LinkedInDataExport_09-06-2026.zip.zip
+docker compose up app
+```
+
+- CSVs → `linkedin.connections`, `linkedin.messages`, positions/education, reactions/shares/comments, …
+- IPs, emails, phones, ads, inferences, receipts, and identity documents are dropped at ingest
+- Explorer: LinkedIn tab (network over time, career, messages, feed activity)
+
+## Twitter / X YTD archive
+
+Classic HTML-viewer exports (`data/*.js` with `window.YTD.*.part0`). **Newer X dumps may use a different layout** — v1 targets this YTD format and fails clearly otherwise. Stop the dashboard first.
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/twitter/twitter-archive-2023-07-20
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+```
+
+Docker:
+
+```bash
+docker compose run --rm --entrypoint ingest app /data/twitter/twitter-archive-2023-07-20
+docker compose up app
+```
+
+- YTD JS → DuckDB (`twitter.tweets`, likes, followers/following, DMs, …)
+- IPs, emails, phones, ads, and device tokens are dropped at ingest
+- Media stays in the inbox archive; warehouse stores kinds/paths only
+- Explorer: Twitter tab (Wrapped-depth scoreboard, streaks, rankings, behavior, forgotten/comebacks, longitudinal + expanded charts)
 
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 
@@ -102,10 +153,15 @@ docs/                 # ROADMAP, WAREHOUSE operations
 Data root (default `~/Documents/data_dumps_raw`, override with `DATA_DUMPS_ROOT`):
 
 ```
-spotify/              # source ZIP
+spotify/              # Extended History ZIP + Account Data ZIP
 telegram/             # Desktop export folder (result.json + media)
+linkedin/             # Complete (and optional Basic) GDPR ZIP
+twitter/              # YTD HTML-viewer archive folder (data/*.js + media)
 raw/spotify/          # extracted Streaming_History JSON
+raw/spotify_account/  # Account Data JSON (library/playlists/searches only)
 raw/telegram/         # result.json copy only (not media)
+raw/linkedin/         # ingested CSVs (PII files never copied)
+raw/twitter/            # ingested YTD JS keep-list (PII/ad files never copied)
 warehouse/            # DuckDB catalog + llm_cache
 ```
 
@@ -117,7 +173,7 @@ Implement `Source` in `src/data_dumps/sources/base.py`: `detect(path) -> bool`, 
 
 ## Privacy
 
-Do not commit dumps, raw JSON, DuckDB files, or `.env`. LLM prompts contain pre-aggregated stats only. Default LLM endpoint is loopback Ollama; remote LiteLLM is explicit opt-in. Telegram ingest keeps message text and contact phones in the personal warehouse; session IPs and media bytes are not loaded. Saved-message file contents stay on disk as files.
+Do not commit dumps, raw JSON, DuckDB files, or `.env`. LLM prompts contain pre-aggregated stats only. Default LLM endpoint is loopback Ollama; remote LiteLLM is explicit opt-in. Telegram ingest keeps message text and contact phones in the personal warehouse; session IPs and media bytes are not loaded. Saved-message file contents stay on disk as files. LinkedIn ingest keeps message text; connection emails, logins/IPs, phones, ads, and KYC files are not loaded. Twitter ingest keeps tweet/DM text; emails, IPs, phones, ads, and device tokens are not loaded.
 
 ## Tests
 
@@ -127,7 +183,7 @@ uv run pytest
 uv run ruff check src tests
 uv run black --check src tests
 uv run mypy src
-uv run python -m marimo check notebooks/explorer.py notebooks/spotify.py notebooks/telegram.py
+uv run python -m marimo check notebooks/explorer.py notebooks/spotify.py notebooks/telegram.py notebooks/linkedin.py notebooks/twitter.py
 ```
 
 Do not run Black or Ruff on `notebooks/` — Marimo cell structure is not a formatter target.

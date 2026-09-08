@@ -217,6 +217,151 @@ def has_mb_data(conn: duckdb.DuckDBPyConnection) -> bool:
     return row is not None and row[0] > 0
 
 
+def has_table(conn: duckdb.DuckDBPyConnection, schema: str, table: str) -> bool:
+    row = conn.execute(
+        """
+        SELECT count(*) FROM information_schema.tables
+        WHERE table_schema = ? AND table_name = ?
+        """,
+        [schema, table],
+    ).fetchone()
+    return row is not None and row[0] > 0
+
+
+def has_account_data(conn: duckdb.DuckDBPyConnection) -> bool:
+    return has_table(conn, "spotify", "library_items") or has_table(
+        conn, "spotify", "playlists"
+    )
+
+
+def library_counts(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    if not has_table(conn, "spotify", "library_items"):
+        return pd.DataFrame(columns=["item_kind", "n"])
+    return _query_df(
+        conn,
+        """
+        SELECT item_kind, count(*)::BIGINT AS n
+        FROM spotify.library_items
+        GROUP BY 1
+        ORDER BY n DESC
+        """,
+        [],
+    )
+
+
+def library_overlap(
+    conn: duckdb.DuckDBPyConnection, *, limit: int = 15
+) -> pd.DataFrame:
+    """Saved library tracks vs Extended History plays, matched on name+artist."""
+    if not has_table(conn, "spotify", "library_items"):
+        return pd.DataFrame(
+            columns=["track_name", "artist_name", "play_hours", "in_plays"]
+        )
+    if not has_table(conn, "spotify", "plays"):
+        return pd.DataFrame(
+            columns=["track_name", "artist_name", "play_hours", "in_plays"]
+        )
+    return _query_df(
+        conn,
+        """
+        SELECT
+            l.name AS track_name,
+            l.artist_name,
+            round(coalesce(sum(p.hours), 0), 2) AS play_hours,
+            count(p.track_name) > 0 AS in_plays
+        FROM spotify.library_items l
+        LEFT JOIN spotify.plays p
+            ON p.kind = 'track'
+            AND lower(p.track_name) = lower(l.name)
+            AND lower(p.artist_name) = lower(l.artist_name)
+        WHERE l.item_kind = 'track'
+        GROUP BY 1, 2
+        ORDER BY play_hours DESC, track_name
+        LIMIT ?
+        """,
+        [limit],
+    )
+
+
+def library_never_played(
+    conn: duckdb.DuckDBPyConnection, *, limit: int = 15
+) -> pd.DataFrame:
+    if not has_table(conn, "spotify", "library_items") or not has_table(
+        conn, "spotify", "plays"
+    ):
+        return pd.DataFrame(columns=["track_name", "artist_name"])
+    return _query_df(
+        conn,
+        """
+        SELECT l.name AS track_name, l.artist_name
+        FROM spotify.library_items l
+        WHERE l.item_kind = 'track'
+          AND NOT EXISTS (
+              SELECT 1 FROM spotify.plays p
+              WHERE p.kind = 'track'
+                AND lower(p.track_name) = lower(l.name)
+                AND lower(p.artist_name) = lower(l.artist_name)
+          )
+        ORDER BY l.artist_name, l.name
+        LIMIT ?
+        """,
+        [limit],
+    )
+
+
+def playlist_sizes(conn: duckdb.DuckDBPyConnection, *, limit: int = 20) -> pd.DataFrame:
+    if not has_table(conn, "spotify", "playlists"):
+        return pd.DataFrame(columns=["playlist_name", "n_items", "last_modified"])
+    return _query_df(
+        conn,
+        """
+        SELECT playlist_name, n_items, last_modified
+        FROM spotify.playlists
+        ORDER BY n_items DESC, playlist_name
+        LIMIT ?
+        """,
+        [limit],
+    )
+
+
+def search_volume(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    if not has_table(conn, "spotify", "searches"):
+        return pd.DataFrame(columns=["year_month", "searches"])
+    df = _query_df(
+        conn,
+        """
+        SELECT year, month, count(*)::BIGINT AS searches
+        FROM spotify.searches
+        WHERE year IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+        """,
+        [],
+    )
+    if not df.empty:
+        df["year_month"] = (
+            df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2)
+        )
+    return df
+
+
+def top_searches(conn: duckdb.DuckDBPyConnection, *, limit: int = 20) -> pd.DataFrame:
+    if not has_table(conn, "spotify", "searches"):
+        return pd.DataFrame(columns=["search_query", "n"])
+    return _query_df(
+        conn,
+        """
+        SELECT search_query, count(*)::BIGINT AS n
+        FROM spotify.searches
+        WHERE search_query IS NOT NULL AND length(search_query) > 1
+        GROUP BY 1
+        ORDER BY n DESC, search_query
+        LIMIT ?
+        """,
+        [limit],
+    )
+
+
 def filter_from_widgets(
     bounds: dict[str, Any],
     *,

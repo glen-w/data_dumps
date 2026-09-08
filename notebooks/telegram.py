@@ -106,6 +106,8 @@ def _(bounds, mo):
         value=[],
         label="Media kind",
     )
+    include_bots = mo.ui.checkbox(label="Show bots", value=False)
+    include_groups = mo.ui.checkbox(label="Show groups / channels", value=False)
     compare_toggle = mo.ui.checkbox(label="Compare vs previous equal window", value=False)
     people_btn = mo.ui.run_button(label="People only")
     clear_types_btn = mo.ui.run_button(label="Clear types")
@@ -122,6 +124,7 @@ def _(bounds, mo):
                 f"Data: {bounds['first_day']} → {bounds['last_day']} "
                 f"({len(bounds['chats'])} chats). Media files stay on disk; this view is counts only."
             ),
+            mo.hstack([include_bots, include_groups], gap=1),
             mo.hstack(
                 [
                     year_start_slider,
@@ -162,6 +165,8 @@ def _(bounds, mo):
         get_chat_name,
         get_media_override,
         get_types_override,
+        include_bots,
+        include_groups,
         media_select,
         people_btn,
         set_chat_name,
@@ -203,6 +208,8 @@ def _(
     get_chat_name,
     get_media_override,
     get_types_override,
+    include_bots,
+    include_groups,
     media_select,
     mo,
     set_media_override,
@@ -233,6 +240,8 @@ def _(
         event_types=list(event_select.value),
         media_kinds=media_kinds,
         chat_name=get_chat_name(),
+        include_bots=bool(include_bots.value),
+        include_groups=bool(include_groups.value),
     )
     chip_items = filters.chip_labels()
     if chip_items:
@@ -289,7 +298,7 @@ def _(conn, filters, me_vs_them, mo, monthly_by_chat_type, px):
             y="messages",
             color="who",
             barmode="group",
-            title="Messages sent by you vs others",
+            title="Messages: you vs others",
         )
         fig_me.update_layout(xaxis_title="Year", yaxis_title="Messages")
     mo.vstack(

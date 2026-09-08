@@ -67,10 +67,13 @@ def test_where_params_order():
     where, params = _where_and_params(f)
     assert "year >=" in where
     assert "c.type IN" in where
+    assert "c.type NOT IN" in where
     assert "chat_id IN" in where
     assert "event_type IN" in where
     assert "media_kind IN" in where
-    assert params == [2023, 2024, "personal_chat", 222, "message", "photo"]
+    assert params[:6] == [2023, 2024, "personal_chat", 222, "message", "photo"]
+    assert "bot_chat" in params
+    assert "private_group" in params
 
 
 def test_queries_on_mini(tg_conn):
@@ -78,7 +81,8 @@ def test_queries_on_mini(tg_conn):
     assert bounds["min_year"] <= bounds["max_year"]
     f = FilterState()
     score = scoreboard(tg_conn, f)
-    assert int(score.iloc[0]["events"]) == 4
+    # Default scope excludes bot_chat (Sci Bot), so Ada's 3 events only.
+    assert int(score.iloc[0]["events"]) == 3
     monthly = monthly_messages(tg_conn, f)
     assert not monthly.empty
     chats = messages_by_chat(tg_conn, f)
@@ -94,7 +98,14 @@ def test_wave2_queries_on_mini(tg_conn):
     me = me_vs_them(tg_conn, f)
     assert set(me.columns) >= {"year", "me", "them"}
     assert int(me["me"].sum()) == 1
-    assert int(me["them"].sum()) == 2
+    # Sci Bot excluded by default scope; only Ada's personal_chat reply counts.
+    assert int(me["them"].sum()) == 1
+
+    with_bots = me_vs_them(tg_conn, FilterState(include_bots=True))
+    assert int(with_bots["them"].sum()) == 2
+    assert (
+        int(scoreboard(tg_conn, FilterState(include_bots=True)).iloc[0]["events"]) == 4
+    )
 
     mix = media_mix(tg_conn, f, exclude_none=True)
     assert "none" not in set(mix["media_kind"])

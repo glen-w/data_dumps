@@ -19,6 +19,25 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Marimo notebook: Wrapped-style explorer (scoreboard/streaks, me vs them, calendar, bump, reply scatter, forgotten/comebacks, reactions, calls)
 - Dumps live under `~/Documents/data_dumps_raw` (outside the git tree)
 
+### Spotify Account Data
+
+- Separate ZIP from Extended History; additive tables only (`library_items`, `playlists`, `searches`, `account_plays`)
+- Never replaces `spotify.plays`
+- Explorer Library & playlists section when ingested
+
+### LinkedIn Complete GDPR
+
+- CSV bag → `linkedin.*` (connections, messages, career, feed activity)
+- IPs/emails/phones/ads/KYC dropped at ingest
+- Explorer LinkedIn tab
+
+### Twitter / X YTD archive
+
+- Classic HTML-viewer JS (`window.YTD.*.part0`) → `twitter.*` (tweets, likes, DMs, network snapshot)
+- IPs/emails/phones/ads/device tokens dropped at ingest; media on disk only
+- Explorer Twitter tab (Spotify-depth Wrapped charts)
+- **Note:** newer X exports may differ; v1 targets YTD assignment format
+
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 
 Four phases, shippable independently after A:
@@ -55,7 +74,6 @@ Four phases, shippable independently after A:
 - Other GDPR sources (Amazon, Reddit) when a dump is in hand
 - Cover Art Archive images after MusicBrainz
 - LiteLLM sidecar in compose (TranscriptX-style gateway)
-- Spotify Account-data playlists/library (salvage lives in Untangle, not this repo)
 - Chat-over-corpus / RAG over every play
 
 ## Non-goals
@@ -72,6 +90,8 @@ Four phases, shippable independently after A:
 |-----|------|
 | [README.md](../README.md) | Setup, Docker, privacy |
 | [WAREHOUSE.md](WAREHOUSE.md) | **Single-writer lock** — UI vs ingest vs enrich |
-| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram tabs) |
+| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn tabs) |
 | [../notebooks/spotify.py](../notebooks/spotify.py) | Spotify-only notebook |
 | [../notebooks/telegram.py](../notebooks/telegram.py) | Telegram-only notebook |
+| [../notebooks/linkedin.py](../notebooks/linkedin.py) | LinkedIn-only notebook |
+| [../notebooks/twitter.py](../notebooks/twitter.py) | Twitter-only notebook |

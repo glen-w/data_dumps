@@ -11,6 +11,8 @@ NOTEBOOKS = [
     ROOT / "notebooks" / "explorer.py",
     ROOT / "notebooks" / "spotify.py",
     ROOT / "notebooks" / "telegram.py",
+    ROOT / "notebooks" / "linkedin.py",
+    ROOT / "notebooks" / "twitter.py",
 ]
 
 

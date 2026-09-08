@@ -15,6 +15,21 @@ PEOPLE_CHAT_TYPES = [
     "saved_messages",
 ]
 
+BOT_CHAT_TYPES = frozenset({"bot_chat"})
+
+# Collective chats controlled by the global "Show groups" toggle (incl. channels).
+GROUP_CHAT_TYPES = frozenset(
+    {
+        "private_group",
+        "private_supergroup",
+        "public_group",
+        "public_supergroup",
+        "private_channel",
+        "public_channel",
+        "channel",
+    }
+)
+
 
 @dataclass
 class FilterState:
@@ -27,6 +42,8 @@ class FilterState:
     event_types: list[str] = field(default_factory=list)
     media_kinds: list[str] = field(default_factory=list)
     chat_name: str | None = None
+    include_bots: bool = False
+    include_groups: bool = False
 
     def chip_labels(self) -> list[tuple[str, str]]:
         chips: list[tuple[str, str]] = []
@@ -44,6 +61,10 @@ class FilterState:
             chips.append(("event_type", f"event={e}"))
         for m in self.media_kinds:
             chips.append(("media_kind", f"media={m}"))
+        if self.include_bots:
+            chips.append(("include_bots", "incl. bots"))
+        if self.include_groups:
+            chips.append(("include_groups", "incl. groups"))
         return chips
 
     def clear_field(self, field_name: str) -> None:
@@ -61,6 +82,10 @@ class FilterState:
             self.event_types = []
         elif field_name == "media_kind":
             self.media_kinds = []
+        elif field_name == "include_bots":
+            self.include_bots = False
+        elif field_name == "include_groups":
+            self.include_groups = False
 
 
 def _where_and_params(
@@ -97,6 +122,16 @@ def _where_and_params(
         placeholders = ", ".join("?" for _ in f.media_kinds)
         clauses.append(f"{prefix}media_kind IN ({placeholders})")
         params.extend(f.media_kinds)
+
+    excluded_types: list[str] = []
+    if not f.include_bots:
+        excluded_types.extend(sorted(BOT_CHAT_TYPES))
+    if not f.include_groups:
+        excluded_types.extend(sorted(GROUP_CHAT_TYPES))
+    if excluded_types:
+        placeholders = ", ".join("?" for _ in excluded_types)
+        clauses.append(f"c.type NOT IN ({placeholders})")
+        params.extend(excluded_types)
 
     where = " AND ".join(clauses) if clauses else "1=1"
     return where, params
@@ -161,6 +196,8 @@ def filter_from_widgets(
     media_kinds: list[str],
     chat_name: str | None = None,
     chat_ids: list[int] | None = None,
+    include_bots: bool = False,
+    include_groups: bool = False,
 ) -> FilterState:
     ys = year_start if year_start > bounds["min_year"] else None
     ye = year_end if year_end < bounds["max_year"] else None
@@ -172,6 +209,8 @@ def filter_from_widgets(
         media_kinds=media_kinds,
         chat_name=chat_name,
         chat_ids=chat_ids or [],
+        include_bots=include_bots,
+        include_groups=include_groups,
     )
 
 
@@ -206,6 +245,8 @@ def scoreboard(
         event_types=list(f.event_types),
         media_kinds=list(f.media_kinds),
         chat_name=f.chat_name,
+        include_bots=f.include_bots,
+        include_groups=f.include_groups,
     )
     prev = _scoreboard_row(conn, prev_f)
     current["window"] = "current"
