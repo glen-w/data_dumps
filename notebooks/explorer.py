@@ -277,8 +277,6 @@ def _(has_linkedin, has_spotify, has_telegram, has_twitter, li_bounds, mo, sp_bo
         if tw_bounds
         else "Not ingested"
     )
-    include_bots = mo.ui.checkbox(label="Show bots", value=False)
-    include_groups = mo.ui.checkbox(label="Show groups / channels", value=False)
     source = mo.ui.tabs(
         {
             "Spotify": mo.md(f"_{sp_caption}_"),
@@ -288,21 +286,8 @@ def _(has_linkedin, has_spotify, has_telegram, has_twitter, li_bounds, mo, sp_bo
         },
         value=default_tab,
     )
-    header = [mo.md("# data dumps")]
-    if has_telegram:
-        header.append(
-            mo.hstack(
-                [
-                    include_bots,
-                    include_groups,
-                    mo.md("_Telegram scope_"),
-                ],
-                gap=1,
-            )
-        )
-    header.append(source)
-    mo.vstack(header, gap=0.5)
-    return include_bots, include_groups, source
+    mo.vstack([mo.md("# data dumps"), source], gap=0.5)
+    return (source,)
 
 
 @app.cell(hide_code=True)
@@ -428,8 +413,6 @@ def _(
     conn,
     forgotten_chats,
     has_telegram,
-    include_bots,
-    include_groups,
     me_vs_them,
     media_mix,
     messages_by_chat,
@@ -480,8 +463,6 @@ def _(
         media_mix=media_mix,
         reaction_mix=reaction_mix,
         calls_by_year=calls_by_year,
-        include_bots=bool(include_bots.value),
-        include_groups=bool(include_groups.value),
     )
 
 

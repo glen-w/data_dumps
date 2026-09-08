@@ -17,7 +17,7 @@ PEOPLE_CHAT_TYPES = [
 
 BOT_CHAT_TYPES = frozenset({"bot_chat"})
 
-# Collective chats controlled by the global "Show groups" toggle (incl. channels).
+# Collective chats controlled by the Telegram "Show groups" toggle (incl. channels).
 GROUP_CHAT_TYPES = frozenset(
     {
         "private_group",

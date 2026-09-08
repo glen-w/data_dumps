@@ -65,6 +65,8 @@ class TelegramControls:
     event_select: Any
     media_select: Any
     compare: Any
+    include_bots: Any
+    include_groups: Any
     people_btn: Any
     clear_types: Any
     clear_chat: Any
@@ -184,6 +186,8 @@ def make_telegram_controls(mo: Any, bounds: dict[str, Any]) -> TelegramControls:
             options=bounds["media_kinds"], value=[], label="Media kind"
         ),
         compare=mo.ui.checkbox(label="Compare vs previous equal window", value=False),
+        include_bots=mo.ui.checkbox(label="Show bots", value=False),
+        include_groups=mo.ui.checkbox(label="Show groups / channels", value=False),
         people_btn=mo.ui.run_button(label="People only"),
         clear_types=mo.ui.run_button(label="Clear types"),
         clear_chat=mo.ui.run_button(label="Clear chat lock"),
@@ -826,8 +830,6 @@ def render_telegram_panel(
     media_mix: Callable[..., Any],
     reaction_mix: Callable[..., Any],
     calls_by_year: Callable[..., Any],
-    include_bots: bool = False,
-    include_groups: bool = False,
 ) -> Any:
     c = controls
     if c.people_btn.value:
@@ -862,8 +864,8 @@ def render_telegram_panel(
         event_types=list(c.event_select.value),
         media_kinds=media_kinds,
         chat_name=c.get_chat_name(),
-        include_bots=include_bots,
-        include_groups=include_groups,
+        include_bots=bool(c.include_bots.value),
+        include_groups=bool(c.include_groups.value),
     )
     chips = filters.chip_labels()
     chip_row = (
@@ -1055,6 +1057,7 @@ def render_telegram_panel(
                 f"Data: {bounds['first_day']} → {bounds['last_day']} "
                 f"({len(bounds['chats'])} chats). Media files stay on disk; this view is counts only."
             ),
+            mo.hstack([c.include_bots, c.include_groups], gap=1),
             mo.hstack([c.year_start, c.year_end], justify="start", gap=1),
             mo.hstack(
                 [c.chat_type, c.event_select, c.media_select], justify="start", gap=1
