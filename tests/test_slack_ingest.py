@@ -170,6 +170,25 @@ def make_mini_slack_zip(path: Path) -> Path:
     return zip_path
 
 
+class _LegacyZipInfo(zipfile.ZipInfo):
+    """Write UTF-8 bytes without the UTF-8 flag, like Windows-made Slack zips."""
+
+    def _encodeFilenameFlags(self):  # type: ignore[override]
+        return self.filename.encode("utf-8"), self.flag_bits
+
+
+def make_legacy_slack_zip(path: Path) -> Path:
+    zip_path = path / "Legacy Slack export.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("users.json", json.dumps(USERS))
+        zf.writestr("channels.json", json.dumps(CHANNELS))
+        zf.writestr(
+            _LegacyZipInfo("FC:F0CANVAS1:Rana’s Notes/2021-03-03.json"),
+            json.dumps(FC_DAY),
+        )
+    return zip_path
+
+
 def make_mini_slack_dir(path: Path) -> Path:
     root = path / "slack_extracted"
     (root / "general").mkdir(parents=True)
@@ -199,6 +218,24 @@ def test_pick_source(tmp_path):
     source = pick_source(make_mini_slack_zip(tmp_path))
     assert source is not None
     assert source.name == "slack"
+
+
+def test_cp437_zip_names_are_repaired(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    zip_path = make_legacy_slack_zip(tmp_path)
+    # Sanity: stdlib really does hand us mojibake for this entry.
+    with zipfile.ZipFile(zip_path) as zf:
+        raw_names = zf.namelist()
+    assert any("Γ" in n or "â" in n for n in raw_names), raw_names
+
+    assert SlackSource().detect(zip_path)
+    conn = duckdb.connect(str(tmp_path / "w.duckdb"))
+    SlackSource().load(zip_path, conn)
+    fc = conn.execute(
+        "SELECT channel_id, name FROM slack.channels WHERE kind = 'file_conversation'"
+    ).fetchone()
+    assert fc == ("F0CANVAS1", "Rana’s Notes")
+    conn.close()
 
 
 def test_clean_text_resolves_markup():
@@ -312,6 +349,9 @@ def test_queries_and_filters(tmp_path, monkeypatch):
     assert int(skq.scoreboard(conn, f_bob).iloc[0]["messages"]) == 2
     assert skq.reaction_mix(conn, f).iloc[0]["emoji"] == "thumbsup"
     assert skq.top_mentioned(conn, f).iloc[0]["name"] == "Bob Example"
+    # No channel is silent for a year inside a 3-day fixture
+    assert skq.comeback_channels(conn, f).empty
+    assert skq.forgotten_channels(conn, f, min_messages=1, silent_years=0).shape[0] >= 0
     conn.close()
 
 
@@ -356,6 +396,114 @@ def test_person_spotlight(tmp_path, monkeypatch):
     assert list(prof["who"]) == ["person", "team"]
     assert not skq.person_top_messages(conn, f, ALICE).empty
     assert int(skq.person_streaks(conn, f, ALICE).iloc[0]["active_days"]) == 2
+    conn.close()
+
+
+def test_empty_export_loads_and_bounds_fall_back(tmp_path, monkeypatch):
+    """users/channels but no daily files: ingest, inventory, bounds, panel all OK."""
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    zip_path = tmp_path / "empty.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("users.json", json.dumps(USERS))
+        zf.writestr("channels.json", json.dumps(CHANNELS))
+    conn = duckdb.connect(str(tmp_path / "w.duckdb"))
+    src = SlackSource()
+    assert src.detect(zip_path)
+    src.load(zip_path, conn)
+    inv = src.inventory(conn)
+    assert inv["n_events"] == 0 and "slack.messages" in inv["summary"]
+    assert conn.execute("SELECT count(*) FROM slack.channels").fetchone()[0] == 2
+    bounds = skq.data_bounds(conn)
+    assert bounds["min_year"] <= bounds["max_year"]
+    assert bounds["people"] == []
+    f = skq.filter_from_widgets(
+        bounds, year_start=bounds["min_year"], year_end=bounds["max_year"]
+    )
+    assert int(skq.scoreboard(conn, f).iloc[0]["messages"]) == 0
+    assert skq.reply_latency(conn, f).iloc[0]["threads"] == 0
+    assert skq.person_scoreboard(conn, f, ALICE).iloc[0]["messages"] == 0
+    conn.close()
+
+
+def test_duplicates_and_reactions_without_users(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    dup = dict(GENERAL_DAY[0])  # same (channel, ts) appearing in a second file
+    anon_react = {
+        "type": "message",
+        "user": BOB,
+        "ts": "1614600000.000900",
+        "text": "no user list on this reaction",
+        "reactions": [{"name": "eyes", "count": 2}],
+    }
+    zip_path = tmp_path / "dups.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("users.json", json.dumps(USERS))
+        zf.writestr("channels.json", json.dumps(CHANNELS))
+        zf.writestr("general/2021-03-01.json", json.dumps(GENERAL_DAY))
+        zf.writestr("general/2021-03-02.json", json.dumps([dup, anon_react]))
+        zf.writestr("general/not-a-day.json", json.dumps([anon_react]))  # ignored
+        zf.writestr("general/2021-03-03.json", "not json at all")  # skipped
+    conn = duckdb.connect(str(tmp_path / "w.duckdb"))
+    SlackSource().load(zip_path, conn)
+    n = conn.execute(
+        "SELECT count(*), count(DISTINCT ts) FROM slack.messages WHERE channel_id = 'C000GENERAL'"
+    ).fetchone()
+    assert n == (6, 6)  # 5 originals + anon_react; duplicate root dropped
+    assert (
+        conn.execute(
+            "SELECT count(*) FROM slack.reactions WHERE user_id IS NULL AND emoji = 'eyes'"
+        ).fetchone()[0]
+        == 2
+    )
+    assert (
+        conn.execute(
+            "SELECT n_reactions FROM slack.messages WHERE ts = '1614600000.000900'"
+        ).fetchone()[0]
+        == 2
+    )
+    bounds = skq.data_bounds(conn)
+    f = skq.filter_from_widgets(bounds, year_start=2021, year_end=2021)
+    # NULL-user reactions are counted in the mix but never attributed to a reactor.
+    assert (
+        int(skq.reaction_mix(conn, f).set_index("emoji").loc["eyes", "reactions"]) == 2
+    )
+    assert "eyes" not in set(skq.top_reactors(conn, f)["favourite_emoji"])
+    conn.close()
+
+
+def test_filters_are_parameterized_not_interpolated(tmp_path, monkeypatch):
+    conn = _load(tmp_path, monkeypatch)
+    bounds = skq.data_bounds(conn)
+    hostile = "' OR 1=1 --"
+    f = skq.filter_from_widgets(
+        bounds,
+        year_start=2021,
+        year_end=2021,
+        channel_ids=[hostile],
+        user_ids=[hostile, 'x"; DROP TABLE slack.messages; --'],
+    )
+    assert int(skq.scoreboard(conn, f).iloc[0]["messages"]) == 0
+    assert skq.messages_by_channel(conn, f).empty
+    assert skq.person_collaborators(conn, f, hostile).empty
+    assert skq.person_scoreboard(conn, f, hostile).iloc[0]["messages"] == 0
+    # table still there
+    assert conn.execute("SELECT count(*) FROM slack.messages").fetchone()[0] == 7
+    conn.close()
+
+
+def test_filter_from_widgets_full_range_is_no_filter(tmp_path, monkeypatch):
+    conn = _load(tmp_path, monkeypatch)
+    bounds = skq.data_bounds(conn)
+    f = skq.filter_from_widgets(
+        bounds, year_start=bounds["min_year"], year_end=bounds["max_year"]
+    )
+    assert f.year_start is None and f.year_end is None
+    assert f.chip_labels() == []
+    f2 = skq.filter_from_widgets(
+        bounds, year_start=2021, year_end=2021, user_ids=[ALICE], include_bots=True
+    )
+    labels = dict(f2.chip_labels())
+    assert labels["people"] == "1 person(s)" and labels["include_bots"] == "incl. bots"
     conn.close()
 
 

@@ -13,22 +13,27 @@ import marimo as mo
 import plotly.express as px
 import pytest
 
+from data_dumps import slack_queries as skq
 from data_dumps import spotify_queries as spq
 from data_dumps import telegram_queries as tgq
 from data_dumps.explorer_panels import (
+    make_slack_controls,
     make_sleep_controls,
     make_spotify_controls,
     make_telegram_controls,
+    render_slack_panel,
     render_sleep_panel,
     render_spotify_panel,
     render_telegram_panel,
 )
 from data_dumps.llm_client import narrate
 from data_dumps.sleep_queries import data_bounds as sl_bounds
+from data_dumps.sources.slack import SlackSource
 from data_dumps.sources.sleep import SleepSource
 from data_dumps.sources.telegram import TelegramSource
 
 from .conftest import make_plays_conn
+from .test_slack_ingest import ALICE, make_mini_slack_zip
 from .test_sleep_queries import _make_zip as make_sleep_zip
 from .test_telegram_ingest import make_mini_telegram_dir
 
@@ -60,6 +65,15 @@ def combo_conn(tmp_path, monkeypatch):
     conn, _ = make_plays_conn(tmp_path)
     SleepSource().load(make_sleep_zip(tmp_path), conn)
     _add_miband(conn)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture
+def sk_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    conn = duckdb.connect(str(tmp_path / "sk.duckdb"))
+    SlackSource().load(make_mini_slack_zip(tmp_path), conn)
     yield conn
     conn.close()
 
@@ -158,6 +172,41 @@ def test_render_spotify_panel(combo_conn):
     # Narration was not triggered (button not clicked) -> no LLM call.
     assert "Narrate this view" in html
     assert "### Narrative" not in html
+
+
+def test_render_slack_panel_and_spotlight(sk_conn):
+    bounds = skq.data_bounds(sk_conn)
+    controls = make_slack_controls(mo, bounds)
+    kwargs = dict(
+        mo=mo, px=px, conn=sk_conn, bounds=bounds, controls=controls, dow_labels=ISO_DOW
+    )
+    html = render_slack_panel(**kwargs)._repr_html_()
+    for needle in (
+        "Slack workspace",
+        "Scoreboard",
+        "Channels",
+        "Comeback channels",
+        "Person spotlight",
+        "Pick a person",
+        "Threads",
+        "Reactions",
+        "Rhythm",
+        "Bots",
+    ):
+        assert needle in html, needle
+    assert "Team baseline uses" not in html
+
+    # Spotlight via the click-to-lock state (same path as clicking a bar).
+    controls.set_person(ALICE)
+    html_spot = render_slack_panel(**kwargs)._repr_html_()
+    assert "Team baseline uses" in html_spot
+    assert "Alice Example" in html_spot
+    assert "Collaborators" in html_spot
+
+    # Clear button resets the state override.
+    controls.clear_person._update(1)  # simulate one click
+    html_cleared = render_slack_panel(**kwargs)._repr_html_()
+    assert "Team baseline uses" not in html_cleared
 
 
 def test_render_telegram_panel(tg_conn):

@@ -2596,6 +2596,7 @@ def render_slack_panel(
     lifecycle_df = skq.channel_lifecycle(conn, filters, limit=40)
     births_df = skq.channels_created_archived_by_year(conn, filters)
     forgotten_df = skq.forgotten_channels(conn, filters)
+    comeback_df = skq.comeback_channels(conn, filters)
     people_df = skq.top_people(conn, filters, limit=25)
     bump_people_df = skq.bump_chart_people(conn, filters, top_n=8)
     ratio_df = skq.people_reply_ratio(conn, filters, limit=20)
@@ -2971,6 +2972,8 @@ def render_slack_panel(
                 "**Forgotten channels** (≥50 messages, silent ≥2 years before export end)"
             ),
             mo.ui.table(forgotten_df),
+            mo.md("**Comeback channels** (silent ≥1 year, then posted again)"),
+            mo.ui.table(comeback_df),
             mo.md("### People"),
             mo.vstack(
                 [people_plot, mo.ui.plotly(fig_bump_people), mo.ui.plotly(fig_ratio)],

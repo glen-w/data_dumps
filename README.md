@@ -126,7 +126,7 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Names and message text are kept; emails, phones, Skype handles and avatars are dropped at ingest
 - `<@U…>` mentions resolve to `@Name`, links to their label; `FC:<id>:<title>` file-conversation folders become channels of kind `file_conversation`
 - Bots and system subtypes (joins, renames, …) are landed but hidden by default in the explorer
-- Explorer: Slack tab (scoreboard, monthly human/bot/system volume, active people, channel rankings/lifecycle, people rankings, thread depth and time-to-first-reply, reactions, mention pairs, weekday×hour heatmap, calendar, bots) plus a **Person spotlight**: pick one person (dropdown or click a bar) to see their monthly activity, share of team, channel mix, rhythm vs team, collaborators, emoji given/received, text profile and most engaged-with messages
+- Explorer: Slack tab (scoreboard, monthly human/bot/system volume, active people, channel rankings/lifecycle/forgotten/comebacks, people rankings, thread depth and time-to-first-reply, reactions, mention pairs, weekday×hour heatmap, calendar, bots) plus a **Person spotlight**: pick one person (dropdown or click a bar) to see their monthly activity, share of team, channel mix, rhythm vs team, collaborators, emoji given/received, text profile and most engaged-with messages
 
 ## Sleep as Android
 

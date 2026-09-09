@@ -426,6 +426,58 @@ def forgotten_channels(
     )
 
 
+def comeback_channels(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    silent_years: int = 1,
+    limit: int = 25,
+) -> pd.DataFrame:
+    """Channels that were silent for >= ``silent_years`` and then posted again."""
+    where, params = _where(f)
+    params.extend([silent_years, limit])
+    return _query_df(
+        conn,
+        f"""
+        WITH scoped AS (
+            SELECT m.channel_id, c.name AS channel_name, m.ts_utc
+            {_from_join()}
+            WHERE {where}
+        ),
+        ordered AS (
+            SELECT channel_id, channel_name, ts_utc,
+                   lag(ts_utc) OVER (PARTITION BY channel_id ORDER BY ts_utc) AS prev_ts
+            FROM scoped
+        ),
+        gaps AS (
+            SELECT channel_id, channel_name,
+                   prev_ts AS silent_from, ts_utc AS returned_on,
+                   date_diff('day', prev_ts, ts_utc) AS gap_days
+            FROM ordered
+            WHERE prev_ts IS NOT NULL
+              AND ts_utc >= prev_ts + (? * INTERVAL '1 year')
+        ),
+        best AS (
+            SELECT channel_id, channel_name,
+                   max(gap_days)::INT AS longest_gap_days,
+                   arg_max(silent_from, gap_days)::DATE AS silent_from,
+                   arg_max(returned_on, gap_days)::DATE AS returned_on,
+                   count(*)::BIGINT AS comebacks
+            FROM gaps GROUP BY 1, 2
+        ),
+        totals AS (
+            SELECT channel_id, count(*)::BIGINT AS messages FROM scoped GROUP BY 1
+        )
+        SELECT b.channel_name, b.longest_gap_days, b.silent_from, b.returned_on,
+               b.comebacks, t.messages
+        FROM best b JOIN totals t USING (channel_id)
+        ORDER BY b.longest_gap_days DESC
+        LIMIT ?
+        """,
+        params,
+    )
+
+
 def top_people(
     conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 25
 ) -> pd.DataFrame:
