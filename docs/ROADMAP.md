@@ -38,6 +38,17 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Explorer Twitter tab (Spotify-depth Wrapped charts)
 - **Note:** newer X exports may differ; v1 targets YTD assignment format
 
+### Sleep as Android
+
+- Merged `sleep-export.zip` → `sleep.sessions|events|actigraphy`
+- Explorer Sleep tab (scoreboard, streaks, longitudinal, circadian, calendar, events/stages, actigraphy sample)
+- Future re-exports: same zip layout as the Android app
+
+### Mi Band heart rate (one-off)
+
+- Merged `heart_rate.csv` → `miband.heart_rate`
+- Explorer Mi Band tab (simple scoreboard, daily avg, heatmaps, zones)
+
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 
 Four phases, shippable independently after A:
@@ -90,7 +101,7 @@ Four phases, shippable independently after A:
 |-----|------|
 | [README.md](../README.md) | Setup, Docker, privacy |
 | [WAREHOUSE.md](WAREHOUSE.md) | **Single-writer lock** — UI vs ingest vs enrich |
-| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn tabs) |
+| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn / Twitter / Sleep / Mi Band) |
 | [../notebooks/spotify.py](../notebooks/spotify.py) | Spotify-only notebook |
 | [../notebooks/telegram.py](../notebooks/telegram.py) | Telegram-only notebook |
 | [../notebooks/linkedin.py](../notebooks/linkedin.py) | LinkedIn-only notebook |

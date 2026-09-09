@@ -21,6 +21,8 @@ import duckdb
 import pandas as pd
 
 from data_dumps import linkedin_queries as liq
+from data_dumps import miband_queries as mbq
+from data_dumps import sleep_queries as slq
 from data_dumps.spotify_queries import (
     has_account_data,
     library_counts,
@@ -81,6 +83,20 @@ class TelegramControls:
 
 @dataclass
 class LinkedInControls:
+    year_start: Any
+    year_end: Any
+
+
+@dataclass
+class SleepControls:
+    year_start: Any
+    year_end: Any
+    tag_select: Any
+    min_rating: Any
+
+
+@dataclass
+class MiBandControls:
     year_start: Any
     year_end: Any
 
@@ -203,6 +219,55 @@ def make_telegram_controls(mo: Any, bounds: dict[str, Any]) -> TelegramControls:
 
 def make_linkedin_controls(mo: Any, bounds: dict[str, Any]) -> LinkedInControls:
     return LinkedInControls(
+        year_start=mo.ui.slider(
+            start=bounds["min_year"],
+            stop=bounds["max_year"],
+            value=bounds["min_year"],
+            label="From year",
+            show_value=True,
+        ),
+        year_end=mo.ui.slider(
+            start=bounds["min_year"],
+            stop=bounds["max_year"],
+            value=bounds["max_year"],
+            label="To year",
+            show_value=True,
+        ),
+    )
+
+
+def make_sleep_controls(mo: Any, bounds: dict[str, Any]) -> SleepControls:
+    return SleepControls(
+        year_start=mo.ui.slider(
+            start=bounds["min_year"],
+            stop=bounds["max_year"],
+            value=bounds["min_year"],
+            label="From year",
+            show_value=True,
+        ),
+        year_end=mo.ui.slider(
+            start=bounds["min_year"],
+            stop=bounds["max_year"],
+            value=bounds["max_year"],
+            label="To year",
+            show_value=True,
+        ),
+        tag_select=mo.ui.multiselect(
+            options=bounds.get("tags") or [], value=[], label="Tags"
+        ),
+        min_rating=mo.ui.slider(
+            start=0.0,
+            stop=5.0,
+            step=0.5,
+            value=0.0,
+            label="Min rating",
+            show_value=True,
+        ),
+    )
+
+
+def make_miband_controls(mo: Any, bounds: dict[str, Any]) -> MiBandControls:
+    return MiBandControls(
         year_start=mo.ui.slider(
             start=bounds["min_year"],
             stop=bounds["max_year"],
@@ -1712,6 +1777,278 @@ def render_twitter_panel(
             mo.ui.table(network_df),
             *dm_section,
             *narrative_block,
+        ],
+        gap=0.5,
+    )
+
+
+def render_sleep_panel(
+    *,
+    mo: Any,
+    px: Any,
+    conn: duckdb.DuckDBPyConnection,
+    bounds: dict[str, Any],
+    controls: SleepControls,
+    dow_labels: dict[int, str],
+) -> Any:
+    filters = slq.filter_from_widgets(
+        bounds,
+        year_start=controls.year_start.value,
+        year_end=controls.year_end.value,
+        tags=controls.tag_select.value or None,
+        min_rating=controls.min_rating.value,
+    )
+    chips = filters.chip_labels()
+    chip_row = (
+        mo.hstack([mo.md(f"**{label}**") for _, label in chips], gap=0.5)
+        if chips
+        else mo.md("_Full date range_")
+    )
+
+    score_df = slq.scoreboard(conn, filters)
+    streak_df = slq.streak_stats(conn, filters)
+    monthly_df = slq.monthly_hours(conn, filters)
+    hours_df = slq.hours_over_time(conn, filters)
+    bed_df = slq.bedtime_distribution(conn, filters)
+    wake_df = slq.wake_distribution(conn, filters)
+    weekday_df = slq.weekday_hours(conn, filters)
+    cal_df = slq.calendar_daily(conn, filters)
+    events_df = slq.event_type_counts(conn, filters)
+    stages_df = slq.stage_event_mix(conn, filters)
+    tags_df = slq.tag_breakdown(conn, filters)
+    best_df, worst_df = slq.best_worst_nights(conn, filters)
+    act_df = slq.sample_actigraphy(conn, filters)
+
+    fig_month = (
+        px.line(
+            monthly_df,
+            x="month",
+            y=["avg_hours", "avg_deep_hours"],
+            title="Monthly average hours / deep hours",
+        )
+        if not monthly_df.empty
+        else px.line(title="No monthly sleep data")
+    )
+    fig_rating = (
+        px.line(monthly_df, x="month", y="avg_rating", title="Monthly average rating")
+        if not monthly_df.empty
+        else px.line(title="No ratings")
+    )
+    fig_hours = (
+        px.scatter(
+            hours_df,
+            x="day",
+            y="hours",
+            color="rating",
+            title="Hours slept per night",
+            opacity=0.7,
+        )
+        if not hours_df.empty
+        else px.scatter(title="No nights")
+    )
+    fig_bed = (
+        px.bar(bed_df, x="hour", y="nights", title="Bedtime hour distribution")
+        if not bed_df.empty
+        else px.bar(title="No bedtime data")
+    )
+    fig_wake = (
+        px.bar(wake_df, x="hour", y="nights", title="Wake hour distribution")
+        if not wake_df.empty
+        else px.bar(title="No wake data")
+    )
+    if weekday_df.empty:
+        fig_dow = px.bar(title="No weekday data")
+    else:
+        dow = weekday_df.copy()
+        dow["dow_label"] = dow["dow"].map(dow_labels)
+        fig_dow = px.bar(
+            dow, x="dow_label", y="avg_hours", title="Average hours by weekday"
+        )
+    if cal_df.empty:
+        fig_cal = px.density_heatmap(title="No sleep calendar")
+    else:
+        cal = cal_df.copy()
+        cal["day"] = cal["day"].astype("datetime64[ns]")
+        cal["week"] = cal["day"].dt.isocalendar().week.astype(int)
+        cal["dow"] = cal["day"].dt.dayofweek
+        fig_cal = px.density_heatmap(
+            cal,
+            x="dow",
+            y="week",
+            z="hours",
+            title="Hours slept (weekday × ISO week)",
+            color_continuous_scale="Blues",
+        )
+        fig_cal.update_layout(xaxis_title="Weekday (Mon=0)", yaxis_title="ISO week")
+    fig_events = (
+        px.bar(
+            events_df,
+            x="events",
+            y="event_type",
+            orientation="h",
+            title="Top sleep events",
+        )
+        if not events_df.empty
+        else px.bar(title="No events")
+    )
+    fig_stages = (
+        px.bar(
+            stages_df,
+            x="year",
+            y="events",
+            color="event_type",
+            barmode="stack",
+            title="Stage events by year",
+        )
+        if not stages_df.empty
+        else px.bar(title="No stage events")
+    )
+    fig_tags = (
+        px.bar(tags_df, x="nights", y="tag", orientation="h", title="Nights by tag")
+        if not tags_df.empty
+        else px.bar(title="No tags")
+    )
+    if act_df.empty:
+        fig_act = px.line(title="No actigraphy for latest night")
+    else:
+        fig_act = px.line(
+            act_df,
+            x="bucket_label",
+            y="value",
+            color="day",
+            title="Actigraphy (latest night in range)",
+        )
+        fig_act.update_layout(xaxis_title="Time bucket", yaxis_title="Intensity")
+
+    span = (
+        f"{bounds['first_day']} → {bounds['last_day']}"
+        if bounds.get("first_day")
+        else "no dated rows"
+    )
+    return mo.vstack(
+        [
+            mo.md(
+                f"## Sleep as Android\n"
+                f"{span}. Sessions, stage events, and actigraphy from merged exports."
+            ),
+            mo.hstack(
+                [
+                    controls.year_start,
+                    controls.year_end,
+                    controls.tag_select,
+                    controls.min_rating,
+                ],
+                justify="start",
+                gap=1,
+            ),
+            chip_row,
+            mo.md("### Scoreboard"),
+            mo.ui.table(score_df),
+            mo.ui.table(streak_df),
+            mo.md("### Longitudinal"),
+            mo.vstack(
+                [mo.ui.plotly(fig_month), mo.ui.plotly(fig_rating), mo.ui.plotly(fig_hours)],
+                gap=1,
+            ),
+            mo.md("### Circadian"),
+            mo.vstack(
+                [mo.ui.plotly(fig_bed), mo.ui.plotly(fig_wake), mo.ui.plotly(fig_dow)],
+                gap=1,
+            ),
+            mo.md("### Calendar"),
+            mo.ui.plotly(fig_cal),
+            mo.md("### Events · stages · tags"),
+            mo.vstack(
+                [mo.ui.plotly(fig_events), mo.ui.plotly(fig_stages), mo.ui.plotly(fig_tags)],
+                gap=1,
+            ),
+            mo.md("### Actigraphy sample"),
+            mo.ui.plotly(fig_act),
+            mo.md("### Best / shortest nights"),
+            mo.vstack([mo.ui.table(best_df), mo.ui.table(worst_df)], gap=1),
+        ],
+        gap=0.5,
+    )
+
+
+def render_miband_panel(
+    *,
+    mo: Any,
+    px: Any,
+    conn: duckdb.DuckDBPyConnection,
+    bounds: dict[str, Any],
+    controls: MiBandControls,
+    dow_labels: dict[int, str],
+) -> Any:
+    filters = mbq.filter_from_widgets(
+        bounds,
+        year_start=controls.year_start.value,
+        year_end=controls.year_end.value,
+    )
+    chips = filters.chip_labels()
+    chip_row = (
+        mo.hstack([mo.md(f"**{label}**") for _, label in chips], gap=0.5)
+        if chips
+        else mo.md("_Full date range_")
+    )
+
+    score_df = mbq.scoreboard(conn, filters)
+    daily_df = mbq.daily_avg(conn, filters)
+    hour_df = mbq.hour_of_day(conn, filters)
+    heat_df = mbq.weekday_hour_heatmap(conn, filters)
+    zone_df = mbq.zone_mix(conn, filters)
+    ext_df = mbq.extremes(conn, filters)
+
+    fig_daily = (
+        px.line(daily_df, x="day", y="avg_bpm", title="Daily average heart rate")
+        if not daily_df.empty
+        else px.line(title="No HR readings")
+    )
+    fig_hour = (
+        px.bar(hour_df, x="hour", y="avg_bpm", title="Average BPM by hour of day")
+        if not hour_df.empty
+        else px.bar(title="No hourly data")
+    )
+    if heat_df.empty:
+        fig_heat = px.density_heatmap(title="No heatmap data")
+    else:
+        heat = heat_df.copy()
+        heat["dow_label"] = heat["dow"].map(dow_labels)
+        fig_heat = px.density_heatmap(
+            heat,
+            x="hour",
+            y="dow_label",
+            z="avg_bpm",
+            title="Average BPM by weekday × hour",
+            color_continuous_scale="Reds",
+        )
+    fig_zone = (
+        px.pie(zone_df, names="rate_zone", values="readings", title="Rate zone mix")
+        if not zone_df.empty
+        else px.pie(title="No zone data")
+    )
+
+    span = (
+        f"{bounds['first_day']} → {bounds['last_day']}"
+        if bounds.get("first_day")
+        else "no dated rows"
+    )
+    return mo.vstack(
+        [
+            mo.md(
+                f"## Mi Band heart rate\n"
+                f"{span}. One-off Mi Fit export (`dateTime, rate, rateZone`)."
+            ),
+            mo.hstack([controls.year_start, controls.year_end], justify="start", gap=1),
+            chip_row,
+            mo.md("### Scoreboard"),
+            mo.ui.table(score_df),
+            mo.md("### Time series"),
+            mo.vstack([mo.ui.plotly(fig_daily), mo.ui.plotly(fig_hour)], gap=1),
+            mo.md("### Heatmap · zones"),
+            mo.vstack([mo.ui.plotly(fig_heat), mo.ui.plotly(fig_zone)], gap=1),
+            mo.md("### Extremes"),
+            mo.ui.table(ext_df),
         ],
         gap=0.5,
     )

@@ -12,10 +12,14 @@ def _():
 
     from data_dumps.explorer_panels import (
         make_linkedin_controls,
+        make_miband_controls,
+        make_sleep_controls,
         make_spotify_controls,
         make_telegram_controls,
         make_twitter_controls,
         render_linkedin_panel,
+        render_miband_panel,
+        render_sleep_panel,
         render_spotify_panel,
         render_telegram_panel,
         render_twitter_panel,
@@ -95,6 +99,8 @@ def _():
         streak_stats as tg_streak_stats,
     )
     from data_dumps.linkedin_queries import data_bounds as li_data_bounds
+    from data_dumps.sleep_queries import data_bounds as sl_data_bounds
+    from data_dumps.miband_queries import data_bounds as mb_hr_data_bounds
     from data_dumps.twitter_queries import (
         account_reply_scatter,
         bump_chart_accounts,
@@ -146,12 +152,17 @@ def _():
     has_telegram = _has_table(conn, "telegram", "messages")
     has_linkedin = _has_table(conn, "linkedin", "connections")
     has_twitter = _has_table(conn, "twitter", "tweets")
+    has_sleep = _has_table(conn, "sleep", "sessions")
+    has_miband = _has_table(conn, "miband", "heart_rate")
     sp_bounds = sp_data_bounds(conn) if has_spotify else None
     tg_bounds = tg_data_bounds(conn) if has_telegram else None
     li_bounds = li_data_bounds(conn) if has_linkedin else None
     tw_bounds = tw_data_bounds(conn) if has_twitter else None
+    sl_bounds = sl_data_bounds(conn) if has_sleep else None
+    mb_hr_bounds = mb_hr_data_bounds(conn) if has_miband else None
     mb_ready = has_mb_data(conn) if has_spotify else False
     tg_dow = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
+    iso_dow = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
     return (
         PEOPLE_CHAT_TYPES,
         artist_hours_vs_skip,
@@ -168,18 +179,24 @@ def _():
         forgotten_chats,
         genre_treemap,
         has_linkedin,
+        has_miband,
+        has_sleep,
         has_spotify,
         has_telegram,
         has_twitter,
         hours_by_country,
         hours_by_kind,
         hours_by_platform,
+        iso_dow,
         kind_platform_sunburst,
         li_bounds,
         make_linkedin_controls,
+        make_miband_controls,
+        make_sleep_controls,
         make_spotify_controls,
         make_telegram_controls,
         make_twitter_controls,
+        mb_hr_bounds,
         mb_ready,
         me_vs_them,
         media_mix,
@@ -192,11 +209,14 @@ def _():
         px,
         reaction_mix,
         render_linkedin_panel,
+        render_miband_panel,
+        render_sleep_panel,
         render_spotify_panel,
         render_telegram_panel,
         render_twitter_panel,
         shuffle_intent,
         skip_trends,
+        sl_bounds,
         sp_bounds,
         sp_calendar_daily,
         sp_circadian_heatmap,
@@ -247,7 +267,21 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _(has_linkedin, has_spotify, has_telegram, has_twitter, li_bounds, mo, sp_bounds, tg_bounds, tw_bounds):
+def _(
+    has_linkedin,
+    has_miband,
+    has_sleep,
+    has_spotify,
+    has_telegram,
+    has_twitter,
+    li_bounds,
+    mb_hr_bounds,
+    mo,
+    sl_bounds,
+    sp_bounds,
+    tg_bounds,
+    tw_bounds,
+):
     default_tab = (
         "Spotify"
         if has_spotify
@@ -255,6 +289,10 @@ def _(has_linkedin, has_spotify, has_telegram, has_twitter, li_bounds, mo, sp_bo
         if has_telegram
         else "Twitter"
         if has_twitter
+        else "Sleep"
+        if has_sleep
+        else "Mi Band"
+        if has_miband
         else "LinkedIn"
     )
     sp_caption = (
@@ -277,12 +315,24 @@ def _(has_linkedin, has_spotify, has_telegram, has_twitter, li_bounds, mo, sp_bo
         if tw_bounds
         else "Not ingested"
     )
+    sl_caption = (
+        f"{sl_bounds['first_day']} → {sl_bounds['last_day']}"
+        if sl_bounds
+        else "Not ingested"
+    )
+    mb_caption = (
+        f"{mb_hr_bounds['first_day']} → {mb_hr_bounds['last_day']}"
+        if mb_hr_bounds
+        else "Not ingested"
+    )
     source = mo.ui.tabs(
         {
             "Spotify": mo.md(f"_{sp_caption}_"),
             "Telegram": mo.md(f"_{tg_caption}_"),
             "LinkedIn": mo.md(f"_{li_caption}_"),
             "Twitter": mo.md(f"_{tw_caption}_"),
+            "Sleep": mo.md(f"_{sl_caption}_"),
+            "Mi Band": mo.md(f"_{mb_caption}_"),
         },
         value=default_tab,
     )
@@ -318,6 +368,19 @@ def _(has_twitter, make_twitter_controls, mo, tw_bounds):
     )
     return (tw_controls,)
 
+
+@app.cell(hide_code=True)
+def _(has_sleep, make_sleep_controls, mo, sl_bounds):
+    sl_controls = make_sleep_controls(mo, sl_bounds) if has_sleep and sl_bounds else None
+    return (sl_controls,)
+
+
+@app.cell(hide_code=True)
+def _(has_miband, make_miband_controls, mb_hr_bounds, mo):
+    mb_hr_controls = (
+        make_miband_controls(mo, mb_hr_bounds) if has_miband and mb_hr_bounds else None
+    )
+    return (mb_hr_controls,)
 
 @app.cell(hide_code=True)
 def _(
@@ -581,6 +644,68 @@ def _(
         narrative_context=tw_narrative_context,
         narrate=narrate,
         has_table=tw_has_table,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    conn,
+    has_sleep,
+    iso_dow,
+    mo,
+    px,
+    render_sleep_panel,
+    sl_bounds,
+    sl_controls,
+    source,
+):
+    mo.stop(source.value != "Sleep", output=None)
+    if not has_sleep or sl_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `sleep.sessions` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Documents/data_dumps_raw/sleep_as_android/sleep-export.zip`"
+            ),
+        )
+    render_sleep_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=sl_bounds,
+        controls=sl_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    conn,
+    has_miband,
+    iso_dow,
+    mb_hr_bounds,
+    mb_hr_controls,
+    mo,
+    px,
+    render_miband_panel,
+    source,
+):
+    mo.stop(source.value != "Mi Band", output=None)
+    if not has_miband or mb_hr_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `miband.heart_rate` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Documents/data_dumps_raw/miband_hr/heart_rate.csv`"
+            ),
+        )
+    render_miband_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=mb_hr_bounds,
+        controls=mb_hr_controls,
+        dow_labels=iso_dow,
     )
 
 

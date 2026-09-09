@@ -112,6 +112,32 @@ docker compose up app
 - Media stays in the inbox archive; warehouse stores kinds/paths only
 - Explorer: Twitter tab (Wrapped-depth scoreboard, streaks, rankings, behavior, forgotten/comebacks, longitudinal + expanded charts)
 
+## Sleep as Android
+
+Merged session export (canonical `sleep-export.zip`). Stop the dashboard first.
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/sleep_as_android/sleep-export.zip
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+```
+
+- Tables: `sleep.sessions`, `sleep.events`, `sleep.actigraphy`
+- Explorer: Sleep tab (scoreboard, streaks, hours over time, bedtime/wake, weekday, calendar, stage events, tags, actigraphy sample)
+- Re-export from the app into the same zip layout for future ingests
+- Originals archived at `sleep_as_android/originals.zip`
+
+## Mi Band heart rate
+
+One-off Mi Fit CSV (`dateTime,rate,rateZone`). No multi-format pipeline.
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/miband_hr/heart_rate.csv
+```
+
+- Table: `miband.heart_rate`
+- Explorer: Mi Band tab (scoreboard, daily avg, hour-of-day, weekday×hour heatmap, zones)
+- Originals archived at `miband_hr/originals.zip`
+
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.
@@ -157,11 +183,15 @@ spotify/              # Extended History ZIP + Account Data ZIP
 telegram/             # Desktop export folder (result.json + media)
 linkedin/             # Complete (and optional Basic) GDPR ZIP
 twitter/              # YTD HTML-viewer archive folder (data/*.js + media)
+sleep_as_android/     # sleep-export.zip + originals.zip
+miband_hr/            # heart_rate.csv + originals.zip
 raw/spotify/          # extracted Streaming_History JSON
 raw/spotify_account/  # Account Data JSON (library/playlists/searches only)
 raw/telegram/         # result.json copy only (not media)
 raw/linkedin/         # ingested CSVs (PII files never copied)
-raw/twitter/            # ingested YTD JS keep-list (PII/ad files never copied)
+raw/twitter/          # ingested YTD JS keep-list (PII/ad files never copied)
+raw/sleep/            # extracted sleep-export.csv (+ sidecars)
+raw/miband/           # heart_rate.csv copy
 warehouse/            # DuckDB catalog + llm_cache
 ```
 

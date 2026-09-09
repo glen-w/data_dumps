@@ -58,6 +58,24 @@ Does **not** replace Extended History `spotify.plays`.
 
 Classic `window.YTD.*.part0` JS exports are supported; newer X dumps may need schema updates.
 
+### Ingest Sleep as Android
+
+Canonical package: `sleep-export.zip` (`sleep-export.csv` + optional `prefs.xml` / `noise.json` / `alarms.json`).
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest ~/Documents/data_dumps_raw/sleep_as_android/sleep-export.zip`
+3. Start the dashboard again (Sleep tab)
+
+Tables: `sleep.sessions`, `sleep.events`, `sleep.actigraphy`. Future app re-exports use the same zip layout.
+
+### Ingest Mi Band heart rate (one-off)
+
+Merged CSV with `dateTime,rate,rateZone`.
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest ~/Documents/data_dumps_raw/miband_hr/heart_rate.csv`
+3. Start the dashboard again (Mi Band tab)
+
 ### MusicBrainz enrichment (genres / decades)
 
 `--artist-limit` and `--track-limit` default to **`0` (no cap)**. The CLI assumes you want the **full dataset** — every artist/track above the min lifetime hours — not a sample. MusicBrainz has no free-tier count quota; the only API constraint is **~1 request/second** per IP.
@@ -92,6 +110,8 @@ docker compose run --rm --entrypoint ingest app /data/spotify/my_spotify_account
 docker compose run --rm --entrypoint ingest app /data/telegram/Telegram_Export_2026-09-03
 docker compose run --rm --entrypoint ingest app /data/linkedin/Complete_LinkedInDataExport_09-06-2026.zip.zip
 docker compose run --rm --entrypoint ingest app /data/twitter/twitter-archive-2023-07-20
+docker compose run --rm --entrypoint ingest app /data/sleep_as_android/sleep-export.zip
+docker compose run --rm --entrypoint ingest app /data/miband_hr/heart_rate.csv
 docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run
 docker compose up app
 ```
