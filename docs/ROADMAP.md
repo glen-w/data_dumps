@@ -38,16 +38,33 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Explorer Twitter tab (Spotify-depth Wrapped charts)
 - **Note:** newer X exports may differ; v1 targets YTD assignment format
 
+### Slack workspace
+
+- Export zip streamed → `slack.users|channels|channel_members|messages|reactions|mentions|files`
+- Emails/phones/avatars dropped; names + text kept; mentions resolved to `@Name`
+- Explorer Slack tab (workspace activity, channels, people, threads/latency, reactions, mentions, rhythm, bots) + Person spotlight (one user vs team, collaborators)
+- Loader/user-mapping/text-cleaning ported from the standalone `slack analysis` project; its sick-days/sentiment NLP stack was deliberately not ported
+- **Later:** canvases.json, lists.json, integration_logs.json, huddle transcripts are skipped today
+
 ### Sleep as Android
 
-- Merged `sleep-export.zip` → `sleep.sessions|events|actigraphy`
+- Merged `sleep-export.zip` → `sleep.sessions|events|actigraphy|alarms` (`alarms.json` sidecar parsed when present)
 - Explorer Sleep tab (scoreboard, streaks, longitudinal, circadian, calendar, events/stages, actigraphy sample)
+- Standalone `notebooks/sleep.py`
 - Future re-exports: same zip layout as the Android app
 
 ### Mi Band heart rate (one-off)
 
 - Merged `heart_rate.csv` → `miband.heart_rate`
 - Explorer Mi Band tab (simple scoreboard, daily avg, heatmaps, zones)
+
+### Dashboard upgrades from the open-source landscape
+
+Query + chart + panel additions only (no new deps, no ingest restructuring). References: sleep_android_viz, Encore, Spotify-Unwrapped, TelAnalysis, ConvoMetrics.
+
+- **Sleep:** compare-vs-previous scoreboard, regularity KPIs (bedtime/wake stddev, social jet lag, ≥7 h %), weekday × bedtime heatmap, monthly snore/noise, N-night actigraphy small multiples, Mi Band HR overlay + nightly avg HR vs hours, alarm-vs-wake histogram, late-evening Spotify × sleep (scatter + buckets)
+- **Spotify:** milestones table, offline vs online, album depth score, longest listening sessions (30-min gap), top-artist rank movement vs previous window, artist monthly timeline (locked artist or top 3), "searched but barely played" (Account Data)
+- **Telegram:** text KPIs, top words (en/it/es stopwords), emoji-in-text, message length you vs them, per-sender breakdown, reply Sankey (topic service parents excluded), aggregate-only "Narrate this view" (`telegram_queries.narrative_context`, never message text)
 
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 
@@ -101,8 +118,9 @@ Four phases, shippable independently after A:
 |-----|------|
 | [README.md](../README.md) | Setup, Docker, privacy |
 | [WAREHOUSE.md](WAREHOUSE.md) | **Single-writer lock** — UI vs ingest vs enrich |
-| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn / Twitter / Sleep / Mi Band) |
+| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn / Twitter / Slack / Sleep / Mi Band) |
 | [../notebooks/spotify.py](../notebooks/spotify.py) | Spotify-only notebook |
 | [../notebooks/telegram.py](../notebooks/telegram.py) | Telegram-only notebook |
+| [../notebooks/sleep.py](../notebooks/sleep.py) | Sleep-only notebook (thin wrapper over `render_sleep_panel`) |
 | [../notebooks/linkedin.py](../notebooks/linkedin.py) | LinkedIn-only notebook |
 | [../notebooks/twitter.py](../notebooks/twitter.py) | Twitter-only notebook |

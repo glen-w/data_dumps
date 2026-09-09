@@ -12,6 +12,7 @@ from data_dumps.paths import raw_dir
 from data_dumps.sources.base import Source
 from data_dumps.sources.telegram import (
     TelegramSource,
+    flatten_text,
     media_kind_of,
     media_relpath_of,
     parse_duration_sec,
@@ -46,6 +47,21 @@ def test_parse_duration():
     assert parse_duration_sec("1:02") == 62
     assert parse_duration_sec("1:02:03") == 3723
     assert parse_duration_sec(None) is None
+
+
+def test_flatten_text_handles_entity_lists():
+    assert flatten_text(None) is None
+    assert flatten_text("plain") == "plain"
+    assert flatten_text("") == ""
+    mixed = [
+        "see ",
+        {"type": "link", "text": "https://example.org"},
+        " and ",
+        {"type": "bold", "text": "this"},
+        {"type": "custom_emoji", "document_id": "1"},  # no text key -> skipped
+    ]
+    assert flatten_text(mixed) == "see https://example.org and this"
+    assert flatten_text(42) == "42"
 
 
 def test_media_kind_photo_beats_file():

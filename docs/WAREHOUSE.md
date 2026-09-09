@@ -58,6 +58,28 @@ Does **not** replace Extended History `spotify.plays`.
 
 Classic `window.YTD.*.part0` JS exports are supported; newer X dumps may need schema updates.
 
+### Ingest Slack
+
+Workspace export zip (or extracted folder) with `users.json`, `channels.json` and `<channel>/<YYYY-MM-DD>.json`.
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest "~/Documents/data_dumps_raw/slack/REN21 Slack export May 13 2018 - Sep 26 2025.zip"`
+3. Start the dashboard again (Slack tab)
+
+Tables and grains:
+
+| Table | Grain | Notes |
+|-------|-------|-------|
+| `slack.users` | user_id | no email / phone / avatar |
+| `slack.channels` | channel_id | `kind` = `channel` or `file_conversation`; first/last ts and n_messages filled after load |
+| `slack.channel_members` | (channel_id, user_id) | from `channels[].members` |
+| `slack.messages` | (channel_id, ts) | all subtypes; `is_bot`, `is_reply`, `is_thread_root`, `parent_user_id`, resolved `text`, Paris local time |
+| `slack.reactions` | (channel_id, ts, emoji, user_id) | one row per reacting user |
+| `slack.mentions` | (channel_id, ts, mentioned_user_id) | from `<@U…>` in text |
+| `slack.files` | (channel_id, ts, file_id) | metadata only |
+
+Full REN21 export (~34k daily files, 1 GB uncompressed) loads in under 10 s; nothing is extracted to disk except the two root JSONs.
+
 ### Ingest Sleep as Android
 
 Canonical package: `sleep-export.zip` (`sleep-export.csv` + optional `prefs.xml` / `noise.json` / `alarms.json`).
@@ -66,7 +88,7 @@ Canonical package: `sleep-export.zip` (`sleep-export.csv` + optional `prefs.xml`
 2. `uv run ingest ~/Documents/data_dumps_raw/sleep_as_android/sleep-export.zip`
 3. Start the dashboard again (Sleep tab)
 
-Tables: `sleep.sessions`, `sleep.events`, `sleep.actigraphy`. Future app re-exports use the same zip layout.
+Tables: `sleep.sessions`, `sleep.events`, `sleep.actigraphy`, `sleep.alarms` (from the `alarms.json` sidecar; empty when absent). Future app re-exports use the same zip layout.
 
 ### Ingest Mi Band heart rate (one-off)
 
@@ -110,6 +132,7 @@ docker compose run --rm --entrypoint ingest app /data/spotify/my_spotify_account
 docker compose run --rm --entrypoint ingest app /data/telegram/Telegram_Export_2026-09-03
 docker compose run --rm --entrypoint ingest app /data/linkedin/Complete_LinkedInDataExport_09-06-2026.zip.zip
 docker compose run --rm --entrypoint ingest app /data/twitter/twitter-archive-2023-07-20
+docker compose run --rm --entrypoint ingest app "/data/slack/REN21 Slack export May 13 2018 - Sep 26 2025.zip"
 docker compose run --rm --entrypoint ingest app /data/sleep_as_android/sleep-export.zip
 docker compose run --rm --entrypoint ingest app /data/miband_hr/heart_rate.csv
 docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run

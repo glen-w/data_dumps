@@ -19,17 +19,29 @@ from typing import Any
 
 import duckdb
 import pandas as pd
+import plotly.graph_objects as go
 
 from data_dumps import linkedin_queries as liq
 from data_dumps import miband_queries as mbq
+from data_dumps import slack_queries as skq
 from data_dumps import sleep_queries as slq
+from data_dumps import telegram_queries as tgq
+from data_dumps.llm_client import TELEGRAM_SYSTEM
+from data_dumps.llm_client import narrate as llm_narrate
 from data_dumps.spotify_queries import (
+    album_depth,
+    artist_monthly_timeline,
+    artist_rank_movement,
     has_account_data,
     library_counts,
     library_never_played,
     library_overlap,
+    listening_sessions,
+    milestones,
+    offline_vs_online,
     playlist_sizes,
     search_volume,
+    searched_but_rarely_played,
     top_searches,
 )
 
@@ -73,6 +85,7 @@ class TelegramControls:
     clear_types: Any
     clear_chat: Any
     clear_media: Any
+    narrate_btn: Any
     get_chat_name: Any
     set_chat_name: Any
     get_types_override: Any
@@ -93,12 +106,30 @@ class SleepControls:
     year_end: Any
     tag_select: Any
     min_rating: Any
+    compare: Any
+    act_nights: Any
 
 
 @dataclass
 class MiBandControls:
     year_start: Any
     year_end: Any
+
+
+@dataclass
+class SlackControls:
+    year_start: Any
+    year_end: Any
+    channel_select: Any
+    people_select: Any
+    person_select: Any
+    include_bots: Any
+    include_system: Any
+    active_only: Any
+    compare: Any
+    clear_person: Any
+    get_person: Any
+    set_person: Any
 
 
 @dataclass
@@ -208,6 +239,7 @@ def make_telegram_controls(mo: Any, bounds: dict[str, Any]) -> TelegramControls:
         clear_types=mo.ui.run_button(label="Clear types"),
         clear_chat=mo.ui.run_button(label="Clear chat lock"),
         clear_media=mo.ui.run_button(label="Clear media"),
+        narrate_btn=mo.ui.run_button(label="Narrate this view"),
         get_chat_name=get_chat_name,
         set_chat_name=set_chat_name,
         get_types_override=get_types_override,
@@ -263,6 +295,15 @@ def make_sleep_controls(mo: Any, bounds: dict[str, Any]) -> SleepControls:
             label="Min rating",
             show_value=True,
         ),
+        compare=mo.ui.checkbox(label="Compare vs previous equal window", value=False),
+        act_nights=mo.ui.slider(
+            start=1,
+            stop=10,
+            step=1,
+            value=5,
+            label="Actigraphy nights",
+            show_value=True,
+        ),
     )
 
 
@@ -282,6 +323,57 @@ def make_miband_controls(mo: Any, bounds: dict[str, Any]) -> MiBandControls:
             label="To year",
             show_value=True,
         ),
+    )
+
+
+def make_slack_controls(mo: Any, bounds: dict[str, Any]) -> SlackControls:
+    get_person, set_person = mo.state(None)
+    channel_options = {
+        f"{ch['name']}{' (archived)' if ch['is_archived'] else ''}"
+        f"{' [file]' if ch['kind'] == 'file_conversation' else ''}"
+        f" · {ch['messages']:,}": ch["channel_id"]
+        for ch in bounds.get("channels") or []
+    }
+    people_options = {
+        f"{p['name']} (@{p['handle']}){' †' if p['deleted'] else ''}"
+        f" · {p['messages']:,}": p["user_id"]
+        for p in bounds.get("people") or []
+    }
+    return SlackControls(
+        year_start=mo.ui.slider(
+            start=bounds["min_year"],
+            stop=bounds["max_year"],
+            value=bounds["min_year"],
+            label="From year",
+            show_value=True,
+        ),
+        year_end=mo.ui.slider(
+            start=bounds["min_year"],
+            stop=bounds["max_year"],
+            value=bounds["max_year"],
+            label="To year",
+            show_value=True,
+        ),
+        channel_select=mo.ui.multiselect(
+            options=channel_options, value=[], label="Channels"
+        ),
+        people_select=mo.ui.multiselect(
+            options=people_options, value=[], label="People (filter everything)"
+        ),
+        person_select=mo.ui.dropdown(
+            options=people_options,
+            value=None,
+            allow_select_none=True,
+            label="Person spotlight",
+            searchable=True,
+        ),
+        include_bots=mo.ui.checkbox(label="Show bots", value=False),
+        include_system=mo.ui.checkbox(label="Show system events", value=False),
+        active_only=mo.ui.checkbox(label="Active channels only", value=False),
+        compare=mo.ui.checkbox(label="Compare vs previous equal window", value=False),
+        clear_person=mo.ui.run_button(label="Clear spotlight"),
+        get_person=get_person,
+        set_person=set_person,
     )
 
 
@@ -433,6 +525,65 @@ def render_spotify_panel(
 
     score_df = scoreboard(conn, filters, compare_previous=c.compare.value)
     streak_df = streak_stats(conn, filters)
+    milestones_df = milestones(conn, filters)
+    offline_df = offline_vs_online(conn, filters)
+    depth_df = album_depth(conn, filters, limit=15)
+    sessions_df = listening_sessions(conn, filters, limit=15)
+    movement_df = artist_rank_movement(conn, filters, limit=15)
+    timeline_df = artist_monthly_timeline(conn, filters)
+
+    fig_offline = (
+        px.pie(
+            offline_df,
+            names="mode",
+            values="hours",
+            title="Hours offline vs online",
+        )
+        if not offline_df.empty
+        else px.pie(title="No offline/online data")
+    )
+    fig_depth = (
+        px.bar(
+            depth_df,
+            x="depth_score",
+            y="album_name",
+            orientation="h",
+            color="unique_tracks",
+            hover_data=["artist_name", "plays", "plays_per_track", "top_track"],
+            title="Album depth (distinct tracks × log revisit rate)",
+        )
+        if not depth_df.empty
+        else px.bar(title="No albums with ≥10 plays in this filter")
+    )
+    if not depth_df.empty:
+        fig_depth.update_yaxes(autorange="reversed")
+    if movement_df.empty:
+        note = movement_df.attrs.get("compare_note") or "no artists in window"
+        fig_movement = px.bar(title=f"Rank movement: {note}")
+    else:
+        fig_movement = px.bar(
+            movement_df,
+            x="rank_delta",
+            y="artist_name",
+            orientation="h",
+            color="status",
+            hover_data=["hours", "rank", "prev_rank", "prev_hours"],
+            title="Top artists — rank change vs previous equal window",
+        )
+        fig_movement.update_yaxes(autorange="reversed")
+        fig_movement.update_layout(xaxis_title="Places climbed (+) / dropped (−)")
+    if timeline_df.empty:
+        fig_timeline = px.line(title="No artist timeline")
+    else:
+        fig_timeline = px.line(
+            timeline_df,
+            x="year_month",
+            y="hours",
+            color="artist_name",
+            markers=True,
+            title="Monthly hours — locked artist or current top 3",
+        )
+        fig_timeline.update_layout(xaxis_tickangle=-45)
 
     artists_df = top_artists(conn, filters, limit=15)
     tracks_df = top_tracks(conn, filters, limit=15)
@@ -643,6 +794,7 @@ def render_spotify_panel(
         playlists_df = playlist_sizes(conn, limit=20)
         search_df = search_volume(conn)
         top_q = top_searches(conn, limit=15)
+        rarely_df = searched_but_rarely_played(conn, limit=15)
         fig_lib = (
             px.bar(
                 lib_counts,
@@ -710,6 +862,15 @@ def render_spotify_panel(
                     ],
                     gap=1,
                 ),
+                mo.vstack(
+                    [
+                        mo.md(
+                            "**Searched for, barely played** — queries matching an "
+                            "artist/track name with ≤3 plays in Extended History"
+                        ),
+                        mo.ui.table(rarely_df),
+                    ]
+                ),
             ],
             gap=0.5,
         )
@@ -766,6 +927,10 @@ def render_spotify_panel(
             mo.md("### Scoreboard"),
             mo.ui.table(score_df),
             mo.ui.table(streak_df),
+            mo.md("**Milestones**"),
+            mo.ui.table(milestones_df),
+            mo.md("### Rank movement · artist timeline"),
+            mo.vstack([mo.ui.plotly(fig_movement), mo.ui.plotly(fig_timeline)], gap=1),
             mo.md("### Rankings"),
             mo.vstack(
                 [
@@ -837,6 +1002,12 @@ def render_spotify_panel(
                 ],
                 gap=1,
             ),
+            mo.md("### Album depth · Offline · Longest sessions"),
+            mo.vstack([mo.ui.plotly(fig_depth), mo.ui.plotly(fig_offline)], gap=1),
+            mo.md(
+                "**Longest listening sessions** (new session after a 30-minute gap)"
+            ),
+            mo.ui.table(sessions_df),
             mo.md("### Forgotten · Comebacks"),
             mo.vstack(
                 [
@@ -1115,6 +1286,104 @@ def render_telegram_panel(
     )
     fig_calls.update_layout(xaxis_title="Year", yaxis_title="Calls")
 
+    # --- Text analytics -------------------------------------------------------
+    text_df = tgq.text_stats(conn, filters)
+    words_df = tgq.top_words(conn, filters, limit=30)
+    emoji_df = tgq.emoji_in_text(conn, filters, limit=15)
+    length_df = tgq.message_length_buckets(conn, filters)
+    fig_words = (
+        px.bar(
+            words_df.head(25).iloc[::-1],
+            x="uses",
+            y="word",
+            orientation="h",
+            title="Top words (stopwords removed)",
+        )
+        if not words_df.empty
+        else px.bar(title="No text in this filter")
+    )
+    fig_words.update_layout(xaxis_title="Uses", yaxis_title="Word")
+    fig_emoji = (
+        px.bar(
+            emoji_df.iloc[::-1],
+            x="uses",
+            y="emoji",
+            orientation="h",
+            title="Emoji inside messages",
+        )
+        if not emoji_df.empty
+        else px.bar(title="No emoji in text")
+    )
+    fig_emoji.update_layout(xaxis_title="Uses", yaxis_title="Emoji")
+    fig_length = (
+        px.bar(
+            length_df,
+            x="bucket",
+            y="messages",
+            color="who",
+            barmode="group",
+            title="Message length (characters): you vs others",
+        )
+        if not length_df.empty
+        else px.bar(title="No text messages")
+    )
+    fig_length.update_layout(xaxis_title="Characters", yaxis_title="Messages")
+
+    # --- Per-sender + reply network (most useful with one chat locked) --------
+    senders_df = tgq.per_sender_breakdown(conn, filters, limit=20)
+    edges_df = tgq.reply_edges(conn, filters, limit=40)
+    locked = c.get_chat_name()
+    people_title = f"Who talks in “{locked}”" if locked else "Who talks (all chats in filter)"
+    fig_senders = (
+        px.bar(
+            senders_df.head(15).iloc[::-1],
+            x="messages",
+            y="sender",
+            orientation="h",
+            color="is_me",
+            hover_data=["share_pct", "with_media", "replies", "avg_chars"],
+            title=people_title,
+        )
+        if not senders_df.empty
+        else px.bar(title="No senders in this filter")
+    )
+    fig_senders.update_layout(xaxis_title="Messages", yaxis_title="Sender")
+    if edges_df.empty:
+        fig_sankey = px.bar(title="No reply chains in this filter")
+    else:
+        sources = edges_df["source"].astype(str)
+        targets = edges_df["target"].astype(str)
+        nodes = list(dict.fromkeys([*sources.tolist(), *targets.tolist()]))
+        idx = {n: i for i, n in enumerate(nodes)}
+        # Sankey needs a left and a right column; suffix targets so self-replies
+        # and mutual replies do not form cycles.
+        right = {n: len(nodes) + i for i, n in enumerate(nodes)}
+        fig_sankey = go.Figure(
+            go.Sankey(
+                node={"label": nodes + [f"→ {n}" for n in nodes], "pad": 12},
+                link={
+                    "source": [idx[s] for s in sources],
+                    "target": [right[t] for t in targets],
+                    "value": edges_df["replies"].tolist(),
+                },
+            )
+        )
+        fig_sankey.update_layout(
+            title="Who replies to whom (replier → replied-to)",
+            height=max(360, 22 * len(nodes)),
+        )
+
+    # --- Narrative (aggregates only) ------------------------------------------
+    narrative_out = mo.md(
+        "_Click **Narrate this view** to generate prose (counts and chat names only; "
+        "no message text is sent)._"
+    )
+    if c.narrate_btn.value:
+        ctx = tgq.narrative_context(conn, filters)
+        text, cached = llm_narrate(ctx, system=TELEGRAM_SYSTEM)
+        suffix = " _(cached)_" if cached else ""
+        narrative_out = mo.md(f"### Narrative{suffix}\n\n{text}")
+
     return mo.vstack(
         [
             mo.md(
@@ -1128,7 +1397,14 @@ def render_telegram_panel(
                 [c.chat_type, c.event_select, c.media_select], justify="start", gap=1
             ),
             mo.hstack(
-                [c.compare, c.people_btn, c.clear_types, c.clear_chat, c.clear_media],
+                [
+                    c.compare,
+                    c.people_btn,
+                    c.clear_types,
+                    c.clear_chat,
+                    c.clear_media,
+                    c.narrate_btn,
+                ],
                 gap=1,
             ),
             chip_row,
@@ -1165,6 +1441,16 @@ def render_telegram_panel(
             mo.vstack(
                 [media_plot, mo.ui.plotly(fig_react), mo.ui.plotly(fig_calls)], gap=1
             ),
+            mo.md("### Text — words, emoji, length"),
+            mo.ui.table(text_df),
+            mo.vstack(
+                [mo.ui.plotly(fig_words), mo.ui.plotly(fig_emoji), mo.ui.plotly(fig_length)],
+                gap=1,
+            ),
+            mo.md("### People — lock a group chat to see who talks and who replies to whom"),
+            mo.vstack([mo.ui.plotly(fig_senders), mo.ui.table(senders_df)], gap=1),
+            mo.ui.plotly(fig_sankey),
+            narrative_out,
         ],
         gap=0.5,
     )
@@ -1805,19 +2091,59 @@ def render_sleep_panel(
         else mo.md("_Full date range_")
     )
 
-    score_df = slq.scoreboard(conn, filters)
+    score_df = slq.scoreboard(conn, filters, compare_previous=bool(controls.compare.value))
     streak_df = slq.streak_stats(conn, filters)
+    regular_df = slq.regularity_stats(conn, filters)
     monthly_df = slq.monthly_hours(conn, filters)
     hours_df = slq.hours_over_time(conn, filters)
+    snore_df = slq.snore_noise_monthly(conn, filters)
     bed_df = slq.bedtime_distribution(conn, filters)
     wake_df = slq.wake_distribution(conn, filters)
     weekday_df = slq.weekday_hours(conn, filters)
+    circ_df = slq.circadian_heatmap(conn, filters)
     cal_df = slq.calendar_daily(conn, filters)
     events_df = slq.event_type_counts(conn, filters)
     stages_df = slq.stage_event_mix(conn, filters)
     tags_df = slq.tag_breakdown(conn, filters)
     best_df, worst_df = slq.best_worst_nights(conn, filters)
-    act_df = slq.sample_actigraphy(conn, filters)
+    n_act = int(controls.act_nights.value or 1)
+    act_df = slq.sample_actigraphy(conn, filters, limit_sessions=n_act)
+    hr_df = slq.session_heart_rate(conn, filters, limit_sessions=n_act)
+    nightly_hr_df = slq.nightly_heart_rate(conn, filters)
+    alarm_df = slq.alarm_vs_wake(conn, filters)
+    alarm_cfg_df = slq.alarm_summary(conn)
+    late_df = slq.late_night_spotify_vs_sleep(conn, filters)
+    late_bucket_df = slq.late_night_spotify_buckets(conn, filters)
+
+    if snore_df.empty:
+        fig_snore = px.line(title="No snore / noise data")
+    else:
+        fig_snore = px.line(
+            snore_df,
+            x="month",
+            y=["avg_snore", "snore_nights_pct"],
+            title="Monthly snore (avg) and % nights with snoring",
+            labels={"value": "value", "variable": "metric"},
+        )
+    fig_noise = (
+        px.line(snore_df, x="month", y="avg_noise", title="Monthly average noise")
+        if not snore_df.empty
+        else px.line(title="No noise data")
+    )
+    if circ_df.empty:
+        fig_circ = px.density_heatmap(title="No bedtime heatmap")
+    else:
+        circ = circ_df.copy()
+        circ["dow_label"] = circ["dow"].map(dow_labels)
+        fig_circ = px.density_heatmap(
+            circ,
+            x="hour",
+            y="dow_label",
+            z="nights",
+            title="Nights by weekday × bedtime hour",
+            color_continuous_scale="Viridis",
+        )
+        fig_circ.update_layout(xaxis_title="Bedtime hour", yaxis_title="Weekday")
 
     fig_month = (
         px.line(
@@ -1909,16 +2235,131 @@ def render_sleep_panel(
         else px.bar(title="No tags")
     )
     if act_df.empty:
-        fig_act = px.line(title="No actigraphy for latest night")
+        fig_act = px.line(title="No actigraphy for the selected nights")
     else:
+        act = act_df.copy()
+        act["day"] = act["day"].astype(str)
         fig_act = px.line(
-            act_df,
+            act,
             x="bucket_label",
             y="value",
-            color="day",
-            title="Actigraphy (latest night in range)",
+            facet_row="day",
+            title=f"Actigraphy — latest {act['day'].nunique()} night(s) in range",
         )
-        fig_act.update_layout(xaxis_title="Time bucket", yaxis_title="Intensity")
+        fig_act.update_layout(
+            xaxis_title="Time bucket",
+            height=max(320, 180 * act["day"].nunique()),
+        )
+        fig_act.update_yaxes(matches=None, title="Intensity")
+        fig_act.for_each_annotation(
+            lambda a: a.update(text=a.text.split("=")[-1])
+        )
+
+    # Mi Band HR overlay: same nights, minutes since bedtime.
+    if slq.has_miband_hr(conn):
+        if hr_df.empty:
+            fig_hr = px.line(title="No Mi Band readings inside the selected nights")
+        else:
+            hr = hr_df.copy()
+            hr["day"] = hr["day"].astype(str)
+            fig_hr = px.line(
+                hr,
+                x="minutes_in",
+                y="rate",
+                color="day",
+                title="Heart rate during the same nights (Mi Band)",
+            )
+            fig_hr.update_layout(
+                xaxis_title="Minutes since bedtime", yaxis_title="bpm"
+            )
+        if nightly_hr_df.empty:
+            fig_night_hr = px.scatter(title="No nights with ≥5 HR readings")
+        else:
+            fig_night_hr = px.scatter(
+                nightly_hr_df,
+                x="avg_bpm",
+                y="hours",
+                color="rating",
+                hover_data=["day", "min_bpm", "readings"],
+                title="Nightly avg HR vs hours slept",
+            )
+            fig_night_hr.update_layout(xaxis_title="Avg bpm", yaxis_title="Hours")
+        hr_block = mo.vstack(
+            [
+                mo.md("### Heart rate overlay (Mi Band)"),
+                mo.vstack([mo.ui.plotly(fig_hr), mo.ui.plotly(fig_night_hr)], gap=1),
+            ],
+            gap=0.5,
+        )
+    else:
+        hr_block = mo.md(
+            "_HR overlay needs `miband.heart_rate`. Stop this notebook, then: "
+            "`uv run ingest ~/Documents/data_dumps_raw/miband_hr/heart_rate.csv`_"
+        )
+
+    # Alarms: scheduled vs actual wake.
+    if alarm_df.empty:
+        fig_alarm = px.histogram(title="No scheduled-alarm nights in range")
+    else:
+        fig_alarm = px.histogram(
+            alarm_df,
+            x="wake_minus_alarm_min",
+            nbins=40,
+            title="Wake time minus alarm (minutes; negative = woke early)",
+        )
+        fig_alarm.update_layout(xaxis_title="Minutes", yaxis_title="Nights")
+    alarm_children: list[Any] = [
+        mo.md("### Alarms"),
+        mo.ui.plotly(fig_alarm),
+    ]
+    if not alarm_cfg_df.empty:
+        alarm_children.append(
+            mo.vstack(
+                [mo.md("**Configured alarms (alarms.json)**"), mo.ui.table(alarm_cfg_df)]
+            )
+        )
+    alarm_block = mo.vstack(alarm_children, gap=0.5)
+
+    # Cross-source: late-evening Spotify vs sleep quality.
+    if slq.has_spotify_plays(conn):
+        if late_df.empty:
+            fig_late = px.scatter(title="No overlapping Spotify / sleep nights")
+        else:
+            fig_late = px.scatter(
+                late_df,
+                x="late_spotify_hours",
+                y="hours",
+                color="rating",
+                hover_data=["day", "deep_hours"],
+                opacity=0.6,
+                title="Spotify after 22:00 (same evening) vs hours slept",
+            )
+            fig_late.update_layout(
+                xaxis_title="Late-evening listening (h)", yaxis_title="Hours slept"
+            )
+        if late_bucket_df.empty:
+            fig_late_bucket = px.bar(title="No late-listening buckets")
+        else:
+            fig_late_bucket = px.bar(
+                late_bucket_df,
+                x="bucket",
+                y="avg_rating",
+                hover_data=["nights", "avg_hours", "avg_deep_hours"],
+                title="Average sleep rating by late-evening listening",
+            )
+            fig_late_bucket.update_layout(xaxis_title="Listening after 22:00", yaxis_title="Avg rating")
+        late_block = mo.vstack(
+            [
+                mo.md("### Late-night Spotify × sleep"),
+                mo.vstack([mo.ui.plotly(fig_late), mo.ui.plotly(fig_late_bucket)], gap=1),
+                mo.ui.table(late_bucket_df),
+            ],
+            gap=0.5,
+        )
+    else:
+        late_block = mo.md(
+            "_Late-night listening chart needs `spotify.plays` in the same warehouse._"
+        )
 
     span = (
         f"{bounds['first_day']} → {bounds['last_day']}"
@@ -1941,20 +2382,28 @@ def render_sleep_panel(
                 justify="start",
                 gap=1,
             ),
+            mo.hstack([controls.compare, controls.act_nights], justify="start", gap=1),
             chip_row,
             mo.md("### Scoreboard"),
             mo.ui.table(score_df),
             mo.ui.table(streak_df),
+            mo.md(
+                "**Regularity** — bedtime/wake spread (stddev, hours) and social jet lag "
+                "(Fri/Sat nights minus weeknights)."
+            ),
+            mo.ui.table(regular_df),
             mo.md("### Longitudinal"),
             mo.vstack(
                 [mo.ui.plotly(fig_month), mo.ui.plotly(fig_rating), mo.ui.plotly(fig_hours)],
                 gap=1,
             ),
+            mo.vstack([mo.ui.plotly(fig_snore), mo.ui.plotly(fig_noise)], gap=1),
             mo.md("### Circadian"),
             mo.vstack(
                 [mo.ui.plotly(fig_bed), mo.ui.plotly(fig_wake), mo.ui.plotly(fig_dow)],
                 gap=1,
             ),
+            mo.ui.plotly(fig_circ),
             mo.md("### Calendar"),
             mo.ui.plotly(fig_cal),
             mo.md("### Events · stages · tags"),
@@ -1962,8 +2411,11 @@ def render_sleep_panel(
                 [mo.ui.plotly(fig_events), mo.ui.plotly(fig_stages), mo.ui.plotly(fig_tags)],
                 gap=1,
             ),
-            mo.md("### Actigraphy sample"),
+            mo.md("### Actigraphy"),
             mo.ui.plotly(fig_act),
+            hr_block,
+            alarm_block,
+            late_block,
             mo.md("### Best / shortest nights"),
             mo.vstack([mo.ui.table(best_df), mo.ui.table(worst_df)], gap=1),
         ],
@@ -2049,6 +2501,504 @@ def render_miband_panel(
             mo.vstack([mo.ui.plotly(fig_heat), mo.ui.plotly(fig_zone)], gap=1),
             mo.md("### Extremes"),
             mo.ui.table(ext_df),
+        ],
+        gap=0.5,
+    )
+
+
+def _slack_heatmap(
+    px: Any, df: pd.DataFrame, dow_labels: dict[int, str], **kw: Any
+) -> Any:
+    if df.empty:
+        return px.density_heatmap(title=kw.get("title", "No data"))
+    heat = df.copy()
+    heat["dow_label"] = heat["dow"].map(dow_labels)
+    z = kw.pop("z", "messages")
+    fig = px.density_heatmap(
+        heat,
+        x="hour",
+        y="dow_label",
+        z=z,
+        histfunc="sum",
+        color_continuous_scale="Blues",
+        category_orders={"dow_label": [dow_labels[i] for i in sorted(dow_labels)]},
+        **kw,
+    )
+    fig.update_layout(xaxis_title="Hour (Paris)", yaxis_title="")
+    return fig
+
+
+def _slack_calendar(px: Any, df: pd.DataFrame, title: str) -> Any:
+    if df.empty:
+        return px.density_heatmap(title=title)
+    cal = df.copy()
+    cal["day"] = pd.to_datetime(cal["day"])
+    iso = cal["day"].dt.isocalendar()
+    cal["year"] = iso["year"].astype(int)
+    cal["week"] = iso["week"].astype(int)
+    cal["dow"] = cal["day"].dt.dayofweek
+    fig = px.density_heatmap(
+        cal,
+        x="week",
+        y="dow",
+        z="messages",
+        facet_row="year",
+        histfunc="sum",
+        color_continuous_scale="Greens",
+        title=title,
+    )
+    fig.update_layout(height=max(320, 120 * cal["year"].nunique()))
+    fig.update_yaxes(matches=None, autorange="reversed", title="")
+    fig.update_xaxes(title="ISO week")
+    fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+    return fig
+
+
+def render_slack_panel(
+    *,
+    mo: Any,
+    px: Any,
+    conn: duckdb.DuckDBPyConnection,
+    bounds: dict[str, Any],
+    controls: SlackControls,
+    dow_labels: dict[int, str],
+) -> Any:
+    c = controls
+    if c.clear_person.value:
+        c.set_person(None)
+
+    filters = skq.filter_from_widgets(
+        bounds,
+        year_start=c.year_start.value,
+        year_end=c.year_end.value,
+        channel_ids=list(c.channel_select.value or []),
+        user_ids=list(c.people_select.value or []),
+        include_bots=bool(c.include_bots.value),
+        include_system=bool(c.include_system.value),
+        include_archived=not bool(c.active_only.value),
+    )
+    chips = filters.chip_labels()
+    chip_row = (
+        mo.hstack([mo.md(f"**{label}**") for _, label in chips], gap=0.5)
+        if chips
+        else mo.md("_Full date range · humans only_")
+    )
+    people_by_id = {p["user_id"]: p for p in bounds.get("people") or []}
+    name_to_id = {p["name"]: p["user_id"] for p in bounds.get("people") or []}
+
+    # ---------------------------------------------------------------- workspace
+    score_df = skq.scoreboard(conn, filters, compare_previous=bool(c.compare.value))
+    streak_df = skq.streak_stats(conn, filters)
+    kind_df = skq.monthly_messages_by_kind(conn, filters)
+    active_df = skq.active_people_monthly(conn, filters)
+    channels_df = skq.messages_by_channel(conn, filters, limit=25)
+    bump_ch_df = skq.bump_chart_channels(conn, filters, top_n=8)
+    lifecycle_df = skq.channel_lifecycle(conn, filters, limit=40)
+    births_df = skq.channels_created_archived_by_year(conn, filters)
+    forgotten_df = skq.forgotten_channels(conn, filters)
+    people_df = skq.top_people(conn, filters, limit=25)
+    bump_people_df = skq.bump_chart_people(conn, filters, top_n=8)
+    ratio_df = skq.people_reply_ratio(conn, filters, limit=20)
+    depth_df = skq.thread_depth_distribution(conn, filters)
+    latency_df = skq.reply_latency(conn, filters)
+    latency_ch_df = skq.reply_latency_by_channel(conn, filters)
+    threads_df = skq.busiest_threads(conn, filters)
+    react_df = skq.reaction_mix(conn, filters)
+    reacted_df = skq.most_reacted_messages(conn, filters)
+    reactors_df = skq.top_reactors(conn, filters)
+    mentioned_df = skq.top_mentioned(conn, filters)
+    pairs_df = skq.mention_pairs(conn, filters)
+    bots_df = skq.bots_by_name(conn, filters)
+    heat_df = skq.circadian_heatmap(conn, filters)
+    cal_df = skq.calendar_daily(conn, filters)
+
+    fig_kind = (
+        px.area(
+            kind_df,
+            x="year_month",
+            y="messages",
+            color="kind",
+            title="Messages per month (human / bot / system)",
+        )
+        if not kind_df.empty
+        else px.area(title="No messages")
+    )
+    fig_active = (
+        px.line(
+            active_df,
+            x="year_month",
+            y=["people", "channels"],
+            title="Active people and channels per month",
+        )
+        if not active_df.empty
+        else px.line(title="No activity")
+    )
+
+    if channels_df.empty:
+        fig_channels = px.bar(title="No channels for this filter")
+    else:
+        fig_channels = px.bar(
+            channels_df.head(20),
+            x="messages",
+            y="channel_name",
+            orientation="h",
+            color="reply_pct",
+            hover_data=["people", "threads", "last_day"],
+            title="Top channels (colour = % replies)",
+        )
+        fig_channels.update_layout(yaxis={"categoryorder": "total ascending"})
+    fig_bump_ch = (
+        px.line(
+            bump_ch_df,
+            x="year",
+            y="rank",
+            color="channel_name",
+            markers=True,
+            title="Channel rank by year (top 8)",
+        )
+        if not bump_ch_df.empty
+        else px.line(title="No ranking data")
+    )
+    if not bump_ch_df.empty:
+        fig_bump_ch.update_yaxes(autorange="reversed", dtick=1)
+    fig_births = (
+        px.bar(
+            births_df,
+            x="year",
+            y=["created", "archived"],
+            barmode="group",
+            title="Channels created vs archived",
+        )
+        if not births_df.empty
+        else px.bar(title="No channel lifecycle data")
+    )
+
+    def _spotlight_from_people_plot(selection: Any) -> None:
+        if selection and selection.get("points"):
+            y = selection["points"][0].get("y")
+            if y and y in name_to_id:
+                c.set_person(name_to_id[y])
+
+    if people_df.empty:
+        fig_people = px.bar(title="No people for this filter")
+    else:
+        fig_people = px.bar(
+            people_df.head(20),
+            x="messages",
+            y="name",
+            orientation="h",
+            color="reactions_received",
+            hover_data=["threads_started", "replies", "channels", "active_days"],
+            title="Top people (click a bar to spotlight)",
+        )
+        fig_people.update_layout(yaxis={"categoryorder": "total ascending"})
+    people_plot = mo.ui.plotly(fig_people, on_change=_spotlight_from_people_plot)
+    fig_bump_people = (
+        px.line(
+            bump_people_df,
+            x="year",
+            y="rank",
+            color="name",
+            markers=True,
+            title="People rank by year (top 8)",
+        )
+        if not bump_people_df.empty
+        else px.line(title="No ranking data")
+    )
+    if not bump_people_df.empty:
+        fig_bump_people.update_yaxes(autorange="reversed", dtick=1)
+    fig_ratio = (
+        px.bar(
+            ratio_df,
+            x="name",
+            y=["root_posts", "replies", "reactions_given"],
+            barmode="stack",
+            title="Root posts · replies · reactions given",
+        )
+        if not ratio_df.empty
+        else px.bar(title="No people")
+    )
+
+    fig_depth = (
+        px.bar(
+            depth_df, x="depth", y="threads", title="Thread depth (replies per thread)"
+        )
+        if not depth_df.empty
+        else px.bar(title="No threads")
+    )
+    if latency_ch_df.empty:
+        fig_latency = px.bar(title="No reply-latency data")
+    else:
+        fig_latency = px.bar(
+            latency_ch_df,
+            x="median_min",
+            y="channel_name",
+            orientation="h",
+            hover_data=["threads", "p90_min"],
+            title="Median minutes to first reply, by channel",
+        )
+        fig_latency.update_layout(yaxis={"categoryorder": "total descending"})
+
+    fig_react = (
+        px.bar(
+            react_df,
+            x="reactions",
+            y="emoji",
+            orientation="h",
+            title="Top reaction emoji",
+        )
+        if not react_df.empty
+        else px.bar(title="No reactions")
+    )
+    if not react_df.empty:
+        fig_react.update_layout(yaxis={"categoryorder": "total ascending"})
+    fig_mentioned = (
+        px.bar(
+            mentioned_df,
+            x="mentions",
+            y="name",
+            orientation="h",
+            hover_data=["mentioned_by_people"],
+            title="Most mentioned",
+        )
+        if not mentioned_df.empty
+        else px.bar(title="No mentions")
+    )
+    if not mentioned_df.empty:
+        fig_mentioned.update_layout(yaxis={"categoryorder": "total ascending"})
+    if pairs_df.empty:
+        fig_pairs = px.bar(title="No mention pairs")
+    else:
+        pairs = pairs_df.copy()
+        pairs["pair"] = pairs["from_name"] + " → " + pairs["to_name"]
+        fig_pairs = px.bar(
+            pairs, x="mentions", y="pair", orientation="h", title="Who mentions whom"
+        )
+        fig_pairs.update_layout(yaxis={"categoryorder": "total ascending"})
+
+    fig_heat = _slack_heatmap(
+        px, heat_df, dow_labels, title="Messages by weekday × hour"
+    )
+    fig_cal = _slack_calendar(px, cal_df, "Messages per day")
+    fig_bots = (
+        px.bar(bots_df, x="messages", y="bot", orientation="h", title="Bot volume")
+        if not bots_df.empty
+        else px.bar(title="No bot messages")
+    )
+
+    # ---------------------------------------------------------------- spotlight
+    person_id = c.get_person() or c.person_select.value
+    if person_id:
+        pinfo = people_by_id.get(person_id) or {"name": person_id, "handle": "?"}
+        ps_df = skq.person_scoreboard(conn, filters, person_id)
+        pm_df = skq.person_monthly_activity(conn, filters, person_id)
+        share_df = skq.person_share_of_team(conn, filters, person_id)
+        pmix_df = skq.person_channel_mix(conn, filters, person_id)
+        pheat_df = skq.person_circadian(conn, filters, person_id)
+        pcal_df = skq.person_calendar_daily(conn, filters, person_id)
+        collab_df = skq.person_collaborators(conn, filters, person_id)
+        pemoji_df = skq.person_reaction_profile(conn, filters, person_id)
+        ptext_df = skq.person_text_profile(conn, filters, person_id)
+        ptop_df = skq.person_top_messages(conn, filters, person_id)
+        pstreak_df = skq.person_streaks(conn, filters, person_id)
+
+        fig_pm = (
+            px.area(
+                pm_df,
+                x="year_month",
+                y=["root_posts", "replies"],
+                title="Monthly activity: root posts vs replies",
+            )
+            if not pm_df.empty
+            else px.area(title="No messages in window")
+        )
+        if not pm_df.empty:
+            fig_pm.add_scatter(
+                x=pm_df["year_month"],
+                y=pm_df["rolling_3m"],
+                mode="lines",
+                name="3-month mean",
+                line={"dash": "dash"},
+            )
+        fig_share = (
+            px.bar(
+                share_df,
+                x="year",
+                y="share_pct",
+                hover_data=["messages", "team_messages", "team_people", "rank"],
+                title="Share of team messages by year (%)",
+            )
+            if not share_df.empty
+            else px.bar(title="No team data")
+        )
+        fig_pmix = (
+            px.treemap(
+                pmix_df,
+                path=["channel_name"],
+                values="messages",
+                color="share_pct",
+                color_continuous_scale="Purples",
+                hover_data=["channel_messages"],
+                title="Channel mix (size = their messages, colour = % of channel)",
+            )
+            if not pmix_df.empty
+            else px.treemap(title="No channel data")
+        )
+        person_heat = (
+            pheat_df[pheat_df["who"] == "person"] if not pheat_df.empty else pheat_df
+        )
+        team_heat = (
+            pheat_df[pheat_df["who"] == "team"] if not pheat_df.empty else pheat_df
+        )
+        fig_pheat = _slack_heatmap(
+            px,
+            person_heat,
+            dow_labels,
+            z="pct",
+            title=f"{pinfo['name']} — % of own messages",
+        )
+        fig_theat = _slack_heatmap(
+            px, team_heat, dow_labels, z="pct", title="Rest of team — % of own messages"
+        )
+        if not pheat_df.empty:
+            zmax = float(pheat_df["pct"].max())
+            fig_pheat.update_coloraxes(cmin=0, cmax=zmax)
+            fig_theat.update_coloraxes(cmin=0, cmax=zmax)
+        fig_pcal = _slack_calendar(px, pcal_df, f"{pinfo['name']} — messages per day")
+        if collab_df.empty:
+            fig_collab = px.bar(title="No interactions")
+        else:
+            fig_collab = px.bar(
+                collab_df,
+                x="n",
+                y="other_name",
+                color="kind",
+                orientation="h",
+                title="Collaborators (replies, mentions, reactions both ways)",
+            )
+            fig_collab.update_layout(
+                yaxis={"categoryorder": "total ascending"},
+                height=max(360, 28 * collab_df["other_name"].nunique() + 120),
+            )
+        fig_pemoji = (
+            px.bar(
+                pemoji_df,
+                x="n",
+                y="emoji",
+                color="direction",
+                barmode="group",
+                orientation="h",
+                title="Emoji given vs received",
+            )
+            if not pemoji_df.empty
+            else px.bar(title="No reactions")
+        )
+        if not pemoji_df.empty:
+            fig_pemoji.update_layout(yaxis={"categoryorder": "total ascending"})
+
+        spotlight = mo.vstack(
+            [
+                mo.md(
+                    f"### Person spotlight — {pinfo['name']} (@{pinfo.get('handle', '?')})\n"
+                    "_Team baseline uses the same years / channels / bot settings "
+                    "but ignores the people filter._"
+                ),
+                mo.ui.table(
+                    ps_df.T.reset_index().rename(
+                        columns={"index": "metric", 0: "value"}
+                    )
+                ),
+                mo.vstack([mo.ui.plotly(fig_pm), mo.ui.plotly(fig_share)], gap=1),
+                mo.ui.plotly(fig_pmix),
+                mo.hstack(
+                    [mo.ui.plotly(fig_pheat), mo.ui.plotly(fig_theat)], widths="equal"
+                ),
+                mo.ui.plotly(fig_pcal),
+                mo.ui.plotly(fig_collab),
+                mo.ui.plotly(fig_pemoji),
+                mo.md("**Text profile vs team**"),
+                mo.ui.table(ptext_df),
+                mo.md("**Most engaged-with messages**"),
+                mo.ui.table(ptop_df),
+                mo.md("**Streaks**"),
+                mo.ui.table(pstreak_df),
+            ],
+            gap=0.5,
+        )
+    else:
+        spotlight = mo.md(
+            "### Person spotlight\n"
+            "_Pick a person in the spotlight dropdown or click a bar in “Top people”._"
+        )
+
+    span = (
+        f"{bounds['first_day']} → {bounds['last_day']}"
+        if bounds.get("first_day")
+        else "no dated rows"
+    )
+    return mo.vstack(
+        [
+            mo.md(
+                f"## Slack workspace\n"
+                f"{span} · {len(bounds.get('channels') or [])} channels · "
+                f"{len(bounds.get('people') or [])} people who posted. "
+                "Names and text kept; emails and phones dropped at ingest."
+            ),
+            mo.hstack([c.year_start, c.year_end], justify="start", gap=1),
+            mo.hstack([c.channel_select, c.people_select], justify="start", gap=1),
+            mo.hstack([c.person_select, c.clear_person], justify="start", gap=1),
+            mo.hstack(
+                [c.include_bots, c.include_system, c.active_only, c.compare], gap=1
+            ),
+            chip_row,
+            mo.md("### Scoreboard"),
+            mo.ui.table(score_df),
+            mo.ui.table(streak_df),
+            mo.md("### Longitudinal"),
+            mo.vstack([mo.ui.plotly(fig_kind), mo.ui.plotly(fig_active)], gap=1),
+            mo.md("### Channels"),
+            mo.vstack(
+                [
+                    mo.ui.plotly(fig_channels),
+                    mo.ui.plotly(fig_bump_ch),
+                    mo.ui.plotly(fig_births),
+                ],
+                gap=1,
+            ),
+            mo.md("**Channel lifecycle**"),
+            mo.ui.table(lifecycle_df),
+            mo.md(
+                "**Forgotten channels** (≥50 messages, silent ≥2 years before export end)"
+            ),
+            mo.ui.table(forgotten_df),
+            mo.md("### People"),
+            mo.vstack(
+                [people_plot, mo.ui.plotly(fig_bump_people), mo.ui.plotly(fig_ratio)],
+                gap=1,
+            ),
+            spotlight,
+            mo.md("### Threads & response"),
+            mo.ui.table(latency_df),
+            mo.vstack([mo.ui.plotly(fig_depth), mo.ui.plotly(fig_latency)], gap=1),
+            mo.md("**Busiest threads**"),
+            mo.ui.table(threads_df),
+            mo.md("### Reactions & mentions"),
+            mo.vstack(
+                [
+                    mo.ui.plotly(fig_react),
+                    mo.ui.plotly(fig_mentioned),
+                    mo.ui.plotly(fig_pairs),
+                ],
+                gap=1,
+            ),
+            mo.md("**Most reacted messages**"),
+            mo.ui.table(reacted_df),
+            mo.md("**Top reactors**"),
+            mo.ui.table(reactors_df),
+            mo.md("### Rhythm"),
+            mo.vstack([mo.ui.plotly(fig_heat), mo.ui.plotly(fig_cal)], gap=1),
+            mo.md("### Bots"),
+            mo.ui.plotly(fig_bots),
         ],
         gap=0.5,
     )

@@ -59,6 +59,25 @@ def media_kind_of(msg: dict[str, Any]) -> str:
     return "none"
 
 
+def flatten_text(value: Any) -> str | None:
+    """Telegram ``text`` is a string or a list of strings / entity dicts."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts: list[str] = []
+        for part in value:
+            if isinstance(part, str):
+                parts.append(part)
+            elif isinstance(part, dict):
+                txt = part.get("text")
+                if isinstance(txt, str):
+                    parts.append(txt)
+        return "".join(parts)
+    return str(value)
+
+
 def media_relpath_of(msg: dict[str, Any]) -> str | None:
     for key in ("photo", "file"):
         val = msg.get(key)
@@ -414,7 +433,7 @@ class TelegramSource:
                         "ts_local": ts_local,
                         "from_name": msg.get("from"),
                         "from_id": _as_int(msg.get("from_id")),
-                        "text": msg.get("text"),
+                        "text": flatten_text(msg.get("text")),
                         "reply_to_message_id": _as_int(msg.get("reply_to_message_id")),
                         "forwarded_from": msg.get("forwarded_from"),
                         "edited": bool(msg.get("edited")),

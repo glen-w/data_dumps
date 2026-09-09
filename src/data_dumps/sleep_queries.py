@@ -73,9 +73,9 @@ def data_bounds(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
     if min_year is None or max_year is None:
         min_year, max_year = 2017, 2026
     tags = conn.execute("""
-        SELECT DISTINCT unnest(string_split(tags, ' ')) AS tag
-        FROM sleep.sessions
-        WHERE tags IS NOT NULL AND tags != ''
+        SELECT DISTINCT tag
+        FROM sleep.sessions, unnest(string_split(tags, ' ')) AS t(tag)
+        WHERE tags IS NOT NULL AND tags != '' AND tag != ''
         ORDER BY 1
         """).fetchdf()
     tag_list = [t for t in tags["tag"].tolist() if t] if not tags.empty else []
@@ -107,7 +107,30 @@ def filter_from_widgets(
     )
 
 
-def scoreboard(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+def has_table(conn: duckdb.DuckDBPyConnection, schema: str, table: str) -> bool:
+    row = conn.execute(
+        """
+        SELECT count(*) FROM information_schema.tables
+        WHERE table_schema = ? AND table_name = ?
+        """,
+        [schema, table],
+    ).fetchone()
+    return row is not None and row[0] > 0
+
+
+def has_miband_hr(conn: duckdb.DuckDBPyConnection) -> bool:
+    return has_table(conn, "miband", "heart_rate")
+
+
+def has_spotify_plays(conn: duckdb.DuckDBPyConnection) -> bool:
+    return has_table(conn, "spotify", "plays")
+
+
+def has_alarms(conn: duckdb.DuckDBPyConnection) -> bool:
+    return has_table(conn, "sleep", "alarms")
+
+
+def _scoreboard_row(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
     where, params = _where("s", f)
     return _query_df(
         conn,
@@ -127,6 +150,125 @@ def scoreboard(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
                 AS avg_wake_hour
         FROM sleep.sessions s
         WHERE {where}
+        """,
+        params,
+    )
+
+
+def scoreboard(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    compare_previous: bool = False,
+) -> pd.DataFrame:
+    """Scoreboard KPIs; optionally append the previous equal-length year window."""
+    current = _scoreboard_row(conn, f)
+    if not compare_previous or f.year_start is None or f.year_end is None:
+        current["window"] = "current"
+        return current
+
+    span = f.year_end - f.year_start + 1
+    prev_start = f.year_start - span
+    prev_end = f.year_start - 1
+    min_row = conn.execute("SELECT min(year)::INT FROM sleep.sessions").fetchone()
+    assert min_row is not None
+    min_year = min_row[0]
+    if min_year is None or prev_start < min_year:
+        current["window"] = "current"
+        current["compare_note"] = (
+            f"previous window ({prev_start}–{prev_end}) predates data (min year {min_year})"
+        )
+        return current
+    prev_f = FilterState(
+        year_start=prev_start,
+        year_end=prev_end,
+        tags=list(f.tags) if f.tags else None,
+        min_rating=f.min_rating,
+    )
+    prev = _scoreboard_row(conn, prev_f)
+    current["window"] = "current"
+    prev["window"] = f"previous ({prev_start}–{prev_end})"
+    return pd.concat([current, prev], ignore_index=True)
+
+
+def regularity_stats(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """Sleep regularity: bedtime/wake spread and weekend-vs-weekday shift.
+
+    Bedtimes after midnight are shifted by +24h so 23:30 and 00:30 are
+    one hour apart, not 23. Weekend nights are Friday and Saturday
+    (ISO weekday of the bedtime), i.e. nights followed by a free morning.
+    """
+    where, params = _where("s", f)
+    return _query_df(
+        conn,
+        f"""
+        WITH n AS (
+            SELECT
+                (CASE WHEN bed_hour < 12 THEN bed_hour + 24 ELSE bed_hour END)
+                    + extract(minute FROM from_local) / 60.0 AS bed_h,
+                wake_hour + extract(minute FROM to_local) / 60.0 AS wake_h,
+                hours,
+                weekday IN (5, 6) AS weekend_night
+            FROM sleep.sessions s
+            WHERE {where} AND bed_hour IS NOT NULL AND wake_hour IS NOT NULL
+        )
+        SELECT
+            count(*)::BIGINT AS nights,
+            round(stddev_samp(bed_h), 2) AS bedtime_stddev_h,
+            round(stddev_samp(wake_h), 2) AS wake_stddev_h,
+            round(stddev_samp(hours), 2) AS hours_stddev,
+            round(
+                avg(bed_h) FILTER (WHERE weekend_night)
+                - avg(bed_h) FILTER (WHERE NOT weekend_night),
+                2
+            ) AS social_jetlag_bed_h,
+            round(
+                avg(wake_h) FILTER (WHERE weekend_night)
+                - avg(wake_h) FILTER (WHERE NOT weekend_night),
+                2
+            ) AS social_jetlag_wake_h,
+            round(
+                100.0 * avg(CASE WHEN hours >= 7.0 THEN 1.0 ELSE 0.0 END), 1
+            ) AS nights_7h_pct
+        FROM n
+        """,
+        params,
+    )
+
+
+def circadian_heatmap(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """Nights by ISO weekday x bedtime hour (local)."""
+    where, params = _where("s", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT weekday AS dow, bed_hour AS hour, count(*)::BIGINT AS nights
+        FROM sleep.sessions s
+        WHERE {where} AND weekday IS NOT NULL AND bed_hour IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+        """,
+        params,
+    )
+
+
+def snore_noise_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _where("s", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            date_trunc('month', local_date)::DATE AS month,
+            round(avg(snore), 1) AS avg_snore,
+            round(avg(noise), 4) AS avg_noise,
+            round(
+                100.0 * avg(CASE WHEN coalesce(snore, 0) > 0 THEN 1.0 ELSE 0.0 END), 1
+            ) AS snore_nights_pct,
+            count(*)::BIGINT AS nights
+        FROM sleep.sessions s
+        WHERE {where} AND local_date IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
         """,
         params,
     )
@@ -295,13 +437,12 @@ def tag_breakdown(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFra
         conn,
         f"""
         SELECT
-            unnest(string_split(s.tags, ' ')) AS tag,
+            tag,
             count(*)::BIGINT AS nights,
             round(avg(hours), 2) AS avg_hours
-        FROM sleep.sessions s
-        WHERE {where} AND tags IS NOT NULL AND tags != ''
-        GROUP BY 1
-        HAVING tag != ''
+        FROM sleep.sessions s, unnest(string_split(s.tags, ' ')) AS t(tag)
+        WHERE {where} AND s.tags IS NOT NULL AND s.tags != '' AND tag != ''
+        GROUP BY tag
         ORDER BY nights DESC
         """,
         params,
@@ -352,6 +493,188 @@ def sample_actigraphy(
         """,
         params,
     )
+
+
+def session_heart_rate(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit_sessions: int = 5
+) -> pd.DataFrame:
+    """Mi Band HR readings inside the latest N sessions (for actigraphy overlay).
+
+    Returns an empty frame when ``miband.heart_rate`` is not ingested.
+    """
+    if not has_miband_hr(conn):
+        return pd.DataFrame(columns=["day", "ts_local", "minutes_in", "rate"])
+    where, params = _where("s", f)
+    return _query_df(
+        conn,
+        f"""
+        WITH pick AS (
+            SELECT id, local_date, from_local, to_local
+            FROM sleep.sessions s
+            WHERE {where} AND from_local IS NOT NULL AND to_local IS NOT NULL
+            ORDER BY local_date DESC
+            LIMIT {limit_sessions}
+        )
+        SELECT
+            p.local_date AS day,
+            h.ts_local,
+            round(epoch(h.ts_local - p.from_local) / 60.0, 1) AS minutes_in,
+            h.rate
+        FROM miband.heart_rate h
+        JOIN pick p ON h.ts_local >= p.from_local AND h.ts_local <= p.to_local
+        ORDER BY p.local_date, h.ts_local
+        """,
+        params,
+    )
+
+
+def nightly_heart_rate(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """Per-night resting HR from Mi Band readings that fall inside each session."""
+    if not has_miband_hr(conn):
+        return pd.DataFrame(
+            columns=["day", "hours", "rating", "avg_bpm", "min_bpm", "readings"]
+        )
+    where, params = _where("s", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            s.local_date AS day,
+            s.hours,
+            s.rating,
+            round(avg(h.rate), 1) AS avg_bpm,
+            min(h.rate)::INT AS min_bpm,
+            count(*)::BIGINT AS readings
+        FROM sleep.sessions s
+        JOIN miband.heart_rate h
+          ON h.ts_local >= s.from_local AND h.ts_local <= s.to_local
+        WHERE {where} AND s.from_local IS NOT NULL AND s.to_local IS NOT NULL
+        GROUP BY 1, 2, 3
+        HAVING count(*) >= 5
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def alarm_vs_wake(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """Scheduled alarm (``Sched``) vs actual wake, in minutes (negative = woke early)."""
+    where, params = _where("s", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            local_date AS day,
+            sched_local,
+            to_local,
+            round(epoch(to_local - sched_local) / 60.0, 1) AS wake_minus_alarm_min,
+            hours,
+            rating
+        FROM sleep.sessions s
+        WHERE {where} AND sched_local IS NOT NULL AND to_local IS NOT NULL
+          AND abs(epoch(to_local - sched_local)) <= 4 * 3600
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def alarm_summary(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Configured alarms from ``alarms.json`` (if ingested into ``sleep.alarms``)."""
+    if not has_alarms(conn):
+        return pd.DataFrame(columns=["hour", "minute", "enabled", "days", "label"])
+    return _query_df(
+        conn,
+        """
+        SELECT hour, minute, enabled, days, label
+        FROM sleep.alarms
+        ORDER BY enabled DESC, hour, minute
+        """,
+    )
+
+
+def late_night_spotify_vs_sleep(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    from_hour: int = 22,
+) -> pd.DataFrame:
+    """Same-evening Spotify hours (>= ``from_hour`` local, before bedtime) vs sleep.
+
+    Joins ``spotify.plays`` to ``sleep.sessions`` on the evening date of the
+    bedtime (``from_local``). Nights without listening are kept with 0 h so
+    the "no music" baseline is visible. Empty when Spotify is not ingested.
+    """
+    if not has_spotify_plays(conn):
+        return pd.DataFrame(
+            columns=["day", "hours", "rating", "deep_hours", "late_spotify_hours"]
+        )
+    where, params = _where("s", f)
+    return _query_df(
+        conn,
+        f"""
+        WITH nights AS (
+            SELECT
+                id, local_date, from_local, hours, rating, deep_hours,
+                -- evening date: bedtimes after midnight belong to the prior evening
+                CASE WHEN bed_hour < 12
+                     THEN (from_local::DATE - INTERVAL 1 DAY)::DATE
+                     ELSE from_local::DATE END AS evening
+            FROM sleep.sessions s
+            WHERE {where} AND from_local IS NOT NULL AND hours IS NOT NULL
+        ),
+        late AS (
+            SELECT
+                played_at_local::DATE AS evening,
+                sum(hours) AS late_hours
+            FROM spotify.plays
+            WHERE hour(played_at_local) >= {int(from_hour)}
+            GROUP BY 1
+        )
+        SELECT
+            n.local_date AS day,
+            n.hours,
+            n.rating,
+            n.deep_hours,
+            round(coalesce(l.late_hours, 0), 2) AS late_spotify_hours
+        FROM nights n
+        LEFT JOIN late l ON l.evening = n.evening
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def late_night_spotify_buckets(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    from_hour: int = 22,
+) -> pd.DataFrame:
+    """Bucket nights by late-evening Spotify hours and average sleep KPIs."""
+    df = late_night_spotify_vs_sleep(conn, f, from_hour=from_hour)
+    if df.empty:
+        return pd.DataFrame(
+            columns=["bucket", "nights", "avg_hours", "avg_rating", "avg_deep_hours"]
+        )
+    bins = [-0.001, 0.0, 0.5, 1.0, 2.0, float("inf")]
+    labels = ["none", "≤30 min", "30–60 min", "1–2 h", ">2 h"]
+    out = df.copy()
+    out["bucket"] = pd.cut(out["late_spotify_hours"], bins=bins, labels=labels)
+    grouped = (
+        out.groupby("bucket", observed=True)
+        .agg(
+            nights=("hours", "size"),
+            avg_hours=("hours", "mean"),
+            avg_rating=("rating", "mean"),
+            avg_deep_hours=("deep_hours", "mean"),
+        )
+        .reset_index()
+    )
+    for col in ("avg_hours", "avg_rating", "avg_deep_hours"):
+        grouped[col] = grouped[col].round(2)
+    grouped["bucket"] = grouped["bucket"].astype(str)
+    return grouped
 
 
 def stage_event_mix(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:

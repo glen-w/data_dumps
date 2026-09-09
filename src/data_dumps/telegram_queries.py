@@ -2,11 +2,49 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
 import duckdb
 import pandas as pd
+
+NARRATIVE_CONTEXT_KEYS = frozenset(
+    {
+        "filter_digest",
+        "filters",
+        "scoreboard",
+        "streak",
+        "me_vs_them",
+        "top_chats",
+        "media_mix",
+        "text_stats",
+        "comebacks",
+        "forgotten",
+    }
+)
+
+# Small multilingual stopword list (en / it / es) for the top-words chart.
+STOPWORDS = frozenset(
+    """
+    the and for you that with this have from are was but not they will what
+    all can your just like about when there out get been how one also would
+    into more some them then than too very its our who did has had were
+    che non per una con del sono anche come della più mio mia gli nel alla
+    ma sono cosa questo questa quello quella tutto tutti hai sei ho era
+    que los las por una con del para como pero más este esta eso ese esa
+    todo todos hay muy sin sobre está están tiene tengo puede nos les
+    http https www com
+    dont didnt doesnt isnt wasnt cant couldnt wont wouldnt shouldnt
+    thats whats its youre theyre weve ive youve hes shes lets gonna
+    """.split()
+)
+
+_WORD_SPLIT_RE = r"[^\p{L}\p{N}]+"
+_EMOJI_RE = (
+    r"[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}\x{1F900}-\x{1F9FF}\x{1F1E6}-\x{1F1FF}]"
+)
 
 PEOPLE_CHAT_TYPES = [
     "personal_chat",
@@ -66,6 +104,23 @@ class FilterState:
         if self.include_groups:
             chips.append(("include_groups", "incl. groups"))
         return chips
+
+    def filter_digest(self) -> str:
+        """Stable hash for LLM cache keys."""
+        payload = {
+            "source": "telegram",
+            "year_start": self.year_start,
+            "year_end": self.year_end,
+            "chat_types": sorted(self.chat_types),
+            "chat_ids": sorted(self.chat_ids),
+            "event_types": sorted(self.event_types),
+            "media_kinds": sorted(self.media_kinds),
+            "chat_name": self.chat_name,
+            "include_bots": self.include_bots,
+            "include_groups": self.include_groups,
+        }
+        blob = json.dumps(payload, sort_keys=True)
+        return hashlib.sha256(blob.encode()).hexdigest()
 
     def clear_field(self, field_name: str) -> None:
         if field_name == "year_range":
@@ -646,3 +701,214 @@ def calls_by_year(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFra
         ORDER BY 1
     """
     return _query_df(conn, sql, params)
+
+
+# --- Text analytics (aggregates over telegram.messages.text) --------------------
+
+
+def _text_where(where: str) -> str:
+    return f"{where} AND m.event_type = 'message' AND m.text IS NOT NULL AND m.text <> ''"
+
+
+def text_stats(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """One-row text KPIs: length, words, questions, links, emoji, edits."""
+    where, params = _where_and_params(f)
+    sql = f"""
+        WITH t AS (
+            SELECT
+                length(m.text) AS chars,
+                length(regexp_split_to_array(trim(m.text), '\\s+')) AS words,
+                m.text LIKE '%?%' AS has_question,
+                regexp_matches(m.text, 'https?://') AS has_link,
+                regexp_matches(m.text, '{_EMOJI_RE}') AS has_emoji,
+                m.edited
+            {_from_join()}
+            WHERE {_text_where(where)}
+        )
+        SELECT
+            count(*)::BIGINT AS text_messages,
+            round(avg(chars), 1) AS avg_chars,
+            quantile_cont(chars, 0.5)::INT AS median_chars,
+            max(chars)::INT AS max_chars,
+            sum(words)::BIGINT AS total_words,
+            round(avg(words), 1) AS avg_words,
+            round(100.0 * avg(CASE WHEN has_question THEN 1.0 ELSE 0.0 END), 1) AS question_pct,
+            round(100.0 * avg(CASE WHEN has_link THEN 1.0 ELSE 0.0 END), 1) AS link_pct,
+            round(100.0 * avg(CASE WHEN has_emoji THEN 1.0 ELSE 0.0 END), 1) AS emoji_pct,
+            round(100.0 * avg(CASE WHEN edited THEN 1.0 ELSE 0.0 END), 1) AS edited_pct
+        FROM t
+    """
+    return _query_df(conn, sql, params)
+
+
+def top_words(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    limit: int = 30,
+    min_len: int = 3,
+) -> pd.DataFrame:
+    """Most frequent lowercase tokens (letters/digits), minus a small stopword set.
+
+    URLs are stripped and apostrophes removed (``don't`` -> ``dont``) before
+    tokenising; tokens shorter than ``min_len`` and pure numbers are dropped.
+    """
+    where, params = _where_and_params(f)
+    stop_placeholders = ", ".join("?" for _ in STOPWORDS)
+    sql = f"""
+        WITH cleaned AS (
+            SELECT regexp_replace(
+                regexp_replace(lower(m.text), 'https?://\\S+', ' ', 'g'),
+                '[''’]', '', 'g'
+            ) AS text
+            {_from_join()}
+            WHERE {_text_where(where)}
+        ),
+        tokens AS (
+            SELECT tok AS word
+            FROM cleaned, unnest(regexp_split_to_array(text, '{_WORD_SPLIT_RE}')) AS u(tok)
+        )
+        SELECT word, count(*)::BIGINT AS uses
+        FROM tokens
+        WHERE length(word) >= ?
+          AND NOT regexp_matches(word, '^\\d+$')
+          AND word NOT IN ({stop_placeholders})
+        GROUP BY 1
+        ORDER BY uses DESC, word
+        LIMIT ?
+    """
+    return _query_df(conn, sql, params + [min_len, *sorted(STOPWORDS), limit])
+
+
+def emoji_in_text(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 15
+) -> pd.DataFrame:
+    """Emoji characters used inside message text (not reactions)."""
+    where, params = _where_and_params(f)
+    params.append(limit)
+    sql = f"""
+        WITH found AS (
+            SELECT unnest(regexp_extract_all(m.text, '{_EMOJI_RE}')) AS emoji
+            {_from_join()}
+            WHERE {_text_where(where)}
+        )
+        SELECT emoji, count(*)::BIGINT AS uses
+        FROM found
+        GROUP BY 1
+        ORDER BY uses DESC
+        LIMIT ?
+    """
+    return _query_df(conn, sql, params)
+
+
+def message_length_buckets(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    """Messages by length bucket, split into you vs others."""
+    where, params = _where_and_params(f)
+    sql = f"""
+        SELECT
+            CASE
+                WHEN length(m.text) <= 10 THEN '1–10'
+                WHEN length(m.text) <= 30 THEN '11–30'
+                WHEN length(m.text) <= 80 THEN '31–80'
+                WHEN length(m.text) <= 200 THEN '81–200'
+                ELSE '200+'
+            END AS bucket,
+            CASE WHEN m.from_id = a.user_id THEN 'me' ELSE 'them' END AS who,
+            count(*)::BIGINT AS messages
+        {_from_join()}
+        CROSS JOIN telegram.account a
+        WHERE {_text_where(where)}
+        GROUP BY 1, 2
+        ORDER BY
+            CASE bucket
+                WHEN '1–10' THEN 1 WHEN '11–30' THEN 2 WHEN '31–80' THEN 3
+                WHEN '81–200' THEN 4 ELSE 5
+            END,
+            who
+    """
+    return _query_df(conn, sql, params)
+
+
+def per_sender_breakdown(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 20
+) -> pd.DataFrame:
+    """Who talks in the filtered scope (most useful with one group chat locked)."""
+    where, params = _where_and_params(f)
+    params.append(limit)
+    sql = f"""
+        SELECT
+            coalesce(m.from_name, '(unknown)') AS sender,
+            m.from_id = a.user_id AS is_me,
+            count(*)::BIGINT AS messages,
+            count(*) FILTER (WHERE m.media_kind <> 'none')::BIGINT AS with_media,
+            count(*) FILTER (WHERE m.reply_to_message_id IS NOT NULL)::BIGINT AS replies,
+            round(avg(length(m.text)) FILTER (WHERE m.text IS NOT NULL AND m.text <> ''), 1)
+                AS avg_chars,
+            round(100.0 * count(*) / sum(count(*)) OVER (), 1) AS share_pct,
+            min(m.ts_utc)::DATE AS first_day,
+            max(m.ts_utc)::DATE AS last_day
+        {_from_join()}
+        CROSS JOIN telegram.account a
+        WHERE {where} AND m.event_type = 'message'
+        GROUP BY 1, 2
+        ORDER BY messages DESC
+        LIMIT ?
+    """
+    return _query_df(conn, sql, params)
+
+
+def reply_edges(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 40
+) -> pd.DataFrame:
+    """Who replies to whom: (replier -> replied-to) edge counts for a Sankey.
+
+    Only real message parents count; in forum-style supergroups every post in
+    a topic carries ``reply_to_message_id`` of the topic-creation *service*
+    message, which is not a conversation reply.
+    """
+    where, params = _where_and_params(f)
+    params.append(limit)
+    sql = f"""
+        SELECT
+            coalesce(m.from_name, '(unknown)') AS source,
+            coalesce(p.from_name, '(unknown)') AS target,
+            count(*)::BIGINT AS replies
+        {_from_join()}
+        JOIN telegram.messages p
+          ON p.chat_id = m.chat_id AND p.message_id = m.reply_to_message_id
+        WHERE {where} AND m.reply_to_message_id IS NOT NULL
+          AND m.event_type = 'message' AND p.event_type = 'message'
+        GROUP BY 1, 2
+        ORDER BY replies DESC
+        LIMIT ?
+    """
+    return _query_df(conn, sql, params)
+
+
+def narrative_context(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+) -> dict[str, Any]:
+    """Aggregates only — chat names and counts, never message text."""
+    score = scoreboard(conn, f, compare_previous=True)
+    streak = streak_stats(conn, f)
+    me = me_vs_them(conn, f)
+    chats = messages_by_chat(conn, f, limit=10)[["chat_name", "chat_type", "events"]]
+    media = media_mix(conn, f, exclude_none=True)
+    text = text_stats(conn, f)
+    comebacks = comeback_chats(conn, f, limit=5)[["chat_name", "window_events"]]
+    forgotten = forgotten_chats(conn, f, limit=5)[["chat_name", "events"]]
+    return {
+        "filter_digest": f.filter_digest(),
+        "filters": f.chip_labels(),
+        "scoreboard": score.to_dict(orient="records"),
+        "streak": streak.to_dict(orient="records"),
+        "me_vs_them": me.to_dict(orient="records"),
+        "top_chats": chats.to_dict(orient="records"),
+        "media_mix": media.to_dict(orient="records"),
+        "text_stats": text.to_dict(orient="records"),
+        "comebacks": comebacks.to_dict(orient="records"),
+        "forgotten": forgotten.to_dict(orient="records"),
+    }

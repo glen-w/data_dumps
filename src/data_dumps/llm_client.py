@@ -195,14 +195,29 @@ def _cache_key(context: dict[str, Any], model: str) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()
 
 
+DEFAULT_SYSTEM = (
+    "You write short, personal Spotify Wrapped-style narratives. "
+    "Use only the statistics provided. Do not invent artists or numbers. "
+    "Two short paragraphs max. Warm but not cheesy."
+)
+
+TELEGRAM_SYSTEM = (
+    "You write short, personal year-in-review narratives about someone's "
+    "Telegram messaging habits. Use only the aggregate statistics provided "
+    "(counts, chat names, media mix). Never quote or guess message content. "
+    "Do not invent names or numbers. Two short paragraphs max. Warm but not cheesy."
+)
+
+
 def narrate(
     context: dict[str, Any],
     *,
     config: LLMConfig | None = None,
+    system: str | None = None,
 ) -> tuple[str, bool]:
     """
     Generate Wrapped-style narrative from aggregates.
-    Returns (text, from_cache).
+    Returns (text, from_cache). ``system`` overrides the default Spotify prompt.
     """
     cfg = config or LLMConfig.from_env()
     client = make_client(cfg)
@@ -227,14 +242,10 @@ def narrate(
     if cache_file.exists():
         return cache_file.read_text(encoding="utf-8"), True
 
-    system = (
-        "You write short, personal Spotify Wrapped-style narratives. "
-        "Use only the statistics provided. Do not invent artists or numbers. "
-        "Two short paragraphs max. Warm but not cheesy."
-    )
-    prompt = "Write a listening narrative for this filtered view:\n\n" + json.dumps(
+    system_prompt = system or DEFAULT_SYSTEM
+    prompt = "Write a narrative for this filtered view:\n\n" + json.dumps(
         context, indent=2, default=str
     )
-    text = client.complete(prompt, system=system)
+    text = client.complete(prompt, system=system_prompt)
     cache_file.write_text(text, encoding="utf-8")
     return text, False

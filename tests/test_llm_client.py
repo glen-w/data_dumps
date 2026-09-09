@@ -66,6 +66,35 @@ def test_narrate_disabled():
     assert not cached
 
 
+def test_narrate_system_override_and_source_isolation(tmp_path, monkeypatch):
+    """A custom system prompt reaches the client, and Spotify/Telegram digests
+    for the same filters land in different cache files."""
+    from data_dumps.llm_client import DEFAULT_SYSTEM, TELEGRAM_SYSTEM
+    from data_dumps.spotify_queries import FilterState as SpotifyFilter
+    from data_dumps.telegram_queries import FilterState as TelegramFilter
+
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path))
+    cfg = LLMConfig(enabled=True, model="test-model")
+    client = OllamaClient(cfg)
+    seen: list[str | None] = []
+
+    def fake_complete(prompt: str, *, system: str | None = None) -> str:
+        seen.append(system)
+        return "ok"
+
+    client.complete = fake_complete  # type: ignore[method-assign]
+    with patch("requests.get", return_value=MagicMock(status_code=200)):
+        with patch("data_dumps.llm_client.make_client", return_value=client):
+            sp_ctx = {"filter_digest": SpotifyFilter(year_start=2024).filter_digest()}
+            tg_ctx = {"filter_digest": TelegramFilter(year_start=2024).filter_digest()}
+            narrate(sp_ctx, config=cfg)
+            _, tg_cached = narrate(tg_ctx, config=cfg, system=TELEGRAM_SYSTEM)
+    assert seen == [DEFAULT_SYSTEM, TELEGRAM_SYSTEM]
+    assert not tg_cached  # different digest -> not served from the Spotify cache
+    assert sp_ctx["filter_digest"] != tg_ctx["filter_digest"]
+    assert "Telegram" in TELEGRAM_SYSTEM and "message content" in TELEGRAM_SYSTEM
+
+
 def test_narrate_cache(tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path))
     cfg = LLMConfig(enabled=True, model="test-model")

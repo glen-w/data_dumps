@@ -950,6 +950,442 @@ def decade_bars(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame
     return _query_df(conn, sql, params)
 
 
+def offline_vs_online(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """Hours and plays split by the export's ``offline`` flag."""
+    where, params = _where_and_params(f)
+    sql = f"""
+        SELECT
+            CASE WHEN offline THEN 'offline' ELSE 'online' END AS mode,
+            count(*)::BIGINT AS plays,
+            round(sum(hours), 2) AS hours
+        FROM spotify.plays
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY 1
+    """
+    return _query_df(conn, sql, params)
+
+
+def milestones(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """One-row table of headline moments in the filtered window."""
+    where, params = _where_and_params(f)
+    sql = f"""
+        WITH filtered AS (
+            SELECT * FROM spotify.plays WHERE {where}
+        ),
+        daily AS (
+            SELECT played_at::DATE AS day, sum(hours) AS hours, count(*) AS plays
+            FROM filtered
+            GROUP BY 1
+        ),
+        busiest AS (SELECT * FROM daily ORDER BY hours DESC LIMIT 1),
+        longest AS (
+            SELECT
+                coalesce(track_name, episode_name, audiobook_title::VARCHAR) AS title,
+                coalesce(artist_name, episode_show_name) AS who,
+                hours,
+                played_at::DATE AS day
+            FROM filtered
+            ORDER BY hours DESC
+            LIMIT 1
+        ),
+        first_play AS (
+            SELECT
+                coalesce(track_name, episode_name, audiobook_title::VARCHAR) AS title,
+                coalesce(artist_name, episode_show_name) AS who,
+                played_at::DATE AS day
+            FROM filtered
+            ORDER BY played_at ASC
+            LIMIT 1
+        ),
+        last_play AS (
+            SELECT
+                coalesce(track_name, episode_name, audiobook_title::VARCHAR) AS title,
+                coalesce(artist_name, episode_show_name) AS who,
+                played_at::DATE AS day
+            FROM filtered
+            ORDER BY played_at DESC
+            LIMIT 1
+        ),
+        most_repeated AS (
+            SELECT track_name, artist_name, count(*)::BIGINT AS plays
+            FROM filtered
+            WHERE kind = 'track' AND track_name IS NOT NULL
+            GROUP BY 1, 2
+            ORDER BY plays DESC
+            LIMIT 1
+        )
+        SELECT
+            (SELECT count(*) FROM daily)::BIGINT AS days_listened,
+            (SELECT round(avg(hours), 2) FROM daily) AS avg_hours_per_day,
+            (SELECT day FROM busiest) AS busiest_day,
+            (SELECT round(hours, 2) FROM busiest) AS busiest_day_hours,
+            (SELECT plays FROM busiest)::BIGINT AS busiest_day_plays,
+            (SELECT title FROM longest) AS longest_play_title,
+            (SELECT who FROM longest) AS longest_play_by,
+            (SELECT round(hours * 60, 1) FROM longest) AS longest_play_minutes,
+            (SELECT day FROM first_play) AS first_play_day,
+            (SELECT title FROM first_play) AS first_play_title,
+            (SELECT who FROM first_play) AS first_play_by,
+            (SELECT day FROM last_play) AS last_play_day,
+            (SELECT title FROM last_play) AS last_play_title,
+            (SELECT track_name FROM most_repeated) AS most_repeated_track,
+            (SELECT artist_name FROM most_repeated) AS most_repeated_artist,
+            (SELECT plays FROM most_repeated) AS most_repeated_plays
+    """
+    return _query_df(conn, sql, params)
+
+
+def album_depth(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    limit: int = 15,
+    min_plays: int = 10,
+) -> pd.DataFrame:
+    """Albums you go deep on: breadth (distinct tracks) x log revisit rate.
+
+    ``depth_score = unique_tracks * ln(1 + plays / unique_tracks)`` rewards
+    albums where many different tracks were played repeatedly, rather than a
+    single hit on loop. No catalogue lookup: track counts come from the dump.
+    """
+    where, params = _where_and_params(f)
+    sql = f"""
+        WITH per_album AS (
+            SELECT
+                album_name,
+                artist_name,
+                count(DISTINCT track_name)::BIGINT AS unique_tracks,
+                count(*)::BIGINT AS plays,
+                round(sum(hours), 2) AS hours
+            FROM spotify.plays
+            WHERE kind = 'track' AND album_name IS NOT NULL
+              AND track_name IS NOT NULL AND {where}
+            GROUP BY 1, 2
+            HAVING count(*) >= ?
+        ),
+        tops AS (
+            SELECT
+                album_name,
+                artist_name,
+                arg_max(track_name, n) AS top_track
+            FROM (
+                SELECT album_name, artist_name, track_name, count(*) AS n
+                FROM spotify.plays
+                WHERE kind = 'track' AND album_name IS NOT NULL
+                  AND track_name IS NOT NULL AND {where}
+                GROUP BY 1, 2, 3
+            )
+            GROUP BY 1, 2
+        )
+        SELECT
+            a.album_name,
+            a.artist_name,
+            a.unique_tracks,
+            a.plays,
+            a.hours,
+            round(a.plays / a.unique_tracks, 2) AS plays_per_track,
+            round(a.unique_tracks * ln(1 + a.plays / a.unique_tracks), 2) AS depth_score,
+            t.top_track
+        FROM per_album a
+        LEFT JOIN tops t
+          ON t.album_name = a.album_name
+         AND t.artist_name IS NOT DISTINCT FROM a.artist_name
+        ORDER BY depth_score DESC, a.hours DESC
+        LIMIT ?
+    """
+    # ``where`` appears twice (per_album, tops); placeholders bind in SQL order.
+    return _query_df(conn, sql, params + [min_plays] + params + [limit])
+
+
+def listening_sessions(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    gap_minutes: int = 30,
+    limit: int = 15,
+) -> pd.DataFrame:
+    """Longest listening sessions; a new session starts after ``gap_minutes`` idle.
+
+    The gap is measured from the end of one play (``played_at + ms_played``)
+    to the start of the next.
+    """
+    where, params = _where_and_params(f)
+    params.append(limit)
+    sql = f"""
+        WITH ordered AS (
+            SELECT
+                played_at,
+                played_at_local,
+                played_at + (ms_played || ' milliseconds')::INTERVAL AS ended_at,
+                hours,
+                artist_name,
+                lag(played_at + (ms_played || ' milliseconds')::INTERVAL)
+                    OVER (ORDER BY played_at) AS prev_end
+            FROM spotify.plays
+            WHERE {where}
+        ),
+        flagged AS (
+            SELECT
+                *,
+                CASE
+                    WHEN prev_end IS NULL
+                      OR played_at - prev_end > INTERVAL {int(gap_minutes)} MINUTE
+                    THEN 1 ELSE 0
+                END AS new_session
+            FROM ordered
+        ),
+        numbered AS (
+            SELECT *, sum(new_session) OVER (ORDER BY played_at) AS session_id
+            FROM flagged
+        ),
+        per_session AS (
+            SELECT
+                session_id,
+                min(played_at_local) AS started_local,
+                max(ended_at) AS ended_utc,
+                min(played_at) AS started_utc,
+                count(*)::BIGINT AS plays,
+                round(sum(hours), 2) AS hours,
+                count(DISTINCT artist_name)::BIGINT AS artists
+            FROM numbered
+            GROUP BY 1
+        ),
+        top_artist AS (
+            SELECT session_id, arg_max(artist_name, h) AS top_artist
+            FROM (
+                SELECT session_id, artist_name, sum(hours) AS h
+                FROM numbered
+                WHERE artist_name IS NOT NULL
+                GROUP BY 1, 2
+            )
+            GROUP BY 1
+        )
+        SELECT
+            s.started_local,
+            round(epoch(s.ended_utc - s.started_utc) / 3600.0, 2) AS span_hours,
+            s.hours AS played_hours,
+            s.plays,
+            s.artists,
+            t.top_artist
+        FROM per_session s
+        LEFT JOIN top_artist t USING (session_id)
+        ORDER BY s.hours DESC
+        LIMIT ?
+    """
+    return _query_df(conn, sql, params)
+
+
+def _previous_window(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> tuple[FilterState | None, str | None]:
+    """Previous equal-length year window, or (None, reason)."""
+    if f.year_start is None or f.year_end is None:
+        return None, "select a year range to compare against the previous window"
+    span = f.year_end - f.year_start + 1
+    prev_start = f.year_start - span
+    prev_end = f.year_start - 1
+    min_row = conn.execute("SELECT min(year)::INT FROM spotify.plays").fetchone()
+    assert min_row is not None
+    if min_row[0] is None or prev_start < min_row[0]:
+        return None, (
+            f"previous window ({prev_start}–{prev_end}) predates data "
+            f"(min year {min_row[0]})"
+        )
+    prev = FilterState(
+        year_start=prev_start,
+        year_end=prev_end,
+        kinds=list(f.kinds),
+        platform_buckets=list(f.platform_buckets),
+        conn_countries=list(f.conn_countries),
+        artist_search=f.artist_search,
+        artist_name=f.artist_name,
+        album_name=f.album_name,
+        track_name=f.track_name,
+        episode_show_name=f.episode_show_name,
+    )
+    return prev, None
+
+
+def artist_rank_movement(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    limit: int = 15,
+) -> pd.DataFrame:
+    """Top artists now with their rank in the previous equal window.
+
+    ``rank_delta`` is positive when an artist climbed; NULL when new to the
+    top list. Empty (with ``compare_note`` attr) when no year window is set.
+    """
+    cols = [
+        "artist_name",
+        "hours",
+        "rank",
+        "prev_hours",
+        "prev_rank",
+        "rank_delta",
+        "status",
+    ]
+    prev_f, note = _previous_window(conn, f)
+    if prev_f is None:
+        out = pd.DataFrame(columns=cols)
+        out.attrs["compare_note"] = note
+        return out
+    where, params = _where_and_params(f)
+    prev_where, prev_params = _where_and_params(prev_f)
+    sql = f"""
+        WITH cur AS (
+            SELECT
+                artist_name,
+                round(sum(hours), 2) AS hours,
+                row_number() OVER (ORDER BY sum(hours) DESC) AS rank
+            FROM spotify.plays
+            WHERE kind = 'track' AND artist_name IS NOT NULL AND {where}
+            GROUP BY 1
+        ),
+        prev AS (
+            SELECT
+                artist_name,
+                round(sum(hours), 2) AS prev_hours,
+                row_number() OVER (ORDER BY sum(hours) DESC) AS prev_rank
+            FROM spotify.plays
+            WHERE kind = 'track' AND artist_name IS NOT NULL AND {prev_where}
+            GROUP BY 1
+        )
+        SELECT
+            c.artist_name,
+            c.hours,
+            c.rank,
+            p.prev_hours,
+            p.prev_rank,
+            (p.prev_rank - c.rank) AS rank_delta,
+            CASE
+                WHEN p.prev_rank IS NULL THEN 'new'
+                WHEN p.prev_rank > c.rank THEN 'up'
+                WHEN p.prev_rank < c.rank THEN 'down'
+                ELSE 'same'
+            END AS status
+        FROM cur c
+        LEFT JOIN prev p USING (artist_name)
+        WHERE c.rank <= ?
+        ORDER BY c.rank
+    """
+    out = _query_df(conn, sql, params + prev_params + [limit])
+    out.attrs["compare_note"] = None
+    return out
+
+
+def artist_monthly_timeline(
+    conn: duckdb.DuckDBPyConnection,
+    f: FilterState,
+    *,
+    artists: list[str] | None = None,
+    max_artists: int = 3,
+) -> pd.DataFrame:
+    """Monthly hours per artist for the locked artist or up to ``max_artists``."""
+    names = list(artists or [])
+    if not names and f.artist_name:
+        names = [f.artist_name]
+    if not names:
+        names = top_artists(conn, f, limit=max_artists)["artist_name"].tolist()
+    names = names[:max_artists]
+    cols = ["year", "month", "artist_name", "hours", "year_month"]
+    if not names:
+        return pd.DataFrame(columns=cols)
+    # Timeline ignores an artist lock so several artists can be compared.
+    base = FilterState(
+        year_start=f.year_start,
+        year_end=f.year_end,
+        kinds=list(f.kinds),
+        platform_buckets=list(f.platform_buckets),
+        conn_countries=list(f.conn_countries),
+    )
+    where, params = _where_and_params(base)
+    placeholders = ", ".join("?" for _ in names)
+    sql = f"""
+        SELECT
+            year,
+            month,
+            artist_name,
+            round(sum(hours), 2) AS hours
+        FROM spotify.plays
+        WHERE kind = 'track' AND artist_name IN ({placeholders}) AND {where}
+        GROUP BY 1, 2, 3
+        ORDER BY 1, 2, 3
+    """
+    df = _query_df(conn, sql, names + params)
+    df["year_month"] = (
+        df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2)
+    )
+    return df[cols]
+
+
+def searched_but_rarely_played(
+    conn: duckdb.DuckDBPyConnection, *, limit: int = 15, max_plays: int = 3
+) -> pd.DataFrame:
+    """Account-data search queries that match an artist/track but were barely played.
+
+    Matching is a case-insensitive substring test against artist and track
+    names in Extended History. Queries with no name match are excluded so the
+    table stays about music you looked for, not typos.
+    """
+    cols = ["search_query", "searches", "matched_plays", "example_match"]
+    if not has_table(conn, "spotify", "searches") or not has_table(
+        conn, "spotify", "plays"
+    ):
+        return pd.DataFrame(columns=cols)
+    return _query_df(
+        conn,
+        """
+        WITH q AS (
+            SELECT lower(trim(search_query)) AS query, count(*)::BIGINT AS searches
+            FROM spotify.searches
+            WHERE search_query IS NOT NULL AND length(trim(search_query)) >= 3
+            GROUP BY 1
+        ),
+        names AS (
+            SELECT DISTINCT
+                lower(artist_name) AS artist_l,
+                lower(track_name) AS track_l,
+                artist_name,
+                track_name
+            FROM spotify.plays
+            WHERE kind = 'track' AND artist_name IS NOT NULL
+        ),
+        matched AS (
+            SELECT
+                q.query,
+                q.searches,
+                n.artist_name,
+                n.track_name
+            FROM q
+            JOIN names n
+              ON contains(n.artist_l, q.query) OR contains(n.track_l, q.query)
+        ),
+        plays_for AS (
+            SELECT
+                m.query,
+                m.searches,
+                count(p.track_name)::BIGINT AS matched_plays,
+                min(m.artist_name || ' — ' || m.track_name) AS example_match
+            FROM matched m
+            LEFT JOIN spotify.plays p
+              ON p.kind = 'track'
+             AND p.artist_name = m.artist_name
+             AND p.track_name = m.track_name
+            GROUP BY 1, 2
+        )
+        SELECT query AS search_query, searches, matched_plays, example_match
+        FROM plays_for
+        WHERE matched_plays <= ?
+        ORDER BY searches DESC, matched_plays ASC, search_query
+        LIMIT ?
+        """,
+        [max_plays, limit],
+    )
+
+
 def narrative_context(
     conn: duckdb.DuckDBPyConnection,
     f: FilterState,

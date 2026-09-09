@@ -130,6 +130,36 @@ def test_cli_ingest_mini(tmp_path):
     conn.close()
 
 
+def test_all_null_string_columns_are_varchar(tmp_path):
+    """A dump with no audiobooks must not leave audiobook_* typed as JSON.
+
+    ``read_json`` infers all-NULL columns as JSON; queries that coalesce them
+    with track/episode names (e.g. ``milestones``) then fail to cast.
+    """
+    from data_dumps.spotify_queries import FilterState, milestones
+
+    zip_path = make_mini_spotify_zip(tmp_path)
+    conn = duckdb.connect(str(tmp_path / "types.duckdb"))
+    SpotifySource().load(zip_path, conn)
+    types = {row[0]: row[1] for row in conn.execute("DESCRIBE spotify.plays").fetchall()}
+    for col in (
+        "track_name",
+        "artist_name",
+        "album_name",
+        "episode_name",
+        "episode_show_name",
+        "audiobook_title",
+        "audiobook_chapter_title",
+        "reason_start",
+        "reason_end",
+        "conn_country",
+    ):
+        assert types[col] == "VARCHAR", (col, types[col])
+    ms = milestones(conn, FilterState())
+    assert ms.iloc[0]["longest_play_title"] is not None
+    conn.close()
+
+
 def test_cli_missing_path(tmp_path):
     rc = main([str(tmp_path / "nope.zip")])
     assert rc == 1

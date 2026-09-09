@@ -112,6 +112,22 @@ docker compose up app
 - Media stays in the inbox archive; warehouse stores kinds/paths only
 - Explorer: Twitter tab (Wrapped-depth scoreboard, streaks, rankings, behavior, forgotten/comebacks, longitudinal + expanded charts)
 
+## Slack workspace
+
+Standard workspace export zip (`users.json` + `channels.json` + one folder per channel with daily JSON). An already-extracted folder works too. Stop the dashboard first.
+
+```bash
+uv run ingest "~/Documents/data_dumps_raw/slack/REN21 Slack export May 13 2018 - Sep 26 2025.zip"
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+```
+
+- Tables: `slack.users`, `slack.channels`, `slack.channel_members`, `slack.messages`, `slack.reactions`, `slack.mentions`, `slack.files`
+- Daily files are streamed straight from the zip; only `users.json` / `channels.json` are copied to `raw/slack/`
+- Names and message text are kept; emails, phones, Skype handles and avatars are dropped at ingest
+- `<@U…>` mentions resolve to `@Name`, links to their label; `FC:<id>:<title>` file-conversation folders become channels of kind `file_conversation`
+- Bots and system subtypes (joins, renames, …) are landed but hidden by default in the explorer
+- Explorer: Slack tab (scoreboard, monthly human/bot/system volume, active people, channel rankings/lifecycle, people rankings, thread depth and time-to-first-reply, reactions, mention pairs, weekday×hour heatmap, calendar, bots) plus a **Person spotlight**: pick one person (dropdown or click a bar) to see their monthly activity, share of team, channel mix, rhythm vs team, collaborators, emoji given/received, text profile and most engaged-with messages
+
 ## Sleep as Android
 
 Merged session export (canonical `sleep-export.zip`). Stop the dashboard first.
@@ -121,7 +137,7 @@ uv run ingest ~/Documents/data_dumps_raw/sleep_as_android/sleep-export.zip
 uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 ```
 
-- Tables: `sleep.sessions`, `sleep.events`, `sleep.actigraphy`
+- Tables: `sleep.sessions`, `sleep.events`, `sleep.actigraphy`, `sleep.alarms` (optional `alarms.json` sidecar)
 - Explorer: Sleep tab (scoreboard, streaks, hours over time, bedtime/wake, weekday, calendar, stage events, tags, actigraphy sample)
 - Re-export from the app into the same zip layout for future ingests
 - Originals archived at `sleep_as_android/originals.zip`
@@ -183,6 +199,7 @@ spotify/              # Extended History ZIP + Account Data ZIP
 telegram/             # Desktop export folder (result.json + media)
 linkedin/             # Complete (and optional Basic) GDPR ZIP
 twitter/              # YTD HTML-viewer archive folder (data/*.js + media)
+slack/                # workspace export zip
 sleep_as_android/     # sleep-export.zip + originals.zip
 miband_hr/            # heart_rate.csv + originals.zip
 raw/spotify/          # extracted Streaming_History JSON
@@ -190,6 +207,7 @@ raw/spotify_account/  # Account Data JSON (library/playlists/searches only)
 raw/telegram/         # result.json copy only (not media)
 raw/linkedin/         # ingested CSVs (PII files never copied)
 raw/twitter/          # ingested YTD JS keep-list (PII/ad files never copied)
+raw/slack/            # users.json + channels.json copies (daily files read from zip)
 raw/sleep/            # extracted sleep-export.csv (+ sidecars)
 raw/miband/           # heart_rate.csv copy
 warehouse/            # DuckDB catalog + llm_cache
@@ -213,7 +231,7 @@ uv run pytest
 uv run ruff check src tests
 uv run black --check src tests
 uv run mypy src
-uv run python -m marimo check notebooks/explorer.py notebooks/spotify.py notebooks/telegram.py notebooks/linkedin.py notebooks/twitter.py
+uv run python -m marimo check notebooks/explorer.py notebooks/spotify.py notebooks/telegram.py notebooks/linkedin.py notebooks/twitter.py notebooks/sleep.py
 ```
 
 Do not run Black or Ruff on `notebooks/` — Marimo cell structure is not a formatter target.

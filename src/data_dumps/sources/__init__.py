@@ -1,6 +1,7 @@
 from data_dumps.sources.base import Source
 from data_dumps.sources.linkedin import LinkedInSource
 from data_dumps.sources.miband import MiBandSource
+from data_dumps.sources.slack import SlackSource
 from data_dumps.sources.sleep import SleepSource
 from data_dumps.sources.spotify import SpotifySource
 from data_dumps.sources.spotify_account import SpotifyAccountSource
@@ -14,6 +15,7 @@ __all__ = [
     "TelegramSource",
     "LinkedInSource",
     "TwitterSource",
+    "SlackSource",
     "SleepSource",
     "MiBandSource",
 ]

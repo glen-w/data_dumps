@@ -13,6 +13,7 @@ NOTEBOOKS = [
     ROOT / "notebooks" / "telegram.py",
     ROOT / "notebooks" / "linkedin.py",
     ROOT / "notebooks" / "twitter.py",
+    ROOT / "notebooks" / "sleep.py",
 ]
 
 

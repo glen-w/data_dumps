@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 import shutil
 import zipfile
@@ -49,6 +50,30 @@ SLEEP_TABLES = [
     "sleep.sessions",
     "sleep.events",
     "sleep.actigraphy",
+    "sleep.alarms",
+]
+
+# Sleep as Android alarms.json ``daysOfWeek.days`` bitmask, Monday = bit 0.
+ALARM_DAY_BITS = [
+    (1, "Mon"),
+    (2, "Tue"),
+    (4, "Wed"),
+    (8, "Thu"),
+    (16, "Fri"),
+    (32, "Sat"),
+    (64, "Sun"),
+]
+
+ALARM_COLUMNS = [
+    "id",
+    "hour",
+    "minute",
+    "enabled",
+    "days_mask",
+    "days",
+    "label",
+    "smart_window_min",
+    "next_time_local",
 ]
 
 
@@ -316,6 +341,52 @@ def _parse_export(csv_path: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFr
     return sessions, events, actigraphy
 
 
+def _decode_alarm_days(mask: int | None) -> str | None:
+    if mask is None or mask <= 0:
+        return None
+    return " ".join(name for bit, name in ALARM_DAY_BITS if mask & bit)
+
+
+def _parse_alarms(path: Path) -> pd.DataFrame:
+    """Parse the ``alarms.json`` sidecar (list of alarm dicts) into a flat frame."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return pd.DataFrame(columns=ALARM_COLUMNS)
+    items = payload if isinstance(payload, list) else payload.get("alarms", [])
+    rows: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        dow = item.get("daysOfWeek")
+        mask = dow.get("days") if isinstance(dow, dict) else item.get("days")
+        mask_int = _int(mask)
+        next_ms = _int(item.get("time"))
+        next_local = (
+            datetime.fromtimestamp(next_ms / 1000.0, tz=UTC)
+            .astimezone(LOCAL_TZ)
+            .replace(tzinfo=None)
+            if next_ms and next_ms > 0
+            else None
+        )
+        rows.append(
+            {
+                "id": _int(item.get("id")),
+                "hour": _int(item.get("hour")),
+                "minute": _int(item.get("minutes", item.get("minute"))),
+                "enabled": bool(item.get("enabled", False)),
+                "days_mask": mask_int,
+                "days": _decode_alarm_days(mask_int),
+                "label": item.get("label") or item.get("name") or None,
+                "smart_window_min": _int(item.get("nonDeepsleepWakeupWindow")),
+                "next_time_local": next_local,
+            }
+        )
+    if not rows:
+        return pd.DataFrame(columns=ALARM_COLUMNS)
+    return pd.DataFrame(rows, columns=ALARM_COLUMNS)
+
+
 class SleepSource:
     name = "sleep"
 
@@ -347,7 +418,14 @@ class SleepSource:
                 raise FileNotFoundError("sleep-export.csv missing after extract")
             csv_path = found
         sessions, events, actigraphy = _parse_export(csv_path)
+        alarms_path = raw / "alarms.json"
+        alarms = (
+            _parse_alarms(alarms_path)
+            if alarms_path.exists()
+            else pd.DataFrame(columns=ALARM_COLUMNS)
+        )
         conn.execute("CREATE SCHEMA IF NOT EXISTS sleep")
+        conn.execute("DROP TABLE IF EXISTS sleep.alarms")
         conn.execute("DROP TABLE IF EXISTS sleep.actigraphy")
         conn.execute("DROP TABLE IF EXISTS sleep.events")
         conn.execute("DROP TABLE IF EXISTS sleep.sessions")
@@ -360,11 +438,29 @@ class SleepSource:
         conn.unregister("_sleep_sessions")
         conn.unregister("_sleep_events")
         conn.unregister("_sleep_actigraphy")
+        conn.execute("""
+            CREATE TABLE sleep.alarms (
+                id INTEGER,
+                hour INTEGER,
+                minute INTEGER,
+                enabled BOOLEAN,
+                days_mask INTEGER,
+                days VARCHAR,
+                label VARCHAR,
+                smart_window_min INTEGER,
+                next_time_local TIMESTAMP
+            )
+        """)
+        if not alarms.empty:
+            conn.register("_sleep_alarms", alarms)
+            conn.execute("INSERT INTO sleep.alarms BY NAME SELECT * FROM _sleep_alarms")
+            conn.unregister("_sleep_alarms")
 
     def inventory(self, conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         n = conn.execute("SELECT count(*) FROM sleep.sessions").fetchone()
         n_ev = conn.execute("SELECT count(*) FROM sleep.events").fetchone()
         n_act = conn.execute("SELECT count(*) FROM sleep.actigraphy").fetchone()
+        n_alarm = conn.execute("SELECT count(*) FROM sleep.alarms").fetchone()
         span = conn.execute(
             "SELECT min(local_date), max(local_date) FROM sleep.sessions"
         ).fetchone()
@@ -372,12 +468,14 @@ class SleepSource:
         first, last = (span[0], span[1]) if span else (None, None)
         summary = (
             f"sleep.sessions={n_sessions} events={n_ev[0] if n_ev else 0} "
-            f"actigraphy={n_act[0] if n_act else 0} span={first}→{last}"
+            f"actigraphy={n_act[0] if n_act else 0} "
+            f"alarms={n_alarm[0] if n_alarm else 0} span={first}→{last}"
         )
         return {
             "n_sessions": n_sessions,
             "n_events": n_ev[0] if n_ev else 0,
             "n_actigraphy": n_act[0] if n_act else 0,
+            "n_alarms": n_alarm[0] if n_alarm else 0,
             "first_day": first,
             "last_day": last,
             "summary": summary,

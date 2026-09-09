@@ -1,10 +1,13 @@
 """Telegram FilterState and query smoke tests."""
 
+import json
+
 import duckdb
 import pytest
 
 from data_dumps.sources.telegram import TelegramSource
 from data_dumps.telegram_queries import (
+    NARRATIVE_CONTEXT_KEYS,
     PEOPLE_CHAT_TYPES,
     FilterState,
     _where_and_params,
@@ -15,17 +18,24 @@ from data_dumps.telegram_queries import (
     circadian_heatmap,
     comeback_chats,
     data_bounds,
+    emoji_in_text,
     filter_from_widgets,
     forgotten_chats,
     me_vs_them,
     media_mix,
+    message_length_buckets,
     messages_by_chat,
     messages_by_chat_type,
     monthly_by_chat_type,
     monthly_messages,
+    narrative_context,
+    per_sender_breakdown,
     reaction_mix,
+    reply_edges,
     scoreboard,
     streak_stats,
+    text_stats,
+    top_words,
 )
 
 from .test_telegram_ingest import make_mini_telegram_dir
@@ -190,6 +200,78 @@ def test_chat_name_filter(tg_conn):
     assert int(score.iloc[0]["chats"]) == 1
     types = messages_by_chat_type(tg_conn, f)
     assert list(types["chat_type"]) == ["personal_chat"]
+
+
+def test_text_analytics_on_mini(tg_conn):
+    f = FilterState(include_bots=True)
+    stats = text_stats(tg_conn, f)
+    row = stats.iloc[0]
+    assert int(row["text_messages"]) >= 1
+    assert float(row["avg_chars"]) > 0
+    assert set(stats.columns) >= {"question_pct", "link_pct", "emoji_pct", "edited_pct"}
+
+    words = top_words(tg_conn, f, limit=10, min_len=3)
+    assert set(words.columns) == {"word", "uses"}
+    assert all(len(w) >= 3 for w in words["word"])
+    assert "the" not in set(words["word"])
+
+    # Emoji + link + question in one message.
+    tg_conn.execute("""
+        INSERT INTO telegram.messages (
+            chat_id, message_id, event_type, ts_utc, ts_local, from_name, from_id,
+            text, edited, media_kind, year, month
+        ) VALUES (
+            222, 98, 'message',
+            TIMESTAMP '2024-01-15 10:04:00', TIMESTAMP '2024-01-15 11:04:00',
+            'Ada', 222,
+            'Seen this? 😀😀 https://example.org/paper', false, 'none', 2024, 1
+        )
+        """)
+    emoji = emoji_in_text(tg_conn, FilterState())
+    assert "😀" in set(emoji["emoji"])
+    assert int(emoji.loc[emoji["emoji"] == "😀", "uses"].iloc[0]) == 2
+    stats2 = text_stats(tg_conn, FilterState())
+    assert float(stats2.iloc[0]["link_pct"]) > 0
+    assert float(stats2.iloc[0]["question_pct"]) > 0
+    words2 = top_words(tg_conn, FilterState(), limit=50)
+    assert not any(w.startswith("http") or "example" in w for w in words2["word"])
+
+    buckets = message_length_buckets(tg_conn, FilterState())
+    assert set(buckets["who"]) <= {"me", "them"}
+    assert int(buckets["messages"].sum()) >= 2
+
+
+def test_per_sender_and_reply_edges(tg_conn):
+    f = FilterState(chat_name="Ada")
+    senders = per_sender_breakdown(tg_conn, f)
+    assert set(senders.columns) >= {"sender", "is_me", "messages", "share_pct"}
+    assert abs(float(senders["share_pct"].sum()) - 100.0) < 0.2
+    assert senders["is_me"].any()
+
+    edges = reply_edges(tg_conn, f)
+    assert set(edges.columns) == {"source", "target", "replies"}
+    assert int(edges["replies"].sum()) == 1
+    assert edges.iloc[0]["source"] != edges.iloc[0]["target"]
+
+
+def test_narrative_context_privacy(tg_conn):
+    ctx = narrative_context(tg_conn, FilterState(year_start=2024))
+    assert set(ctx.keys()) == NARRATIVE_CONTEXT_KEYS
+    blob = json.dumps(ctx, default=str)
+    assert "filter_digest" in blob
+    # No raw message text or identifiers leak into the prompt context.
+    texts = [
+        r[0]
+        for r in tg_conn.execute(
+            "SELECT text FROM telegram.messages WHERE text IS NOT NULL AND text <> ''"
+        ).fetchall()
+    ]
+    for t in texts:
+        assert t not in blob
+    for forbidden in ("\"text\":", "from_id", "phone_number", "message_id"):
+        assert forbidden not in blob
+    assert len(ctx["top_chats"]) <= 10
+    assert FilterState(year_start=2024).filter_digest() != FilterState().filter_digest()
 
 
 def test_clear_field_resets_chat_lock():

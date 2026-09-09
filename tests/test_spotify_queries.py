@@ -2,6 +2,9 @@
 
 from data_dumps.spotify_queries import (
     FilterState,
+    album_depth,
+    artist_monthly_timeline,
+    artist_rank_movement,
     bump_chart_artists,
     calendar_daily,
     circadian_heatmap,
@@ -17,9 +20,13 @@ from data_dumps.spotify_queries import (
     hours_by_kind,
     hours_by_platform,
     kind_platform_sunburst,
+    listening_sessions,
+    milestones,
     monthly_hours,
     narrative_context,
+    offline_vs_online,
     scoreboard,
+    searched_but_rarely_played,
     shuffle_intent,
     skip_trends,
     streak_stats,
@@ -143,6 +150,106 @@ def test_mb_genre_decade(plays_conn_mb):
     assert "rock" in genre["genre"].tolist()
     decade = decade_bars(conn, f)
     assert "2010s" in decade["decade"].tolist()
+
+
+def test_offline_and_milestones(plays_conn):
+    conn, _ = plays_conn
+    f = FilterState()
+    off = offline_vs_online(conn, f)
+    assert set(off["mode"]) == {"online"}  # fixture has offline=False everywhere
+    assert int(off["plays"].sum()) > 0
+
+    ms = milestones(conn, f)
+    row = ms.iloc[0]
+    assert int(row["days_listened"]) > 0
+    assert row["most_repeated_track"] == "Ancient Hit"
+    assert int(row["most_repeated_plays"]) == 15
+    assert row["longest_play_title"] == "Early Song"  # 3 h single play
+    assert str(row["first_play_day"]).startswith("2016-01-15")
+
+
+def test_album_depth(plays_conn):
+    conn, _ = plays_conn
+    # Every fixture play sits on album "Album"; 12 distinct Alpha tracks + repeats.
+    depth = album_depth(conn, FilterState(), min_plays=5)
+    assert not depth.empty
+    alpha = depth.loc[depth["artist_name"] == "Alpha"].iloc[0]
+    assert int(alpha["unique_tracks"]) == 12
+    assert int(alpha["plays"]) == 17
+    assert float(alpha["depth_score"]) > 0
+    assert alpha["top_track"] == "Alpha Song 0"
+    # Filter narrows albums; a huge min_plays returns nothing.
+    assert album_depth(conn, FilterState(), min_plays=10_000).empty
+
+
+def test_listening_sessions(plays_conn):
+    conn, _ = plays_conn
+    sessions = listening_sessions(conn, FilterState(), gap_minutes=30, limit=5)
+    assert not sessions.empty
+    assert set(sessions.columns) >= {
+        "started_local",
+        "span_hours",
+        "played_hours",
+        "plays",
+        "top_artist",
+    }
+    # Fixture plays are one per day, so every session is a single play.
+    assert int(sessions["plays"].max()) == 1
+    assert float(sessions.iloc[0]["played_hours"]) == 3.0
+
+
+def test_artist_rank_movement(plays_conn):
+    conn, _ = plays_conn
+    # No year window -> empty with a note.
+    none = artist_rank_movement(conn, FilterState())
+    assert none.empty
+    assert none.attrs["compare_note"]
+
+    mv = artist_rank_movement(conn, FilterState(year_start=2020, year_end=2020))
+    assert not mv.empty
+    assert set(mv["status"]) <= {"new", "up", "down", "same"}
+    # Return Act was silent in 2019 (previous window) so it is "new" in 2020.
+    ret = mv.loc[mv["artist_name"] == "Return Act"].iloc[0]
+    assert ret["status"] == "new"
+    assert ret["prev_rank"] is None or str(ret["prev_rank"]) in {"nan", "None", "<NA>"}
+
+
+def test_artist_monthly_timeline(plays_conn):
+    conn, _ = plays_conn
+    locked = artist_monthly_timeline(conn, FilterState(artist_name="Alpha"))
+    assert set(locked["artist_name"]) == {"Alpha"}
+    assert "year_month" in locked.columns
+    top3 = artist_monthly_timeline(conn, FilterState(), max_artists=3)
+    assert 1 <= top3["artist_name"].nunique() <= 3
+    explicit = artist_monthly_timeline(conn, FilterState(), artists=["Gamma", "Alpha"])
+    assert set(explicit["artist_name"]) == {"Gamma", "Alpha"}
+
+
+def test_searched_but_rarely_played(plays_conn):
+    conn, _ = plays_conn
+    # No searches table -> empty frame, no crash.
+    assert searched_but_rarely_played(conn).empty
+    conn.execute("""
+        CREATE TABLE spotify.searches (
+            searched_at TIMESTAMP, searched_at_local TIMESTAMP,
+            search_query VARCHAR, platform VARCHAR, year BIGINT, month BIGINT
+        )
+        """)
+    conn.execute("""
+        INSERT INTO spotify.searches VALUES
+        (TIMESTAMP '2020-01-01', TIMESTAMP '2020-01-01', 'fresh track', 'android', 2020, 1),
+        (TIMESTAMP '2020-01-02', TIMESTAMP '2020-01-02', 'fresh track', 'android', 2020, 1),
+        (TIMESTAMP '2020-01-03', TIMESTAMP '2020-01-03', 'ancient hit', 'android', 2020, 1),
+        (TIMESTAMP '2020-01-04', TIMESTAMP '2020-01-04', 'zzz nothing', 'android', 2020, 1)
+        """)
+    df = searched_but_rarely_played(conn, max_plays=3)
+    queries = set(df["search_query"])
+    assert "fresh track" in queries  # 1 play
+    assert "ancient hit" not in queries  # 15 plays
+    assert "zzz nothing" not in queries  # no name match
+    fresh = df.loc[df["search_query"] == "fresh track"].iloc[0]
+    assert int(fresh["searches"]) == 2
+    assert int(fresh["matched_plays"]) == 1
 
 
 def test_narrative_context_keys(plays_conn):
