@@ -266,6 +266,11 @@ def test_render_thunderbird_panel(tb_conn):
         render_thunderbird_panel,
     )
 
+    # Messages without a local calendar day must not crash ISO week casting.
+    tb_conn.execute(
+        "UPDATE thunderbird.messages SET local_date = NULL "
+        "WHERE gloda_id = (SELECT min(gloda_id) FROM thunderbird.messages)"
+    )
     bounds = tbq.data_bounds(tb_conn)
     controls = make_thunderbird_controls(mo, bounds)
     html = render_thunderbird_panel(

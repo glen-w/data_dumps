@@ -302,7 +302,7 @@ def calendar_daily(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFr
         f"""
         SELECT local_date AS day, count(*)::BIGINT AS messages
         {_from_join()}
-        WHERE {where}
+        WHERE {where} AND local_date IS NOT NULL
         GROUP BY 1
         ORDER BY 1
         """,

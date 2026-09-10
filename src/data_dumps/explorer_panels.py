@@ -2716,11 +2716,13 @@ def render_thunderbird_panel(
             color_continuous_scale="Blues",
             histfunc="sum",
         )
-    if cal_df.empty:
+    cal = cal_df.copy()
+    if not cal.empty:
+        cal["day"] = pd.to_datetime(cal["day"], errors="coerce")
+        cal = cal.dropna(subset=["day"])
+    if cal.empty:
         fig_cal = px.density_heatmap(title="No calendar data")
     else:
-        cal = cal_df.copy()
-        cal["day"] = pd.to_datetime(cal["day"])
         iso = cal["day"].dt.isocalendar()
         cal["week"] = iso["week"].astype(int)
         cal["dow"] = cal["day"].dt.dayofweek

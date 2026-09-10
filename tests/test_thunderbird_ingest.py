@@ -16,6 +16,7 @@ from data_dumps.sources.thunderbird_gloda import (
     snapshot_gloda,
 )
 from data_dumps.thunderbird_queries import (
+    calendar_daily,
     circadian_heatmap,
     data_bounds,
     filter_from_widgets,
@@ -255,6 +256,15 @@ def test_load_no_body_direction_signals(tmp_path, monkeypatch):
         assert int(score.iloc[0]["messages"]) == 3
         assert not circadian_heatmap(conn, f).empty
         assert not top_domains(conn, f).empty
+        assert not calendar_daily(conn, f).empty
+
+        conn.execute(
+            "UPDATE thunderbird.messages SET local_date = NULL "
+            "WHERE gloda_id = (SELECT min(gloda_id) FROM thunderbird.messages)"
+        )
+        cal = calendar_daily(conn, f)
+        assert cal["day"].notna().all()
+        assert int(cal["messages"].sum()) == 2
 
         nasty = filter_from_widgets(
             bounds,
