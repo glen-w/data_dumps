@@ -1,0 +1,30 @@
+[
+  {
+    "id": "a1",
+    "url": "https://www.google.com/search?q=hello&secret=SHOULD_STRIP",
+    "title": "hello - Google Search",
+    "lastVisitTime": 1728415566668,
+    "visitCount": 3
+  },
+  {
+    "id": "a2",
+    "url": "https://github.com/cursor/cursor",
+    "title": "cursor/cursor",
+    "lastVisitTime": 1728500000000,
+    "visitCount": 10
+  },
+  {
+    "id": "a3",
+    "url": "http://192.168.1.29:2283/",
+    "title": "Immich",
+    "lastVisitTime": 1728600000000,
+    "visitCount": 5
+  },
+  {
+    "id": "a4",
+    "url": "https://duckduckgo.com/?q=hemicorporectomy",
+    "title": "hemicorporectomy at DuckDuckGo",
+    "lastVisitTime": 1728700000000,
+    "visitCount": 2
+  }
+]

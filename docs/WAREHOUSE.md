@@ -98,6 +98,22 @@ Merged CSV with `dateTime,rate,rateZone`.
 2. `uv run ingest ~/Documents/data_dumps_raw/miband_hr/heart_rate.csv`
 3. Start the dashboard again (Mi Band tab)
 
+### Ingest browser history (Firefox Sky + legacy)
+
+Sky History Export JSON (canonical dated file) plus optional Chrome-style `history.json` (may be two concatenated arrays).
+
+1. **Stop** Marimo or `docker compose stop app`
+2. Put files under `~/Documents/data_dumps_raw/firefox/` then:
+   `uv run ingest ~/Documents/data_dumps_raw/firefox/`
+3. Start the dashboard again (Browser tab)
+
+| Table | Grain | Notes |
+|-------|-------|-------|
+| `browser.pages` | url | last visit + visit count; secrets stripped from query string; private/LAN flagged |
+| `browser.ingest_meta` | file | per-file raw/kept counts and source label |
+
+Visit-level Firefox `places.sqlite` → `browser.visits` is deferred (needed for circadian / rabbit-hole sessions).
+
 ### MusicBrainz enrichment (genres / decades)
 
 `--artist-limit` and `--track-limit` default to **`0` (no cap)**. The CLI assumes you want the **full dataset** — every artist/track above the min lifetime hours — not a sample. MusicBrainz has no free-tier count quota; the only API constraint is **~1 request/second** per IP.
@@ -135,6 +151,7 @@ docker compose run --rm --entrypoint ingest app /data/twitter/twitter-archive-20
 docker compose run --rm --entrypoint ingest app "/data/slack/REN21 Slack export May 13 2018 - Sep 26 2025.zip"
 docker compose run --rm --entrypoint ingest app /data/sleep_as_android/sleep-export.zip
 docker compose run --rm --entrypoint ingest app /data/miband_hr/heart_rate.csv
+docker compose run --rm --entrypoint ingest app /data/firefox/
 docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run
 docker compose up app
 ```

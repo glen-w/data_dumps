@@ -58,6 +58,22 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Merged `heart_rate.csv` → `miband.heart_rate`
 - Explorer Mi Band tab (simple scoreboard, daily avg, heatmaps, zones)
 
+### Thunderbird mail (Gloda)
+
+- Read-only snapshot of `global-messages-db.sqlite` → `thunderbird.*` (metadata only; no bodies; no mail-dir copy)
+- Identities from `prefs.js` / `--identity` / `DATA_DUMPS_TB_IDENTITIES` for sent vs received
+- Heuristic signals: newsletter, receipt, subscription, signup
+- Explorer Thunderbird tab (ThirdStats/InboxPie-style volume, circadian, people, domains, folders, threads, signals)
+- Patterns adapted from thunderbird-mcp (snapshot), third-stats / inboxpie (charts), email-archive-parser (heuristics)
+
+### Browser history (Firefox Sky + legacy Chrome JSON)
+
+- Sky History Export JSON (canonical) + one-time `history.json` merge → `browser.pages`
+- URL-level grain; sensitive query params scrubbed; eTLD+1 via `tldextract` (offline PSL snapshot)
+- Explorer Browser tab (scoreboard, domains/path tree, categories, search queries, forgotten/routines/comebacks, last-seen calendar, local hosts)
+- Patterns adapted from chrome-history-explorer / 1History / BrowserHistoryVisualizer (queries only — still DuckDB + Marimo)
+- **Later:** Firefox `places.sqlite` visit grain for circadian / research-session detection
+
 ### Dashboard upgrades from the open-source landscape
 
 Query + chart + panel additions only (no new deps, no ingest restructuring). References: sleep_android_viz, Encore, Spotify-Unwrapped, TelAnalysis, ConvoMetrics.
@@ -118,7 +134,7 @@ Four phases, shippable independently after A:
 |-----|------|
 | [README.md](../README.md) | Setup, Docker, privacy |
 | [WAREHOUSE.md](WAREHOUSE.md) | **Single-writer lock** — UI vs ingest vs enrich |
-| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn / Twitter / Slack / Sleep / Mi Band) |
+| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn / Twitter / Slack / Browser / Sleep / Mi Band) |
 | [../notebooks/spotify.py](../notebooks/spotify.py) | Spotify-only notebook |
 | [../notebooks/telegram.py](../notebooks/telegram.py) | Telegram-only notebook |
 | [../notebooks/sleep.py](../notebooks/sleep.py) | Sleep-only notebook (thin wrapper over `render_sleep_panel`) |

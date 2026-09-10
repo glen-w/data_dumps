@@ -154,6 +154,41 @@ uv run ingest ~/Documents/data_dumps_raw/miband_hr/heart_rate.csv
 - Explorer: Mi Band tab (scoreboard, daily avg, hour-of-day, weekday×hour heatmap, zones)
 - Originals archived at `miband_hr/originals.zip`
 
+## Thunderbird mail (Gloda)
+
+Read-only aggregation from Thunderbird’s search index — does **not** copy or move mail directories.
+
+```bash
+# Profile folder (contains global-messages-db.sqlite)
+uv run ingest ~/Library/Thunderbird/Profiles/<id>.default-release
+
+# Optional: own addresses for sent vs received (also prefs.js identities)
+uv run ingest ~/Library/Thunderbird/Profiles/<id>.default-release \
+  --identity you@example.com
+# or: DATA_DUMPS_TB_IDENTITIES=you@example.com,you@work.com
+```
+
+- Tables: `thunderbird.accounts|folders|messages|participants|signals`
+- Grain is message metadata (subjects, addresses/domains, folders, flags, attachment names) — **no bodies**
+- Heuristic signals: newsletter / receipt / subscription / signup
+- Explorer: Thunderbird tab (scoreboard, volume, circadian, people, domain sunburst, folders, threads, attachments, signals)
+
+## Browser history (Firefox + legacy merge)
+
+Sky History Export JSON (canonical) plus a one-time Chrome-style `history.json` merge. Stop the dashboard first.
+
+```bash
+# Both files under firefox/ (dated Sky export is canonical; history.json is merged)
+uv run ingest ~/Documents/data_dumps_raw/firefox/
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+```
+
+- Tables: `browser.pages`, `browser.ingest_meta`
+- Grain is **URL-level** (last visit + visit count), not individual visits
+- Sensitive query params (`secret`, `token`, …) stripped at ingest; LAN/localhost flagged private
+- Explorer: Browser tab (scoreboard, domains/hosts/pages, categories, last-seen calendar, search queries, forgotten gems, routines, comebacks, local hosts, path tree)
+- Future: visit-level `places.sqlite` for circadian / rabbit-hole sessions
+
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.

@@ -12,6 +12,7 @@ dependencies = [
     "pytz>=2024.1",
     "requests>=2.31.0",
     "openpyxl>=3.1.5",
+    "tldextract>=5.3.2",
 ]
 
 [project.optional-dependencies]
@@ -72,7 +73,7 @@ warn_unused_ignores = true
 no_implicit_optional = true
 
 [[tool.mypy.overrides]]
-module = ["duckdb", "duckdb.*", "plotly", "plotly.*", "litellm", "litellm.*", "marimo", "marimo.*"]
+module = ["duckdb", "duckdb.*", "plotly", "plotly.*", "litellm", "litellm.*", "marimo", "marimo.*", "tldextract", "tldextract.*"]
 ignore_missing_imports = true
 
 [tool.uv]

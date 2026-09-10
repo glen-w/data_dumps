@@ -11,23 +11,28 @@ def _():
     import plotly.express as px
 
     from data_dumps.explorer_panels import (
+        make_browser_controls,
         make_linkedin_controls,
         make_miband_controls,
         make_slack_controls,
         make_sleep_controls,
         make_spotify_controls,
         make_telegram_controls,
+        make_thunderbird_controls,
         make_twitter_controls,
+        render_browser_panel,
         render_linkedin_panel,
         render_miband_panel,
         render_slack_panel,
         render_sleep_panel,
         render_spotify_panel,
         render_telegram_panel,
+        render_thunderbird_panel,
         render_twitter_panel,
     )
     from data_dumps.llm_client import narrate
     from data_dumps.paths import warehouse_db
+    from data_dumps.thunderbird_queries import data_bounds as tb_data_bounds
     from data_dumps.spotify_queries import (
         artist_hours_vs_skip,
         bump_chart_artists,
@@ -104,6 +109,7 @@ def _():
     from data_dumps.sleep_queries import data_bounds as sl_data_bounds
     from data_dumps.miband_queries import data_bounds as mb_hr_data_bounds
     from data_dumps.slack_queries import data_bounds as sk_data_bounds
+    from data_dumps.browser_queries import data_bounds as br_data_bounds
     from data_dumps.twitter_queries import (
         account_reply_scatter,
         bump_chart_accounts,
@@ -158,6 +164,8 @@ def _():
     has_sleep = _has_table(conn, "sleep", "sessions")
     has_miband = _has_table(conn, "miband", "heart_rate")
     has_slack = _has_table(conn, "slack", "messages")
+    has_browser = _has_table(conn, "browser", "pages")
+    has_thunderbird = _has_table(conn, "thunderbird", "messages")
     sp_bounds = sp_data_bounds(conn) if has_spotify else None
     tg_bounds = tg_data_bounds(conn) if has_telegram else None
     li_bounds = li_data_bounds(conn) if has_linkedin else None
@@ -165,12 +173,16 @@ def _():
     sl_bounds = sl_data_bounds(conn) if has_sleep else None
     mb_hr_bounds = mb_hr_data_bounds(conn) if has_miband else None
     sk_bounds = sk_data_bounds(conn) if has_slack else None
+    br_bounds = br_data_bounds(conn) if has_browser else None
+    tb_bounds = tb_data_bounds(conn) if has_thunderbird else None
     mb_ready = has_mb_data(conn) if has_spotify else False
     tg_dow = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
     iso_dow = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
     return (
         PEOPLE_CHAT_TYPES,
         artist_hours_vs_skip,
+        br_bounds,
+        br_data_bounds,
         bump_chart_artists,
         bump_chart_chats,
         calls_by_year,
@@ -183,12 +195,14 @@ def _():
         forgotten_artists,
         forgotten_chats,
         genre_treemap,
+        has_browser,
         has_linkedin,
         has_miband,
         has_slack,
         has_sleep,
         has_spotify,
         has_telegram,
+        has_thunderbird,
         has_twitter,
         hours_by_country,
         hours_by_kind,
@@ -196,12 +210,14 @@ def _():
         iso_dow,
         kind_platform_sunburst,
         li_bounds,
+        make_browser_controls,
         make_linkedin_controls,
         make_miband_controls,
         make_slack_controls,
         make_sleep_controls,
         make_spotify_controls,
         make_telegram_controls,
+        make_thunderbird_controls,
         make_twitter_controls,
         mb_hr_bounds,
         mb_ready,
@@ -215,12 +231,14 @@ def _():
         narrative_context,
         px,
         reaction_mix,
+        render_browser_panel,
         render_linkedin_panel,
         render_miband_panel,
         render_slack_panel,
         render_sleep_panel,
         render_spotify_panel,
         render_telegram_panel,
+        render_thunderbird_panel,
         render_twitter_panel,
         shuffle_intent,
         sk_bounds,
@@ -232,6 +250,7 @@ def _():
         sp_filter_from_widgets,
         sp_scoreboard,
         sp_streak_stats,
+        tb_bounds,
         tg_bounds,
         tg_calendar_daily,
         tg_circadian_heatmap,
@@ -277,12 +296,15 @@ def _():
 
 @app.cell(hide_code=True)
 def _(
+    br_bounds,
+    has_browser,
     has_linkedin,
     has_miband,
     has_slack,
     has_sleep,
     has_spotify,
     has_telegram,
+    has_thunderbird,
     has_twitter,
     li_bounds,
     mb_hr_bounds,
@@ -290,23 +312,28 @@ def _(
     sk_bounds,
     sl_bounds,
     sp_bounds,
+    tb_bounds,
     tg_bounds,
     tw_bounds,
 ):
     default_tab = (
-        "Spotify"
+        "🎵 Spotify"
         if has_spotify
-        else "Telegram"
+        else "✈️ Telegram"
         if has_telegram
-        else "Twitter"
+        else "🐦 Twitter"
         if has_twitter
-        else "Slack"
+        else "💬 Slack"
         if has_slack
-        else "Sleep"
+        else "🌐 Browser"
+        if has_browser
+        else "😴 Sleep"
         if has_sleep
-        else "Mi Band"
+        else "⌚ Mi Band"
         if has_miband
-        else "LinkedIn"
+        else "📧 Thunderbird"
+        if has_thunderbird
+        else "💼 LinkedIn"
     )
     sp_caption = (
         f"{sp_bounds['first_day']} → {sp_bounds['last_day']}"
@@ -344,15 +371,27 @@ def _(
         if sk_bounds
         else "Not ingested"
     )
+    br_caption = (
+        f"{br_bounds['first_day']} → {br_bounds['last_day']}"
+        if br_bounds
+        else "Not ingested"
+    )
+    tb_caption = (
+        f"{tb_bounds['first_day']} → {tb_bounds['last_day']}"
+        if tb_bounds
+        else "Not ingested"
+    )
     source = mo.ui.tabs(
         {
-            "Spotify": mo.md(f"_{sp_caption}_"),
-            "Telegram": mo.md(f"_{tg_caption}_"),
-            "LinkedIn": mo.md(f"_{li_caption}_"),
-            "Twitter": mo.md(f"_{tw_caption}_"),
-            "Slack": mo.md(f"_{sk_caption}_"),
-            "Sleep": mo.md(f"_{sl_caption}_"),
-            "Mi Band": mo.md(f"_{mb_caption}_"),
+            "🌐 Browser": mo.md(f"_{br_caption}_"),
+            "📧 Thunderbird": mo.md(f"_{tb_caption}_"),
+            "💼 LinkedIn": mo.md(f"_{li_caption}_"),
+            "⌚ Mi Band": mo.md(f"_{mb_caption}_"),
+            "💬 Slack": mo.md(f"_{sk_caption}_"),
+            "😴 Sleep": mo.md(f"_{sl_caption}_"),
+            "🎵 Spotify": mo.md(f"_{sp_caption}_"),
+            "✈️ Telegram": mo.md(f"_{tg_caption}_"),
+            "🐦 Twitter": mo.md(f"_{tw_caption}_"),
         },
         value=default_tab,
     )
@@ -408,6 +447,24 @@ def _(has_slack, make_slack_controls, mo, sk_bounds):
     sk_controls = make_slack_controls(mo, sk_bounds) if has_slack and sk_bounds else None
     return (sk_controls,)
 
+
+@app.cell(hide_code=True)
+def _(br_bounds, has_browser, make_browser_controls, mo):
+    br_controls = (
+        make_browser_controls(mo, br_bounds) if has_browser and br_bounds else None
+    )
+    return (br_controls,)
+
+
+@app.cell(hide_code=True)
+def _(has_thunderbird, make_thunderbird_controls, mo, tb_bounds):
+    tb_controls = (
+        make_thunderbird_controls(mo, tb_bounds)
+        if has_thunderbird and tb_bounds
+        else None
+    )
+    return (tb_controls,)
+
 @app.cell(hide_code=True)
 def _(
     artist_hours_vs_skip,
@@ -447,7 +504,7 @@ def _(
     treemap_artist_album,
 ):
     # Leaf cell: mo.stop must not fan out to descendants.
-    mo.stop(source.value != "Spotify", output=None)
+    mo.stop(source.value != "🎵 Spotify", output=None)
     if not has_spotify or sp_controls is None:
         mo.stop(
             True,
@@ -520,7 +577,7 @@ def _(
     tg_scoreboard,
     tg_streak_stats,
 ):
-    mo.stop(source.value != "Telegram", output=None)
+    mo.stop(source.value != "✈️ Telegram", output=None)
     if not has_telegram or tg_controls is None:
         mo.stop(
             True,
@@ -567,7 +624,7 @@ def _(
     source,
     tg_dow,
 ):
-    mo.stop(source.value != "LinkedIn", output=None)
+    mo.stop(source.value != "💼 LinkedIn", output=None)
     if not has_linkedin or li_controls is None:
         mo.stop(
             True,
@@ -626,7 +683,7 @@ def _(
     tw_streak_stats,
     tg_dow,
 ):
-    mo.stop(source.value != "Twitter", output=None)
+    mo.stop(source.value != "🐦 Twitter", output=None)
     if not has_twitter or tw_controls is None:
         mo.stop(
             True,
@@ -685,7 +742,7 @@ def _(
     sl_controls,
     source,
 ):
-    mo.stop(source.value != "Sleep", output=None)
+    mo.stop(source.value != "😴 Sleep", output=None)
     if not has_sleep or sl_controls is None:
         mo.stop(
             True,
@@ -716,7 +773,7 @@ def _(
     render_miband_panel,
     source,
 ):
-    mo.stop(source.value != "Mi Band", output=None)
+    mo.stop(source.value != "⌚ Mi Band", output=None)
     if not has_miband or mb_hr_controls is None:
         mo.stop(
             True,
@@ -747,7 +804,7 @@ def _(
     sk_controls,
     source,
 ):
-    mo.stop(source.value != "Slack", output=None)
+    mo.stop(source.value != "💬 Slack", output=None)
     if not has_slack or sk_controls is None:
         mo.stop(
             True,
@@ -762,6 +819,70 @@ def _(
         conn=conn,
         bounds=sk_bounds,
         controls=sk_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    br_bounds,
+    br_controls,
+    conn,
+    has_browser,
+    mo,
+    narrate,
+    px,
+    render_browser_panel,
+    source,
+):
+    mo.stop(source.value != "🌐 Browser", output=None)
+    if not has_browser or br_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `browser.pages` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Documents/data_dumps_raw/firefox/`"
+            ),
+        )
+    render_browser_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=br_bounds,
+        controls=br_controls,
+        narrate=narrate,
+    )
+
+
+
+@app.cell(hide_code=True)
+def _(
+    conn,
+    has_thunderbird,
+    iso_dow,
+    mo,
+    px,
+    render_thunderbird_panel,
+    source,
+    tb_bounds,
+    tb_controls,
+):
+    mo.stop(source.value != "📧 Thunderbird", output=None)
+    if not has_thunderbird or tb_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `thunderbird.messages` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Library/Thunderbird/Profiles/<id>.default-release`\n\n"
+                "Optional: `--identity you@example.com` or `DATA_DUMPS_TB_IDENTITIES`."
+            ),
+        )
+    render_thunderbird_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=tb_bounds,
+        controls=tb_controls,
         dow_labels=iso_dow,
     )
 
