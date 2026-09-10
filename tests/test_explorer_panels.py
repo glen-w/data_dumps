@@ -244,3 +244,37 @@ def test_render_telegram_panel(tg_conn):
     controls.set_chat_name("Ada")
     html_locked = render_telegram_panel(**kwargs)._repr_html_()
     assert "Ada" in html_locked
+
+
+@pytest.fixture
+def tb_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    from data_dumps.sources.thunderbird import ThunderbirdSource
+
+    from .test_thunderbird_ingest import make_mini_gloda_profile
+
+    conn = duckdb.connect(str(tmp_path / "tb.duckdb"))
+    ThunderbirdSource().load(make_mini_gloda_profile(tmp_path), conn)
+    yield conn
+    conn.close()
+
+
+def test_render_thunderbird_panel(tb_conn):
+    from data_dumps import thunderbird_queries as tbq
+    from data_dumps.explorer_panels import (
+        make_thunderbird_controls,
+        render_thunderbird_panel,
+    )
+
+    bounds = tbq.data_bounds(tb_conn)
+    controls = make_thunderbird_controls(mo, bounds)
+    html = render_thunderbird_panel(
+        mo=mo,
+        px=px,
+        conn=tb_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in ("Thunderbird mail", "Scoreboard", "Top senders", "Signals"):
+        assert needle in html, needle

@@ -10,7 +10,11 @@ import duckdb
 from data_dumps.ingest import main, pick_source
 from data_dumps.sources.base import Source
 from data_dumps.sources.thunderbird import ThunderbirdSource
-from data_dumps.sources.thunderbird_gloda import detect_signals, parse_address_blob, snapshot_gloda
+from data_dumps.sources.thunderbird_gloda import (
+    detect_signals,
+    parse_address_blob,
+    snapshot_gloda,
+)
 from data_dumps.thunderbird_queries import (
     circadian_heatmap,
     data_bounds,
