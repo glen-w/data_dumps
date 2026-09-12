@@ -114,6 +114,16 @@ Sky History Export JSON (canonical dated file) plus optional Chrome-style `histo
 
 Visit-level Firefox `places.sqlite` → `browser.visits` is deferred (needed for circadian / rabbit-hole sessions).
 
+### Ingest Amazon GDPR (multipart)
+
+Folder of `All Data Categories*.zip` (+ `FileDescriptions.csv`), or a single curated zip / extracted `Your Amazon Orders/` tree.
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest ~/Documents/data_dumps_raw/amazon`
+3. Start the dashboard again (Amazon tab)
+
+Commerce, search, returns, Audible/Video/Music, Kindle, Rufus, and Alexa **structured** tables land in `amazon.*`. Voice WAVs and payment/address PII are skipped; `amazon.dump_inventory` records the full on-disk footprint.
+
 ### MusicBrainz enrichment (genres / decades)
 
 `--artist-limit` and `--track-limit` default to **`0` (no cap)**. The CLI assumes you want the **full dataset** — every artist/track above the min lifetime hours — not a sample. MusicBrainz has no free-tier count quota; the only API constraint is **~1 request/second** per IP.
@@ -152,6 +162,7 @@ docker compose run --rm --entrypoint ingest app "/data/slack/REN21 Slack export 
 docker compose run --rm --entrypoint ingest app /data/sleep_as_android/sleep-export.zip
 docker compose run --rm --entrypoint ingest app /data/miband_hr/heart_rate.csv
 docker compose run --rm --entrypoint ingest app /data/firefox/
+docker compose run --rm --entrypoint ingest app /data/amazon
 docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run
 docker compose up app
 ```

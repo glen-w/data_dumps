@@ -11,6 +11,7 @@ def _():
     import plotly.express as px
 
     from data_dumps.explorer_panels import (
+        make_amazon_controls,
         make_browser_controls,
         make_linkedin_controls,
         make_miband_controls,
@@ -20,6 +21,7 @@ def _():
         make_telegram_controls,
         make_thunderbird_controls,
         make_twitter_controls,
+        render_amazon_panel,
         render_browser_panel,
         render_linkedin_panel,
         render_miband_panel,
@@ -106,6 +108,7 @@ def _():
         streak_stats as tg_streak_stats,
     )
     from data_dumps.linkedin_queries import data_bounds as li_data_bounds
+    from data_dumps.amazon_queries import data_bounds as amz_data_bounds
     from data_dumps.sleep_queries import data_bounds as sl_data_bounds
     from data_dumps.miband_queries import data_bounds as mb_hr_data_bounds
     from data_dumps.slack_queries import data_bounds as sk_data_bounds
@@ -166,6 +169,7 @@ def _():
     has_slack = _has_table(conn, "slack", "messages")
     has_browser = _has_table(conn, "browser", "pages")
     has_thunderbird = _has_table(conn, "thunderbird", "messages")
+    has_amazon = _has_table(conn, "amazon", "order_items")
     sp_bounds = sp_data_bounds(conn) if has_spotify else None
     tg_bounds = tg_data_bounds(conn) if has_telegram else None
     li_bounds = li_data_bounds(conn) if has_linkedin else None
@@ -175,11 +179,13 @@ def _():
     sk_bounds = sk_data_bounds(conn) if has_slack else None
     br_bounds = br_data_bounds(conn) if has_browser else None
     tb_bounds = tb_data_bounds(conn) if has_thunderbird else None
+    amz_bounds = amz_data_bounds(conn) if has_amazon else None
     mb_ready = has_mb_data(conn) if has_spotify else False
     tg_dow = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
     iso_dow = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
     return (
         PEOPLE_CHAT_TYPES,
+        amz_bounds,
         artist_hours_vs_skip,
         br_bounds,
         br_data_bounds,
@@ -195,6 +201,7 @@ def _():
         forgotten_artists,
         forgotten_chats,
         genre_treemap,
+        has_amazon,
         has_browser,
         has_linkedin,
         has_miband,
@@ -210,6 +217,7 @@ def _():
         iso_dow,
         kind_platform_sunburst,
         li_bounds,
+        make_amazon_controls,
         make_browser_controls,
         make_linkedin_controls,
         make_miband_controls,
@@ -231,6 +239,7 @@ def _():
         narrative_context,
         px,
         reaction_mix,
+        render_amazon_panel,
         render_browser_panel,
         render_linkedin_panel,
         render_miband_panel,
@@ -296,7 +305,9 @@ def _():
 
 @app.cell(hide_code=True)
 def _(
+    amz_bounds,
     br_bounds,
+    has_amazon,
     has_browser,
     has_linkedin,
     has_miband,
@@ -333,6 +344,8 @@ def _(
         if has_miband
         else "📧 Thunderbird"
         if has_thunderbird
+        else "📦 Amazon"
+        if has_amazon
         else "💼 LinkedIn"
     )
     sp_caption = (
@@ -381,8 +394,18 @@ def _(
         if tb_bounds
         else "Not ingested"
     )
+    amz_caption = (
+        f"{amz_bounds['first_day']} → {amz_bounds['last_day']}"
+        if amz_bounds and amz_bounds.get("first_day")
+        else (
+            f"{amz_bounds['min_year']} → {amz_bounds['max_year']}"
+            if amz_bounds
+            else "Not ingested"
+        )
+    )
     source = mo.ui.tabs(
         {
+            "📦 Amazon": mo.md(f"_{amz_caption}_"),
             "🌐 Browser": mo.md(f"_{br_caption}_"),
             "📧 Thunderbird": mo.md(f"_{tb_caption}_"),
             "💼 LinkedIn": mo.md(f"_{li_caption}_"),
@@ -418,6 +441,14 @@ def _(has_linkedin, li_bounds, make_linkedin_controls, mo):
         make_linkedin_controls(mo, li_bounds) if has_linkedin and li_bounds else None
     )
     return (li_controls,)
+
+
+@app.cell(hide_code=True)
+def _(amz_bounds, has_amazon, make_amazon_controls, mo):
+    amz_controls = (
+        make_amazon_controls(mo, amz_bounds) if has_amazon and amz_bounds else None
+    )
+    return (amz_controls,)
 
 
 @app.cell(hide_code=True)
@@ -640,6 +671,37 @@ def _(
         bounds=li_bounds,
         controls=li_controls,
         dow_labels=tg_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    amz_bounds,
+    amz_controls,
+    conn,
+    has_amazon,
+    iso_dow,
+    mo,
+    px,
+    render_amazon_panel,
+    source,
+):
+    mo.stop(source.value != "📦 Amazon", output=None)
+    if not has_amazon or amz_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `amazon.order_items` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Documents/data_dumps_raw/amazon`"
+            ),
+        )
+    render_amazon_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=amz_bounds,
+        controls=amz_controls,
+        dow_labels=iso_dow,
     )
 
 

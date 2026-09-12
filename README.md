@@ -189,6 +189,21 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Explorer: Browser tab (scoreboard, domains/hosts/pages, categories, last-seen calendar, search queries, forgotten gems, routines, comebacks, local hosts, path tree)
 - Future: visit-level `places.sqlite` for circadian / rabbit-hole sessions
 
+## Amazon GDPR (multipart)
+
+Amazon’s “Request your data” bundle is usually several `All Data Categories*.zip` files plus `FileDescriptions.csv`. Stop the dashboard first.
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/amazon
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+# or: uv run marimo run notebooks/amazon.py --host 127.0.0.1 --port 2718
+```
+
+- Prefer pointing at the **folder** (all parts); a single curated zip also works
+- Tables: `amazon.order_items|orders|searches|…` plus Alexa structured use and `dump_inventory`
+- Voice `.wav` / invoice PDFs / cards / addresses / IPs / geolocation are **not** loaded (voice appears only as footprint inventory)
+- Explorer: Amazon tab — spend (multi-currency), product types, search funnel, Alexa utterances, dump footprint
+
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan.

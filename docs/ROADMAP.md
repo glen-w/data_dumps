@@ -74,6 +74,12 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Patterns adapted from chrome-history-explorer / 1History / BrowserHistoryVisualizer (queries only — still DuckDB + Marimo)
 - **Later:** Firefox `places.sqlite` visit grain for circadian / research-session detection
 
+### Amazon GDPR (multipart)
+
+- Folder of `All Data Categories*.zip` → `amazon.*` (orders, searches, returns, media, Alexa structured, dump inventory)
+- Voice WAVs inventory-only; cards/addresses/IPs/geolocation dropped; multi-currency spend (no FX merge)
+- Explorer Amazon tab: footprint observatory, spend/life chapters/types, search funnel, Alexa utterance Wrapped, Audible/Video
+
 ### Dashboard upgrades from the open-source landscape
 
 Query + chart + panel additions only (no new deps, no ingest restructuring). References: sleep_android_viz, Encore, Spotify-Unwrapped, TelAnalysis, ConvoMetrics.
@@ -115,7 +121,7 @@ Four phases, shippable independently after A:
 - **GUI-driven operations** — eventually all warehouse actions from the Marimo dashboard: ingest, MusicBrainz enrich, re-ingest, and LLM setup — not only explore/filter/narrate. Today ingest and enrich are CLI-only because DuckDB is single-writer; a GUI path needs an orchestration layer (stop dashboard → run job → reopen, or a dedicated writer service) without asking the user to juggle terminals. See [WAREHOUSE.md](WAREHOUSE.md) for current constraints.
 - Wikidata P136 genre enrichment (deferred; MusicBrainz tags only today)
 
-- Other GDPR sources (Amazon, Reddit) when a dump is in hand
+- Other GDPR sources (Reddit) when a dump is in hand
 - Cover Art Archive images after MusicBrainz
 - LiteLLM sidecar in compose (TranscriptX-style gateway)
 - Chat-over-corpus / RAG over every play

@@ -10,6 +10,7 @@ from pathlib import Path
 import duckdb
 
 from data_dumps.paths import warehouse_db
+from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.base import Source
 from data_dumps.sources.browser import BrowserSource
 from data_dumps.sources.linkedin import LinkedInSource
@@ -33,6 +34,7 @@ SOURCES: list[Source] = [
     MiBandSource(),
     BrowserSource(),
     ThunderbirdSource(),
+    AmazonSource(),
 ]
 
 

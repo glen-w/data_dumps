@@ -21,6 +21,7 @@ import duckdb
 import pandas as pd
 import plotly.graph_objects as go
 
+from data_dumps import amazon_queries as amzq
 from data_dumps import browser_queries as brq
 from data_dumps import linkedin_queries as liq
 from data_dumps import miband_queries as mbq
@@ -100,6 +101,16 @@ class TelegramControls:
 class LinkedInControls:
     year_start: Any
     year_end: Any
+
+
+@dataclass
+class AmazonControls:
+    year_start: Any
+    year_end: Any
+    marketplace_select: Any
+    currency_select: Any
+    dept_select: Any
+    include_cancelled: Any
 
 
 @dataclass
@@ -297,6 +308,41 @@ def make_linkedin_controls(mo: Any, bounds: dict[str, Any]) -> LinkedInControls:
             label="To year",
             show_value=True,
         ),
+    )
+
+
+def make_amazon_controls(mo: Any, bounds: dict[str, Any]) -> AmazonControls:
+    return AmazonControls(
+        year_start=mo.ui.slider(
+            start=bounds["min_year"],
+            stop=bounds["max_year"],
+            value=bounds["min_year"],
+            label="From year",
+            show_value=True,
+        ),
+        year_end=mo.ui.slider(
+            start=bounds["min_year"],
+            stop=bounds["max_year"],
+            value=bounds["max_year"],
+            label="To year",
+            show_value=True,
+        ),
+        marketplace_select=mo.ui.multiselect(
+            options=bounds.get("marketplaces") or [],
+            value=[],
+            label="Marketplaces",
+        ),
+        currency_select=mo.ui.multiselect(
+            options=bounds.get("currencies") or [],
+            value=[],
+            label="Currencies",
+        ),
+        dept_select=mo.ui.multiselect(
+            options=bounds.get("dept_families") or [],
+            value=[],
+            label="Product types",
+        ),
+        include_cancelled=mo.ui.checkbox(label="Include cancelled lines", value=False),
     )
 
 
@@ -1724,6 +1770,280 @@ def render_linkedin_panel(
         ],
         gap=0.5,
     )
+
+
+def render_amazon_panel(
+    *,
+    mo: Any,
+    px: Any,
+    conn: duckdb.DuckDBPyConnection,
+    bounds: dict[str, Any],
+    controls: AmazonControls,
+    dow_labels: dict[int, str],
+) -> Any:
+    filters = amzq.filter_from_widgets(
+        bounds,
+        year_start=controls.year_start.value,
+        year_end=controls.year_end.value,
+        marketplaces=list(controls.marketplace_select.value or []),
+        currencies=list(controls.currency_select.value or []),
+        dept_families=list(controls.dept_select.value or []),
+        include_cancelled=bool(controls.include_cancelled.value),
+    )
+    chips = filters.chip_labels()
+    chip_row = (
+        mo.hstack([mo.md(f"**{label}**") for _, label in chips], gap=0.5)
+        if chips
+        else mo.md("_Full date range · cancelled hidden_")
+    )
+
+    foot = amzq.footprint_scoreboard(conn)
+    foot_cat = amzq.footprint_by_category(conn)
+    surfaces = amzq.surface_counts(conn)
+    score = amzq.scoreboard(conn, filters)
+    by_fx = amzq.spend_by_currency(conn, filters)
+    chapters = amzq.life_chapters(conn, filters)
+    monthly = amzq.monthly_orders(conn, filters)
+    treemap = amzq.dept_treemap(conn, filters)
+    products = amzq.top_products(conn, filters)
+    funnel = amzq.search_funnel(conn, filters)
+    keywords = amzq.top_search_keywords(conn, filters)
+    returns = amzq.returns_summary(conn, filters)
+    circ = amzq.order_circadian(conn, filters)
+    forgotten = amzq.forgotten_asins(conn, filters)
+
+    voice_gb = 0.0
+    if not foot.empty:
+        voice_gb = float(foot.iloc[0]["voice_bytes"] or 0) / 1e9
+        total_gb = float(foot.iloc[0]["total_bytes"] or 0) / 1e9
+        n_files = int(foot.iloc[0]["files"] or 0)
+        voice_n = int(foot.iloc[0]["voice_files"] or 0)
+    else:
+        total_gb = 0.0
+        n_files = 0
+        voice_n = 0
+
+    fig_foot = (
+        px.treemap(
+            foot_cat,
+            path=["category"],
+            values="bytes",
+            title="Dump footprint by category (bytes on disk)",
+        )
+        if not foot_cat.empty
+        else px.bar(title="No inventory")
+    )
+    fig_surf = (
+        px.bar(
+            surfaces,
+            x="n",
+            y="surface",
+            orientation="h",
+            title="Warehouse row counts by surface",
+        )
+        if not surfaces.empty
+        else px.bar(title="No surfaces")
+    )
+    fig_fx = (
+        px.bar(by_fx, x="currency", y="spend", title="Spend by currency (no FX merge)")
+        if not by_fx.empty
+        else px.bar(title="No spend")
+    )
+    fig_chapters = (
+        px.area(
+            chapters,
+            x="year",
+            y="lines",
+            color="marketplace",
+            title="Life chapters — order lines by year × marketplace",
+        )
+        if not chapters.empty
+        else px.bar(title="No chapters")
+    )
+    fig_month = (
+        px.bar(monthly, x="month_start", y="orders", title="Orders per month")
+        if not monthly.empty
+        else px.bar(title="No monthly data")
+    )
+    fig_tree = (
+        px.treemap(
+            treemap,
+            path=["dept_family", "department"],
+            values="lines",
+            title="What you buy — type → department",
+        )
+        if not treemap.empty
+        else px.bar(title="No departments")
+    )
+    if circ.empty:
+        fig_circ = px.density_heatmap(title="No order circadian")
+    else:
+        c = circ.copy()
+        c["dow_label"] = c["dow"].map(dow_labels)
+        fig_circ = px.density_heatmap(
+            c,
+            x="hour",
+            y="dow_label",
+            z="events",
+            title="Orders by weekday × hour (Europe/Rome)",
+            color_continuous_scale="Oranges",
+        )
+
+    sections: list[Any] = [
+        mo.md(
+            f"## Amazon explorer\n"
+            f"Dump footprint: **{n_files:,}** files · **{total_gb:.1f} GB** "
+            f"({voice_n:,} voice files / **{voice_gb:.1f} GB** shadowed — not loaded). "
+            "Addresses, cards, IPs, and geolocation dropped at ingest."
+        ),
+        mo.hstack(
+            [
+                controls.year_start,
+                controls.year_end,
+                controls.include_cancelled,
+            ],
+            justify="start",
+            gap=1,
+        ),
+        mo.hstack(
+            [
+                controls.marketplace_select,
+                controls.currency_select,
+                controls.dept_select,
+            ],
+            justify="start",
+            gap=1,
+        ),
+        chip_row,
+        mo.md("### Data footprint"),
+        mo.vstack([mo.ui.plotly(fig_foot), mo.ui.plotly(fig_surf)], gap=1),
+        mo.md("### Spend scoreboard"),
+        mo.ui.table(score),
+        mo.ui.plotly(fig_fx),
+        mo.md("### Life chapters & rhythm"),
+        mo.vstack([mo.ui.plotly(fig_chapters), mo.ui.plotly(fig_month)], gap=1),
+        mo.ui.plotly(fig_circ),
+        mo.md("### What you buy"),
+        mo.ui.plotly(fig_tree),
+        mo.ui.table(products),
+        mo.md("### How you shop — search funnel"),
+        mo.ui.table(funnel),
+        mo.ui.table(keywords),
+        mo.md("### Returns"),
+        mo.ui.table(returns),
+        mo.md("### One-and-done ASINs (oldest last order)"),
+        mo.ui.table(forgotten),
+    ]
+
+    if amzq.has_table(conn, "alexa_intents"):
+        a_score = amzq.alexa_scoreboard(conn, filters)
+        a_tags = amzq.alexa_tags(conn, filters)
+        a_month = amzq.alexa_monthly(conn, filters)
+        a_circ = amzq.alexa_circadian(conn, filters)
+        a_dev = amzq.alexa_devices(conn, filters)
+        a_show = amzq.alexa_show_engagement(conn, filters)
+        a_skills = amzq.alexa_skills(conn)
+        fig_tags = (
+            px.bar(a_tags, x="n", y="tag", orientation="h", title="Alexa utterance tags")
+            if not a_tags.empty
+            else px.bar(title="No Alexa tags")
+        )
+        fig_a_month = (
+            px.bar(a_month, x="month_start", y="utterances", title="Alexa utterances / month")
+            if not a_month.empty
+            else px.bar(title="No Alexa monthly")
+        )
+        if a_circ.empty:
+            fig_a_circ = px.density_heatmap(title="No Alexa circadian")
+        else:
+            ac = a_circ.copy()
+            ac["dow_label"] = ac["dow"].map(dow_labels)
+            fig_a_circ = px.density_heatmap(
+                ac,
+                x="hour",
+                y="dow_label",
+                z="events",
+                title="Alexa by weekday × hour",
+                color_continuous_scale="Purples",
+            )
+        fig_dev = (
+            px.pie(a_dev, names="device_type", values="events", title="Alexa device sessions")
+            if not a_dev.empty
+            else px.bar(title="No device sessions")
+        )
+        if a_show.empty:
+            fig_show = px.bar(title="No Echo Show engagement")
+        else:
+            show_long = a_show.melt(
+                id_vars=["month_start"],
+                value_vars=["voice", "touch"],
+                var_name="kind",
+                value_name="count",
+            )
+            fig_show = px.line(
+                show_long,
+                x="month_start",
+                y="count",
+                color="kind",
+                title="Echo Show voice vs touch",
+            )
+        sections.extend(
+            [
+                mo.md("### Alexa in the house"),
+                mo.ui.table(a_score),
+                mo.vstack([mo.ui.plotly(fig_tags), mo.ui.plotly(fig_a_month)], gap=1),
+                mo.vstack([mo.ui.plotly(fig_a_circ), mo.ui.plotly(fig_dev)], gap=1),
+                mo.ui.plotly(fig_show),
+                mo.ui.table(a_skills),
+            ]
+        )
+
+    if amzq.has_table(conn, "audible_listens"):
+        aud = amzq.audible_hours(conn, filters)
+        if not aud.empty:
+            sections.extend(
+                [
+                    mo.md("### Audible"),
+                    mo.ui.plotly(
+                        px.bar(
+                            aud,
+                            x="hours",
+                            y="title",
+                            orientation="h",
+                            title="Audible hours by title",
+                        )
+                    ),
+                ]
+            )
+
+    if amzq.has_table(conn, "video_views"):
+        vid = amzq.video_titles(conn, filters)
+        if not vid.empty:
+            sections.extend(
+                [
+                    mo.md("### Prime Video"),
+                    mo.ui.table(vid),
+                ]
+            )
+
+    if amzq.has_table(conn, "product_impressions"):
+        imps = amzq.impression_mix(conn, filters)
+        if not imps.empty:
+            sections.extend(
+                [
+                    mo.md("### Product impressions (geo stripped)"),
+                    mo.ui.plotly(
+                        px.bar(
+                            imps,
+                            x="kind",
+                            y="n",
+                            title="Detail-page vs buy-again impressions",
+                        )
+                    ),
+                ]
+            )
+
+    return mo.vstack(sections, gap=0.5)
 
 
 def render_twitter_panel(
