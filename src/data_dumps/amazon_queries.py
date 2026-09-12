@@ -179,21 +179,34 @@ def data_bounds(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
 
 def scoreboard(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
     where, params = _item_where(f)
+    yw, yp = _year_clause("r", f)
     return _query_df(
         conn,
         f"""
+        WITH base AS (
+            SELECT * FROM amazon.order_items i WHERE {where}
+        ),
+        baskets AS (
+            SELECT order_id, count(*)::DOUBLE AS n_items
+            FROM base
+            WHERE NOT is_cancelled
+            GROUP BY order_id
+        )
         SELECT
-            count(*)::BIGINT AS order_lines,
-            count(DISTINCT order_id)::BIGINT AS orders,
-            count(DISTINCT asin)::BIGINT AS asins,
-            count(DISTINCT currency)::BIGINT AS currencies,
-            sum(CASE WHEN is_cancelled THEN 1 ELSE 0 END)::BIGINT AS cancelled_lines,
-            round(sum(coalesce(line_total, 0)) FILTER (WHERE NOT is_cancelled), 2)
-                AS spend_sum_mixed
-        FROM amazon.order_items i
-        WHERE {where}
+            (SELECT count(*) FROM base)::BIGINT AS order_lines,
+            (SELECT count(DISTINCT order_id) FROM base)::BIGINT AS orders,
+            (SELECT count(DISTINCT asin) FROM base)::BIGINT AS asins,
+            (SELECT count(DISTINCT currency) FROM base WHERE currency IS NOT NULL)
+                ::BIGINT AS currencies,
+            (SELECT coalesce(sum(CASE WHEN is_cancelled THEN 1 ELSE 0 END), 0)
+                FROM base)::BIGINT AS cancelled_lines,
+            (SELECT round(coalesce(sum(line_total)
+                FILTER (WHERE NOT is_cancelled), 0), 2) FROM base) AS spend_sum_mixed,
+            (SELECT round(avg(n_items), 2) FROM baskets) AS avg_basket_items,
+            (SELECT count(DISTINCT order_id)::BIGINT FROM amazon.returns r
+                WHERE {yw}) AS return_orders
         """,
-        params,
+        params + yp,
     )
 
 
@@ -606,4 +619,341 @@ def forgotten_asins(
         LIMIT ?
         """,
         params + [limit],
+    )
+
+
+def comeback_asins(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 20
+) -> pd.DataFrame:
+    """ASINs ordered more than once with the gap between first and last buy."""
+    where, params = _item_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            asin,
+            any_value(product_name) AS product_name,
+            count(*)::BIGINT AS times,
+            min(order_ts_local)::DATE AS first_ordered,
+            max(order_ts_local)::DATE AS last_ordered,
+            date_diff('day', min(order_ts_local), max(order_ts_local))::BIGINT
+                AS gap_days
+        FROM amazon.order_items i
+        WHERE {where} AND asin IS NOT NULL AND NOT is_cancelled
+        GROUP BY asin
+        HAVING count(*) >= 2
+        ORDER BY times DESC, gap_days DESC
+        LIMIT ?
+        """,
+        params + [limit],
+    )
+
+
+def basket_sizes(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _item_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT n_items, count(*)::BIGINT AS orders
+        FROM (
+            SELECT order_id, count(*)::BIGINT AS n_items
+            FROM amazon.order_items i
+            WHERE {where}
+            GROUP BY order_id
+        )
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def monthly_spend_by_currency(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _item_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            make_date(year::INT, month::INT, 1) AS month_start,
+            currency,
+            round(sum(coalesce(line_total, 0)), 2) AS spend,
+            count(*)::BIGINT AS lines
+        FROM amazon.order_items i
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+          AND currency IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+        """,
+        params,
+    )
+
+
+def cancelled_by_year(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """Include cancelled regardless of include_cancelled filter (needs full view)."""
+    parts: list[str] = []
+    params: list[Any] = []
+    yw, yp = _year_clause("i", f)
+    if yw != "1=1":
+        parts.append(yw)
+        params.extend(yp)
+    if f.marketplaces:
+        placeholders = ", ".join("?" for _ in f.marketplaces)
+        parts.append(f"i.marketplace IN ({placeholders})")
+        params.extend(f.marketplaces)
+    if f.currencies:
+        placeholders = ", ".join("?" for _ in f.currencies)
+        parts.append(f"i.currency IN ({placeholders})")
+        params.extend(f.currencies)
+    if f.dept_families:
+        placeholders = ", ".join("?" for _ in f.dept_families)
+        parts.append(f"i.dept_family IN ({placeholders})")
+        params.extend(f.dept_families)
+    where = " AND ".join(parts) if parts else "1=1"
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            year,
+            sum(CASE WHEN is_cancelled THEN 1 ELSE 0 END)::BIGINT AS cancelled,
+            sum(CASE WHEN NOT is_cancelled THEN 1 ELSE 0 END)::BIGINT AS kept
+        FROM amazon.order_items i
+        WHERE {where} AND year IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def order_calendar(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _item_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            order_ts_local::DATE AS day,
+            count(*)::BIGINT AS lines,
+            count(DISTINCT order_id)::BIGINT AS orders
+        FROM amazon.order_items i
+        WHERE {where} AND order_ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def aov_by_marketplace(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _item_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            coalesce(marketplace, 'unknown') AS marketplace,
+            currency,
+            count(DISTINCT order_id)::BIGINT AS orders,
+            round(sum(coalesce(line_total, 0)), 2) AS spend,
+            round(sum(coalesce(line_total, 0)) / nullif(count(DISTINCT order_id), 0), 2)
+                AS aov
+        FROM amazon.order_items i
+        WHERE {where} AND currency IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY spend DESC
+        """,
+        params,
+    )
+
+
+def digital_vs_retail_yearly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    retail_where, retail_params = _item_where(f)
+    dy, dp = _year_clause("d", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT year, 'retail' AS surface, count(*)::BIGINT AS lines
+        FROM amazon.order_items i
+        WHERE {retail_where} AND year IS NOT NULL
+        GROUP BY 1
+        UNION ALL
+        SELECT d.year, 'digital' AS surface, count(*)::BIGINT AS lines
+        FROM amazon.digital_items d
+        WHERE {dy} AND d.year IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1, 2
+        """,
+        retail_params + dp,
+    )
+
+
+def search_funnel_stages(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    """Long form for plotly funnel charts."""
+    row = search_funnel(conn, f)
+    if row.empty:
+        return pd.DataFrame(columns=["stage", "n"])
+    r = row.iloc[0]
+    return pd.DataFrame(
+        {
+            "stage": ["searches", "clicked", "added", "purchased"],
+            "n": [
+                int(r["searches"] or 0),
+                int(r["clicked"] or 0),
+                int(r["added"] or 0),
+                int(r["purchased"] or 0),
+            ],
+        }
+    )
+
+
+def alexa_tag_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_clause("a", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            make_date(year::INT, month::INT, 1) AS month_start,
+            utterance_tag AS tag,
+            count(*)::BIGINT AS n
+        FROM amazon.alexa_intents a
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+        """,
+        params,
+    )
+
+
+def alexa_top_utterances(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 25
+) -> pd.DataFrame:
+    where, params = _year_clause("a", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT utterance, utterance_tag AS tag, count(*)::BIGINT AS n
+        FROM amazon.alexa_intents a
+        WHERE {where} AND utterance IS NOT NULL AND length(utterance) > 2
+        GROUP BY 1, 2
+        ORDER BY n DESC
+        LIMIT ?
+        """,
+        params + [limit],
+    )
+
+
+def kindle_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_clause("k", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            make_date(year::INT, month::INT, 1) AS month_start,
+            count(*)::BIGINT AS sessions,
+            round(sum(coalesce(duration_ms, 0)) / 3600000.0, 2) AS hours
+        FROM amazon.kindle_sessions k
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def music_top_searches(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 20
+) -> pd.DataFrame:
+    where, params = _year_clause("m", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT query, count(*)::BIGINT AS n
+        FROM amazon.music_searches m
+        WHERE {where} AND query IS NOT NULL
+        GROUP BY 1
+        ORDER BY n DESC
+        LIMIT ?
+        """,
+        params + [limit],
+    )
+
+
+def rufus_top(conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 20) -> pd.DataFrame:
+    where, params = _year_clause("r", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT query, count(*)::BIGINT AS n
+        FROM amazon.rufus_queries r
+        WHERE {where} AND query IS NOT NULL
+        GROUP BY 1
+        ORDER BY n DESC
+        LIMIT ?
+        """,
+        params + [limit],
+    )
+
+
+def impression_top(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 20
+) -> pd.DataFrame:
+    where, params = _year_clause("p", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            asin,
+            any_value(product_name) AS product_name,
+            kind,
+            count(*)::BIGINT AS views
+        FROM amazon.product_impressions p
+        WHERE {where} AND asin IS NOT NULL
+        GROUP BY asin, kind
+        ORDER BY views DESC
+        LIMIT ?
+        """,
+        params + [limit],
+    )
+
+
+def footprint_by_zip(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    return _query_df(
+        conn,
+        """
+        SELECT
+            zip_part,
+            category,
+            count(*)::BIGINT AS files,
+            sum(bytes)::BIGINT AS bytes
+        FROM amazon.dump_inventory
+        GROUP BY 1, 2
+        ORDER BY bytes DESC
+        """,
+    )
+
+
+def spend_sunburst(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """dept_family → department rows sized by spend for sunburst."""
+    where, params = _item_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            dept_family,
+            coalesce(department, 'Unknown') AS department,
+            round(sum(coalesce(line_total, 0)), 2) AS spend,
+            count(*)::BIGINT AS lines
+        FROM amazon.order_items i
+        WHERE {where}
+        GROUP BY 1, 2
+        HAVING sum(coalesce(line_total, 0)) > 0
+        ORDER BY spend DESC
+        """,
+        params,
     )

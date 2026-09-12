@@ -1546,10 +1546,10 @@ class AmazonSource:
         records = _read_csv_dicts(raw)
         rows: list[dict[str, Any]] = []
         for rec in records:
-            # Column names vary; try common ones
             utc, local = _ts_pair(
                 _cell(
                     rec,
+                    "start_timestamp",
                     "startDate",
                     "Start Date",
                     "sessionStart",
@@ -1560,9 +1560,15 @@ class AmazonSource:
             year, month = _year_month(utc, local)
             rows.append(
                 {
-                    "content_id": _cell(rec, "contentid", "contentId", "ASIN", "asin"),
+                    "content_id": _cell(rec, "ASIN", "asin", "contentid", "contentId"),
                     "duration_ms": _intish(
-                        _cell(rec, "totalReadingMillis", "Total Reading Millis", "duration")
+                        _cell(
+                            rec,
+                            "total_reading_millis",
+                            "totalReadingMillis",
+                            "Total Reading Millis",
+                            "duration",
+                        )
                     ),
                     "session_ts_utc": utc,
                     "session_ts_local": local,
@@ -1612,7 +1618,7 @@ class AmazonSource:
         return pd.DataFrame(rows, columns=cols) if rows else _empty(cols)
 
     def _rufus(self, bundle: Any, meta: list[dict[str, Any]]) -> pd.DataFrame:
-        cols = ["query", "query_ts_utc", "query_ts_local", "year", "month"]
+        cols = ["query", "asin", "product_name", "query_ts_utc", "query_ts_local", "year", "month"]
         raw = bundle.read(
             "Additional Data/SearchHistory.RufusConversations/Rufus.Conversation.Queries.csv",
             "Rufus.Conversation.Queries.csv",
@@ -1623,15 +1629,36 @@ class AmazonSource:
         records = _read_csv_dicts(raw)
         rows: list[dict[str, Any]] = []
         for rec in records:
-            # Flexible column names
-            q = _cell(rec, "Query", "query", "Question", "Utterance", "Customer Query")
+            q = _cell(
+                rec,
+                "Typed Query",
+                "Autocompleted Query",
+                "Query",
+                "query",
+                "Question",
+                "Utterance",
+                "Customer Query",
+            )
+            # Fall back to product context when typed query blank
+            if q is None:
+                q = _cell(rec, "Product Name")
             utc, local = _ts_pair(
-                _cell(rec, "Timestamp", "Event Date", "Date", "Creation Date", "Query Date")
+                _cell(
+                    rec,
+                    "Request Date",
+                    "Timestamp",
+                    "Event Date",
+                    "Date",
+                    "Creation Date",
+                    "Query Date",
+                )
             )
             year, month = _year_month(utc, local)
             rows.append(
                 {
                     "query": q,
+                    "asin": _cell(rec, "ASIN", "asin"),
+                    "product_name": _cell(rec, "Product Name"),
                     "query_ts_utc": utc,
                     "query_ts_local": local,
                     "year": year,
@@ -2093,6 +2120,8 @@ class AmazonSource:
             );
             CREATE TABLE amazon.rufus_queries (
                 query VARCHAR,
+                asin VARCHAR,
+                product_name VARCHAR,
                 query_ts_utc TIMESTAMP,
                 query_ts_local TIMESTAMP,
                 year BIGINT,

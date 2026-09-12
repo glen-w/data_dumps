@@ -9,12 +9,18 @@ import duckdb
 
 from data_dumps.amazon_queries import (
     FilterState,
+    alexa_tag_monthly,
     alexa_tags,
+    basket_sizes,
+    comeback_asins,
     data_bounds,
     footprint_by_category,
     impression_mix,
+    order_calendar,
     scoreboard,
+    search_funnel_stages,
     spend_by_currency,
+    spend_sunburst,
 )
 from data_dumps.ingest import main, pick_source
 from data_dumps.sources.amazon import AmazonSource
@@ -254,6 +260,8 @@ def test_amazon_queries(tmp_path, monkeypatch):
     f = FilterState()
     score = scoreboard(conn, f)
     assert int(score.iloc[0]["order_lines"]) == 2  # cancelled excluded
+    assert "avg_basket_items" in score.columns
+    assert "return_orders" in score.columns
     fx = spend_by_currency(conn, f)
     assert "EUR" in set(fx["currency"].tolist())
     f2 = FilterState(include_cancelled=True)
@@ -266,4 +274,34 @@ def test_amazon_queries(tmp_path, monkeypatch):
     assert "music" in set(tags["tag"].tolist())
     imps = impression_mix(conn, f)
     assert int(imps["n"].sum()) == 1
+    stages = search_funnel_stages(conn, f)
+    assert list(stages["stage"]) == ["searches", "clicked", "added", "purchased"]
+    assert int(stages.iloc[0]["n"]) >= 1
+    baskets = basket_sizes(conn, f)
+    assert not baskets.empty
+    sun = spend_sunburst(conn, f)
+    assert "books" in set(sun["dept_family"].tolist())
+    cal = order_calendar(conn, f)
+    assert not cal.empty
+    # Add a repurchase in-memory for comeback coverage via second load row already
+    # B00TEST1 appears twice in fixture (2023 + 2024) when cancelled included
+    comes = comeback_asins(conn, FilterState(include_cancelled=True))
+    assert not comes.empty
+    assert "B00TEST1" in set(comes["asin"].tolist())
+    tag_m = alexa_tag_monthly(conn, f)
+    assert not tag_m.empty
+    conn.close()
+
+
+def test_scoreboard_empty_filter(tmp_path, monkeypatch):
+    root = make_mini_amazon_dir(tmp_path)
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    db_path = tmp_path / "empty.duckdb"
+    conn = duckdb.connect(str(db_path))
+    AmazonSource().load(root, conn)
+    # Year range with no orders
+    f = FilterState(year_start=1990, year_end=1991)
+    score = scoreboard(conn, f)
+    assert int(score.iloc[0]["order_lines"]) == 0
+    assert int(score.iloc[0]["orders"]) == 0
     conn.close()

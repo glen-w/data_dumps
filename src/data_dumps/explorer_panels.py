@@ -1799,18 +1799,28 @@ def render_amazon_panel(
 
     foot = amzq.footprint_scoreboard(conn)
     foot_cat = amzq.footprint_by_category(conn)
+    foot_zip = amzq.footprint_by_zip(conn)
     surfaces = amzq.surface_counts(conn)
     score = amzq.scoreboard(conn, filters)
     by_fx = amzq.spend_by_currency(conn, filters)
+    aov = amzq.aov_by_marketplace(conn, filters)
     chapters = amzq.life_chapters(conn, filters)
     monthly = amzq.monthly_orders(conn, filters)
+    monthly_fx = amzq.monthly_spend_by_currency(conn, filters)
+    cancelled = amzq.cancelled_by_year(conn, filters)
+    baskets = amzq.basket_sizes(conn, filters)
     treemap = amzq.dept_treemap(conn, filters)
+    sun = amzq.spend_sunburst(conn, filters)
     products = amzq.top_products(conn, filters)
     funnel = amzq.search_funnel(conn, filters)
+    funnel_stages = amzq.search_funnel_stages(conn, filters)
     keywords = amzq.top_search_keywords(conn, filters)
     returns = amzq.returns_summary(conn, filters)
     circ = amzq.order_circadian(conn, filters)
+    cal = amzq.order_calendar(conn, filters)
     forgotten = amzq.forgotten_asins(conn, filters)
+    comebacks = amzq.comeback_asins(conn, filters)
+    digi = amzq.digital_vs_retail_yearly(conn, filters)
 
     voice_gb = 0.0
     if not foot.empty:
@@ -1833,6 +1843,18 @@ def render_amazon_panel(
         if not foot_cat.empty
         else px.bar(title="No inventory")
     )
+    fig_foot_zip = (
+        px.bar(
+            foot_zip.groupby("zip_part", as_index=False)["bytes"].sum().sort_values(
+                "bytes", ascending=False
+            ),
+            x="zip_part",
+            y="bytes",
+            title="Dump bytes by zip part",
+        )
+        if not foot_zip.empty
+        else px.bar(title="No zip parts")
+    )
     fig_surf = (
         px.bar(
             surfaces,
@@ -1849,6 +1871,19 @@ def render_amazon_panel(
         if not by_fx.empty
         else px.bar(title="No spend")
     )
+    fig_aov = (
+        px.scatter(
+            aov,
+            x="orders",
+            y="aov",
+            color="marketplace",
+            size="spend",
+            hover_data=["currency"],
+            title="Average order value by marketplace (bubble = spend)",
+        )
+        if not aov.empty
+        else px.scatter(title="No AOV")
+    )
     fig_chapters = (
         px.area(
             chapters,
@@ -1860,20 +1895,87 @@ def render_amazon_panel(
         if not chapters.empty
         else px.bar(title="No chapters")
     )
+    fig_chapters_spend = (
+        px.bar(
+            chapters,
+            x="year",
+            y="spend",
+            color="marketplace",
+            barmode="stack",
+            title="Spend by year × marketplace (mixed currencies — compare within mkt)",
+        )
+        if not chapters.empty
+        else px.bar(title="No spend chapters")
+    )
     fig_month = (
         px.bar(monthly, x="month_start", y="orders", title="Orders per month")
         if not monthly.empty
         else px.bar(title="No monthly data")
+    )
+    fig_month_fx = (
+        px.line(
+            monthly_fx,
+            x="month_start",
+            y="spend",
+            color="currency",
+            title="Monthly spend by currency",
+        )
+        if not monthly_fx.empty
+        else px.line(title="No monthly spend")
+    )
+    if cancelled.empty:
+        fig_cancel = px.bar(title="No cancel data")
+    else:
+        cancel_long = cancelled.melt(
+            id_vars=["year"],
+            value_vars=["kept", "cancelled"],
+            var_name="status",
+            value_name="lines",
+        )
+        fig_cancel = px.bar(
+            cancel_long,
+            x="year",
+            y="lines",
+            color="status",
+            barmode="stack",
+            title="Kept vs cancelled order lines by year",
+        )
+    fig_basket = (
+        px.bar(baskets, x="n_items", y="orders", title="Basket size (lines per order)")
+        if not baskets.empty
+        else px.bar(title="No baskets")
     )
     fig_tree = (
         px.treemap(
             treemap,
             path=["dept_family", "department"],
             values="lines",
-            title="What you buy — type → department",
+            title="What you buy — type → department (by lines)",
         )
         if not treemap.empty
         else px.bar(title="No departments")
+    )
+    fig_sun = (
+        px.sunburst(
+            sun,
+            path=["dept_family", "department"],
+            values="spend",
+            title="Spend sunburst — type → department",
+        )
+        if not sun.empty
+        else px.sunburst(title="No spend sunburst")
+    )
+    fig_digi = (
+        px.bar(
+            digi,
+            x="year",
+            y="lines",
+            color="surface",
+            barmode="group",
+            title="Retail vs digital lines by year",
+        )
+        if not digi.empty
+        else px.bar(title="No digital/retail")
     )
     if circ.empty:
         fig_circ = px.density_heatmap(title="No order circadian")
@@ -1888,6 +1990,63 @@ def render_amazon_panel(
             title="Orders by weekday × hour (Europe/Rome)",
             color_continuous_scale="Oranges",
         )
+    if cal.empty:
+        fig_cal = px.density_heatmap(title="No order calendar")
+    else:
+        cal2 = cal.copy()
+        cal2["day"] = pd.to_datetime(cal2["day"])
+        cal2["week"] = cal2["day"].dt.isocalendar().week.astype(int)
+        cal2["dow"] = cal2["day"].dt.dayofweek
+        fig_cal = px.density_heatmap(
+            cal2,
+            x="dow",
+            y="week",
+            z="orders",
+            title="Order calendar (weekday × ISO week)",
+            color_continuous_scale="YlOrRd",
+        )
+    fig_funnel = (
+        px.funnel(funnel_stages, x="n", y="stage", title="Search → purchase funnel")
+        if not funnel_stages.empty and int(funnel_stages["n"].sum()) > 0
+        else px.bar(title="No search funnel")
+    )
+    fig_kw = (
+        px.bar(
+            keywords.head(20),
+            x="searches",
+            y="keywords",
+            orientation="h",
+            title="Top search keywords",
+        )
+        if not keywords.empty
+        else px.bar(title="No keywords")
+    )
+    if not keywords.empty:
+        fig_kw.update_yaxes(autorange="reversed")
+    fig_returns = (
+        px.bar(
+            returns.head(15),
+            x="n",
+            y="return_reason",
+            orientation="h",
+            title="Return reasons",
+        )
+        if not returns.empty
+        else px.bar(title="No returns")
+    )
+    if not returns.empty:
+        fig_returns.update_yaxes(autorange="reversed")
+    fig_comeback = (
+        px.scatter(
+            comebacks,
+            x="gap_days",
+            y="times",
+            hover_data=["product_name", "asin"],
+            title="Repurchased ASINs — gap days vs times ordered",
+        )
+        if not comebacks.empty
+        else px.scatter(title="No repurchases")
+    )
 
     sections: list[Any] = [
         mo.md(
@@ -1916,33 +2075,42 @@ def render_amazon_panel(
         ),
         chip_row,
         mo.md("### Data footprint"),
-        mo.vstack([mo.ui.plotly(fig_foot), mo.ui.plotly(fig_surf)], gap=1),
+        mo.vstack([mo.ui.plotly(fig_foot), mo.ui.plotly(fig_foot_zip)], gap=1),
+        mo.ui.plotly(fig_surf),
         mo.md("### Spend scoreboard"),
         mo.ui.table(score),
-        mo.ui.plotly(fig_fx),
+        mo.vstack([mo.ui.plotly(fig_fx), mo.ui.plotly(fig_aov)], gap=1),
         mo.md("### Life chapters & rhythm"),
-        mo.vstack([mo.ui.plotly(fig_chapters), mo.ui.plotly(fig_month)], gap=1),
-        mo.ui.plotly(fig_circ),
+        mo.vstack([mo.ui.plotly(fig_chapters), mo.ui.plotly(fig_chapters_spend)], gap=1),
+        mo.vstack([mo.ui.plotly(fig_month), mo.ui.plotly(fig_month_fx)], gap=1),
+        mo.vstack([mo.ui.plotly(fig_cancel), mo.ui.plotly(fig_basket)], gap=1),
+        mo.vstack([mo.ui.plotly(fig_circ), mo.ui.plotly(fig_cal)], gap=1),
         mo.md("### What you buy"),
-        mo.ui.plotly(fig_tree),
+        mo.vstack([mo.ui.plotly(fig_tree), mo.ui.plotly(fig_sun)], gap=1),
+        mo.ui.plotly(fig_digi),
         mo.ui.table(products),
         mo.md("### How you shop — search funnel"),
-        mo.ui.table(funnel),
-        mo.ui.table(keywords),
-        mo.md("### Returns"),
+        mo.vstack([mo.ui.plotly(fig_funnel), mo.ui.table(funnel)], gap=1),
+        mo.ui.plotly(fig_kw),
+        mo.md("### Returns & loyalty"),
+        mo.vstack([mo.ui.plotly(fig_returns), mo.ui.plotly(fig_comeback)], gap=1),
         mo.ui.table(returns),
         mo.md("### One-and-done ASINs (oldest last order)"),
         mo.ui.table(forgotten),
+        mo.md("### Repurchased ASINs"),
+        mo.ui.table(comebacks),
     ]
 
     if amzq.has_table(conn, "alexa_intents"):
         a_score = amzq.alexa_scoreboard(conn, filters)
         a_tags = amzq.alexa_tags(conn, filters)
         a_month = amzq.alexa_monthly(conn, filters)
+        a_tag_m = amzq.alexa_tag_monthly(conn, filters)
         a_circ = amzq.alexa_circadian(conn, filters)
         a_dev = amzq.alexa_devices(conn, filters)
         a_show = amzq.alexa_show_engagement(conn, filters)
         a_skills = amzq.alexa_skills(conn)
+        a_utt = amzq.alexa_top_utterances(conn, filters)
         fig_tags = (
             px.bar(a_tags, x="n", y="tag", orientation="h", title="Alexa utterance tags")
             if not a_tags.empty
@@ -1952,6 +2120,17 @@ def render_amazon_panel(
             px.bar(a_month, x="month_start", y="utterances", title="Alexa utterances / month")
             if not a_month.empty
             else px.bar(title="No Alexa monthly")
+        )
+        fig_tag_m = (
+            px.area(
+                a_tag_m,
+                x="month_start",
+                y="n",
+                color="tag",
+                title="Alexa tag mix over time",
+            )
+            if not a_tag_m.empty
+            else px.area(title="No tag timeline")
         )
         if a_circ.empty:
             fig_a_circ = px.density_heatmap(title="No Alexa circadian")
@@ -1976,7 +2155,7 @@ def render_amazon_panel(
         else:
             show_long = a_show.melt(
                 id_vars=["month_start"],
-                value_vars=["voice", "touch"],
+                value_vars=["voice", "touch", "impressions"],
                 var_name="kind",
                 value_name="count",
             )
@@ -1985,15 +2164,31 @@ def render_amazon_panel(
                 x="month_start",
                 y="count",
                 color="kind",
-                title="Echo Show voice vs touch",
+                title="Echo Show voice / touch / impressions",
             )
+        fig_utt = (
+            px.bar(
+                a_utt.head(20),
+                x="n",
+                y="utterance",
+                color="tag",
+                orientation="h",
+                title="Most repeated Alexa utterances",
+            )
+            if not a_utt.empty
+            else px.bar(title="No utterances")
+        )
+        if not a_utt.empty:
+            fig_utt.update_yaxes(autorange="reversed")
         sections.extend(
             [
                 mo.md("### Alexa in the house"),
                 mo.ui.table(a_score),
                 mo.vstack([mo.ui.plotly(fig_tags), mo.ui.plotly(fig_a_month)], gap=1),
+                mo.ui.plotly(fig_tag_m),
                 mo.vstack([mo.ui.plotly(fig_a_circ), mo.ui.plotly(fig_dev)], gap=1),
                 mo.ui.plotly(fig_show),
+                mo.ui.plotly(fig_utt),
                 mo.ui.table(a_skills),
             ]
         )
@@ -2019,15 +2214,55 @@ def render_amazon_panel(
     if amzq.has_table(conn, "video_views"):
         vid = amzq.video_titles(conn, filters)
         if not vid.empty:
+            fig_vid = px.bar(
+                vid,
+                x="minutes",
+                y="title",
+                orientation="h",
+                title="Prime Video minutes by title",
+            )
+            fig_vid.update_yaxes(autorange="reversed")
             sections.extend(
                 [
                     mo.md("### Prime Video"),
+                    mo.ui.plotly(fig_vid),
                     mo.ui.table(vid),
                 ]
             )
 
+    if amzq.has_table(conn, "kindle_sessions"):
+        kdf = amzq.kindle_monthly(conn, filters)
+        if not kdf.empty:
+            sections.extend(
+                [
+                    mo.md("### Kindle"),
+                    mo.ui.plotly(
+                        px.bar(
+                            kdf,
+                            x="month_start",
+                            y="hours",
+                            title="Kindle reading hours by month",
+                        )
+                    ),
+                ]
+            )
+
+    if amzq.has_table(conn, "music_searches"):
+        msearch = amzq.music_top_searches(conn, filters)
+        if not msearch.empty:
+            fig_ms = px.bar(
+                msearch,
+                x="n",
+                y="query",
+                orientation="h",
+                title="Amazon Music search queries",
+            )
+            fig_ms.update_yaxes(autorange="reversed")
+            sections.extend([mo.md("### Amazon Music searches"), mo.ui.plotly(fig_ms)])
+
     if amzq.has_table(conn, "product_impressions"):
         imps = amzq.impression_mix(conn, filters)
+        itop = amzq.impression_top(conn, filters)
         if not imps.empty:
             sections.extend(
                 [
@@ -2040,8 +2275,18 @@ def render_amazon_panel(
                             title="Detail-page vs buy-again impressions",
                         )
                     ),
+                    mo.ui.table(itop),
                 ]
             )
+
+    if amzq.has_table(conn, "rufus_queries"):
+        ruf = amzq.rufus_top(conn, filters)
+        if not ruf.empty:
+            fig_ruf = px.bar(
+                ruf, x="n", y="query", orientation="h", title="Rufus shopping queries"
+            )
+            fig_ruf.update_yaxes(autorange="reversed")
+            sections.extend([mo.md("### Rufus"), mo.ui.plotly(fig_ruf)])
 
     return mo.vstack(sections, gap=0.5)
 
