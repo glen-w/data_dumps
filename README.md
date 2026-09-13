@@ -22,7 +22,7 @@ Full workflows, Docker, and troubleshooting: **[docs/WAREHOUSE.md](docs/WAREHOUS
 uv sync
 uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_data.zip
 uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
-# Charts-only app view (Spotify / Telegram tabs). Use `marimo edit` only when editing cells.
+# Charts-only app view (Compare + per-source tabs). Use `marimo edit` only when editing cells.
 ```
 
 ### Docker (reproducible run)

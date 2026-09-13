@@ -35,3 +35,33 @@ def test_circadian_heatmap_hours_z_column():
         empty_title="No circadian data for filter",
     )
     assert "Hours by weekday × hour" in fig.layout.title.text
+
+
+def test_normalized_overlay_empty():
+    fig = panel_charts.normalized_overlay(
+        px,
+        pd.DataFrame(columns=["year_month", "pct_of_max", "series_label", "value", "unit"]),
+        title="Monthly activity (% of each series' max)",
+        empty_title="Select up to 6 series",
+    )
+    assert "Select up to 6 series" in fig.layout.title.text
+
+
+def test_normalized_overlay_multi_series():
+    df = pd.DataFrame(
+        {
+            "year_month": ["2020-01", "2020-02", "2020-01", "2020-02"],
+            "series_label": ["A", "A", "B", "B"],
+            "pct_of_max": [50.0, 100.0, 25.0, 100.0],
+            "value": [1.0, 2.0, 10.0, 40.0],
+            "unit": ["h", "h", "msg", "msg"],
+        }
+    )
+    fig = panel_charts.normalized_overlay(
+        px,
+        df,
+        title="Monthly activity (% of each series' max)",
+        empty_title="empty",
+    )
+    assert "Monthly activity" in fig.layout.title.text
+    assert fig.layout.yaxis.title.text == "% of series max"

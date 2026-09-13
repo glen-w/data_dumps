@@ -15,12 +15,14 @@ import pytest
 
 from data_dumps import amazon_queries as amzq
 from data_dumps import browser_queries as brq
+from data_dumps import compare_queries as cq
 from data_dumps import slack_queries as skq
 from data_dumps import spotify_queries as spq
 from data_dumps import telegram_queries as tgq
 from data_dumps.explorer_panels import (
     make_amazon_controls,
     make_browser_controls,
+    make_compare_controls,
     make_linkedin_controls,
     make_miband_controls,
     make_ring_controls,
@@ -30,6 +32,7 @@ from data_dumps.explorer_panels import (
     make_telegram_controls,
     render_amazon_panel,
     render_browser_panel,
+    render_compare_panel,
     render_linkedin_panel,
     render_miband_panel,
     render_ring_panel,
@@ -440,3 +443,21 @@ def test_render_amazon_panel(amz_conn):
         "Data footprint",
     ):
         assert needle in html, needle
+
+
+def test_render_compare_panel(combo_conn):
+    bounds = cq.compare_bounds(combo_conn)
+    series = cq.list_available_series(combo_conn)
+    controls = make_compare_controls(mo, bounds, series, conn=combo_conn)
+    out = render_compare_panel(
+        mo=mo,
+        px=px,
+        conn=combo_conn,
+        bounds=bounds,
+        controls=controls,
+    )
+    assert _is_marimo_element(out)
+    html = out._repr_html_()
+    assert "Compare" in html
+    assert "Normalized overlay" in html
+    assert "Raw monthly values" in html

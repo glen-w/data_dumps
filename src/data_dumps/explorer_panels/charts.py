@@ -1,4 +1,4 @@
-"""Shared Plotly heatmap builders for explorer panels."""
+"""Shared Plotly chart builders for explorer panels."""
 
 from __future__ import annotations
 
@@ -9,6 +9,46 @@ import pandas as pd
 
 def empty_heatmap(px: Any, title: str) -> Any:
     return px.density_heatmap(title=title)
+
+
+def empty_line(px: Any, title: str) -> Any:
+    return px.line(title=title)
+
+
+def normalized_overlay(
+    px: Any,
+    df: pd.DataFrame,
+    *,
+    title: str,
+    empty_title: str | None = None,
+) -> Any:
+    """Multi-series line chart with y = pct_of_max; hover shows raw value + unit."""
+    if df.empty or "pct_of_max" not in df.columns:
+        return empty_line(px, empty_title or title)
+    fig = px.line(
+        df,
+        x="year_month",
+        y="pct_of_max",
+        color="series_label",
+        title=title,
+        custom_data=["value", "unit"] if {"value", "unit"} <= set(df.columns) else None,
+    )
+    fig.update_layout(
+        xaxis_title="Month",
+        yaxis_title="% of series max",
+        legend_title_text="Series",
+        yaxis={"range": [0, 105]},
+    )
+    if {"value", "unit"} <= set(df.columns):
+        fig.update_traces(
+            hovertemplate=(
+                "%{fullData.name}<br>"
+                "%{x}: %{y:.1f}% of max"
+                "<br>raw=%{customdata[0]} %{customdata[1]}"
+                "<extra></extra>"
+            )
+        )
+    return fig
 
 
 def circadian_heatmap(

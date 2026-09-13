@@ -81,6 +81,12 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Voice WAVs inventory-only; cards/addresses/IPs/geolocation dropped; multi-currency spend (no FX merge)
 - Explorer Amazon tab: footprint observatory, spend/life chapters/types, search funnel, Alexa utterance Wrapped, Audible/Video
 
+### Compare tab (cross-source)
+
+- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat, Slack channel/person, LinkedIn conversation, Spotify artist, Thunderbird contact, Twitter account)
+- Monthly overlay chart with each series as **% of its own max**; raw values table alongside
+- Explicit series catalog in `compare_queries.py` (no plugin registry)
+
 ### Dashboard upgrades from the open-source landscape
 
 Query + chart + panel additions only (no new deps, no ingest restructuring). References: sleep_android_viz, Encore, Spotify-Unwrapped, TelAnalysis, ConvoMetrics.
@@ -119,6 +125,7 @@ Four phases, shippable independently after A:
 
 ## Later
 
+- **Compare tab normalization modes** — min–max [0,1], z-score, absolute small-multiples; make the mode selectable in the UI (today: % of series max only)
 - **GUI-driven operations** — eventually all warehouse actions from the Marimo dashboard: ingest, MusicBrainz enrich, re-ingest, and LLM setup — not only explore/filter/narrate. Today ingest and enrich are CLI-only because DuckDB is single-writer; a GUI path needs an orchestration layer (stop dashboard → run job → reopen, or a dedicated writer service) without asking the user to juggle terminals. See [WAREHOUSE.md](WAREHOUSE.md) for current constraints.
 - Wikidata P136 genre enrichment (deferred; MusicBrainz tags only today)
 
@@ -145,7 +152,7 @@ Four phases, shippable independently after A:
 | [guides/add-a-dump.md](guides/add-a-dump.md) | **Add a dump** checklist (Source + explorer); agents start here |
 | [../AGENTS.md](../AGENTS.md) | Agent entrypoint |
 | [../assessments/dashboard-depth-2026-09.md](../assessments/dashboard-depth-2026-09.md) | Explorer depth scorecard |
-| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn / Twitter / Slack / Browser / Sleep / Mi Band / …) |
+| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Compare + Spotify / Telegram / LinkedIn / Twitter / Slack / Browser / Sleep / Mi Band / …) |
 | [../notebooks/spotify.py](../notebooks/spotify.py) | Spotify-only notebook |
 | [../notebooks/telegram.py](../notebooks/telegram.py) | Telegram-only notebook |
 | [../notebooks/sleep.py](../notebooks/sleep.py) | Sleep-only notebook (thin wrapper over `render_sleep_panel`) |

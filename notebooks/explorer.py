@@ -13,6 +13,7 @@ def _():
     from data_dumps.explorer_panels import (
         make_amazon_controls,
         make_browser_controls,
+        make_compare_controls,
         make_linkedin_controls,
         make_miband_controls,
         make_ring_controls,
@@ -24,6 +25,7 @@ def _():
         make_twitter_controls,
         render_amazon_panel,
         render_browser_panel,
+        render_compare_panel,
         render_linkedin_panel,
         render_miband_panel,
         render_ring_panel,
@@ -37,6 +39,8 @@ def _():
     from data_dumps.paths import warehouse_db
     from data_dumps.amazon_queries import data_bounds as amz_data_bounds
     from data_dumps.browser_queries import data_bounds as br_data_bounds
+    from data_dumps.compare_queries import compare_bounds as cmp_data_bounds
+    from data_dumps.compare_queries import list_available_series as cmp_list_series
     from data_dumps.linkedin_queries import data_bounds as li_data_bounds
     from data_dumps.miband_queries import data_bounds as mb_hr_data_bounds
     from data_dumps.ring_queries import data_bounds as ring_data_bounds
@@ -86,15 +90,21 @@ def _():
     br_bounds = br_data_bounds(conn) if has_browser else None
     tb_bounds = tb_data_bounds(conn) if has_thunderbird else None
     amz_bounds = amz_data_bounds(conn) if has_amazon else None
+    cmp_bounds = cmp_data_bounds(conn)
+    cmp_series = cmp_list_series(conn)
+    has_compare = len(cmp_series) > 0
     mb_ready = has_mb_data(conn) if has_spotify else False
     tg_dow = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
     iso_dow = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
     return (
         amz_bounds,
         br_bounds,
+        cmp_bounds,
+        cmp_series,
         conn,
         has_amazon,
         has_browser,
+        has_compare,
         has_linkedin,
         has_miband,
         has_ring,
@@ -108,6 +118,7 @@ def _():
         li_bounds,
         make_amazon_controls,
         make_browser_controls,
+        make_compare_controls,
         make_linkedin_controls,
         make_miband_controls,
         make_ring_controls,
@@ -123,6 +134,7 @@ def _():
         px,
         render_amazon_panel,
         render_browser_panel,
+        render_compare_panel,
         render_linkedin_panel,
         render_miband_panel,
         render_ring_panel,
@@ -147,8 +159,10 @@ def _():
 def _(
     amz_bounds,
     br_bounds,
+    cmp_bounds,
     has_amazon,
     has_browser,
+    has_compare,
     has_linkedin,
     has_miband,
     has_ring,
@@ -191,6 +205,8 @@ def _(
         else "📦 Amazon"
         if has_amazon
         else "💼 LinkedIn"
+        if has_linkedin
+        else "📊 Compare"
     )
     sp_caption = (
         f"{sp_bounds['first_day']} → {sp_bounds['last_day']}"
@@ -252,8 +268,15 @@ def _(
             else "Not ingested"
         )
     )
+    cmp_caption = (
+        f"{cmp_bounds['n_series']} series · "
+        f"{cmp_bounds['min_year']} → {cmp_bounds['max_year']}"
+        if has_compare and cmp_bounds
+        else "No sources"
+    )
     source = mo.ui.tabs(
         {
+            "📊 Compare": mo.md(f"_{cmp_caption}_"),
             "📦 Amazon": mo.md(f"_{amz_caption}_"),
             "🌐 Browser": mo.md(f"_{br_caption}_"),
             "📧 Thunderbird": mo.md(f"_{tb_caption}_"),
@@ -353,6 +376,52 @@ def _(has_thunderbird, make_thunderbird_controls, mo, tb_bounds):
         else None
     )
     return (tb_controls,)
+
+
+@app.cell(hide_code=True)
+def _(
+    cmp_bounds,
+    cmp_series,
+    conn,
+    has_compare,
+    make_compare_controls,
+    mo,
+):
+    cmp_controls = (
+        make_compare_controls(mo, cmp_bounds, cmp_series, conn=conn)
+        if has_compare and cmp_bounds
+        else None
+    )
+    return (cmp_controls,)
+
+
+@app.cell(hide_code=True)
+def _(
+    cmp_bounds,
+    cmp_controls,
+    conn,
+    has_compare,
+    mo,
+    px,
+    render_compare_panel,
+    source,
+):
+    mo.stop(source.value != "📊 Compare", output=None)
+    if not has_compare or cmp_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No comparable sources in the warehouse yet. Ingest a dump, then reopen."
+            ),
+        )
+    render_compare_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=cmp_bounds,
+        controls=cmp_controls,
+    )
+
 
 @app.cell(hide_code=True)
 def _(
