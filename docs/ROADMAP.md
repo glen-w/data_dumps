@@ -84,8 +84,14 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 ### Compare tab (cross-source)
 
 - Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat, Slack channel/person, LinkedIn conversation, Spotify artist, Thunderbird contact, Twitter account)
-- Monthly overlay chart with each series as **% of its own max**; raw values table alongside
+- Monthly multiviewer overlay with each series as **% of its own max**; Pearson correlation heatmap on aligned shapes; raw values table alongside
 - Explicit series catalog in `compare_queries.py` (no plugin registry)
+
+### Correlations tab (cross-source)
+
+- Explorer **Correlations** tab: daily-first Pearson matrix across curated source totals, top pairs (+ Spearman), focus scatter + z-score overlay, ±7 day lag scan
+- Presets: Life rhythm / Comms / Sleep & body; monthly grain fallback; min-n gating; no zero-fill
+- Catalog in `correlation_queries.py` (explicit; no plugin registry)
 
 ### Dashboard upgrades from the open-source landscape
 
@@ -125,6 +131,7 @@ Four phases, shippable independently after A:
 
 ## Later
 
+- **Correlations tab configurability** — method picker (Pearson / Spearman / Kendall); rolling-window r; partial correlation; entity-level pairs; circadian/hour-bin correlations; zero-fill vs inner-join toggle; configurable min-n and lag range; Browser + Ring metrics; optional aggregate-only LLM “Narrate top correlations”; share z-score/min-max helpers with Compare’s planned norm modes
 - **Compare tab normalization modes** — min–max [0,1], z-score, absolute small-multiples; make the mode selectable in the UI (today: % of series max only)
 - **GUI-driven operations** — eventually all warehouse actions from the Marimo dashboard: ingest, MusicBrainz enrich, re-ingest, and LLM setup — not only explore/filter/narrate. Today ingest and enrich are CLI-only because DuckDB is single-writer; a GUI path needs an orchestration layer (stop dashboard → run job → reopen, or a dedicated writer service) without asking the user to juggle terminals. See [WAREHOUSE.md](WAREHOUSE.md) for current constraints.
 - Wikidata P136 genre enrichment (deferred; MusicBrainz tags only today)
@@ -152,7 +159,7 @@ Four phases, shippable independently after A:
 | [guides/add-a-dump.md](guides/add-a-dump.md) | **Add a dump** checklist (Source + explorer); agents start here |
 | [../AGENTS.md](../AGENTS.md) | Agent entrypoint |
 | [../assessments/dashboard-depth-2026-09.md](../assessments/dashboard-depth-2026-09.md) | Explorer depth scorecard |
-| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Compare + Spotify / Telegram / LinkedIn / Twitter / Slack / Browser / Sleep / Mi Band / …) |
+| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Correlations + Compare + Spotify / Telegram / LinkedIn / Twitter / Slack / Browser / Sleep / Mi Band / …) |
 | [../notebooks/spotify.py](../notebooks/spotify.py) | Spotify-only notebook |
 | [../notebooks/telegram.py](../notebooks/telegram.py) | Telegram-only notebook |
 | [../notebooks/sleep.py](../notebooks/sleep.py) | Sleep-only notebook (thin wrapper over `render_sleep_panel`) |

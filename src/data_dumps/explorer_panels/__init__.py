@@ -21,6 +21,11 @@ from data_dumps.explorer_panels.compare import (
     make_compare_controls,
     render_compare_panel,
 )
+from data_dumps.explorer_panels.correlate import (
+    CorrelateControls,
+    make_correlate_controls,
+    render_correlate_panel,
+)
 from data_dumps.explorer_panels.linkedin import (
     LinkedInControls,
     make_linkedin_controls,
@@ -71,6 +76,7 @@ __all__ = [
     "AmazonControls",
     "BrowserControls",
     "CompareControls",
+    "CorrelateControls",
     "LinkedInControls",
     "MiBandControls",
     "RingControls",
@@ -83,6 +89,7 @@ __all__ = [
     "make_amazon_controls",
     "make_browser_controls",
     "make_compare_controls",
+    "make_correlate_controls",
     "make_linkedin_controls",
     "make_miband_controls",
     "make_ring_controls",
@@ -95,6 +102,7 @@ __all__ = [
     "render_amazon_panel",
     "render_browser_panel",
     "render_compare_panel",
+    "render_correlate_panel",
     "render_linkedin_panel",
     "render_miband_panel",
     "render_ring_panel",

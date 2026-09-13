@@ -1,4 +1,4 @@
-"""Cross-source Compare explorer tab: pick series, overlay % of max."""
+"""Cross-source Compare explorer tab: multiviewer overlay + correlations."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import duckdb
+import pandas as pd
 
 from data_dumps import compare_queries as cq
 
@@ -29,8 +30,12 @@ def make_compare_controls(
 ) -> CompareControls:
     options = {s.id: s.label for s in available_series}
     default_ids = [s.id for s in available_series if s.kind == "total"][:2]
-    ys = bounds.get("min_year")
-    ye = bounds.get("max_year")
+    ys = int(bounds.get("min_year") or 2020)
+    ye = int(bounds.get("max_year") or ys)
+    if ys > ye:
+        ys, ye = ye, ys
+    # Marimo sliders need stop > start; collapse single-year warehouses safely.
+    stop = ye if ye > ys else ys + 1
     entity_widgets: dict[str, Any] = {}
     for spec in available_series:
         if not spec.requires_entity:
@@ -46,26 +51,31 @@ def make_compare_controls(
             value="",
             label=spec.label,
         )
+    ms_kwargs: dict[str, Any] = {
+        "options": options,
+        "value": default_ids,
+        "label": f"Series (max {cq.MAX_SERIES})",
+    }
+    try:
+        series_select = mo.ui.multiselect(**ms_kwargs, max_selections=cq.MAX_SERIES)
+    except TypeError:
+        series_select = mo.ui.multiselect(**ms_kwargs)
     return CompareControls(
         year_start=mo.ui.slider(
-            start=bounds["min_year"],
-            stop=bounds["max_year"],
-            value=bounds["min_year"],
+            start=ys,
+            stop=stop,
+            value=ys,
             label="From year",
             show_value=True,
         ),
         year_end=mo.ui.slider(
-            start=bounds["min_year"],
-            stop=bounds["max_year"],
-            value=bounds["max_year"],
+            start=ys,
+            stop=stop,
+            value=ye,
             label="To year",
             show_value=True,
         ),
-        series_select=mo.ui.multiselect(
-            options=options,
-            value=default_ids,
-            label=f"Series (max {cq.MAX_SERIES})",
-        ),
+        series_select=series_select,
         entity_widgets=entity_widgets,
     )
 
@@ -87,6 +97,11 @@ def render_compare_panel(
 
     ys = int(controls.year_start.value)
     ye = int(controls.year_end.value)
+    # Clamp to warehouse span when slider stop was inflated for single-year data.
+    ymin = int(bounds.get("min_year") or ys)
+    ymax = int(bounds.get("max_year") or ye)
+    ys = min(max(ys, ymin), ymax)
+    ye = min(max(ye, ymin), ymax)
     if ys > ye:
         ys, ye = ye, ys
 
@@ -107,13 +122,24 @@ def render_compare_panel(
                 entity_rows.append(widget)
                 entity = str(widget.value or "").strip() or None
             if not entity:
+                selections.append(cq.SeriesSelection(series_id=sid, entity=None))
                 continue
         selections.append(cq.SeriesSelection(series_id=sid, entity=entity))
+
+    notes = cq.selection_notes(selections, conn)
+    # Only fetch rows for selections that can succeed.
+    fetch_sels = [
+        s
+        for s in selections
+        if (spec := cq.series_by_id(s.series_id)) is not None
+        and spec.available(conn)
+        and (not spec.requires_entity or (s.entity and str(s.entity).strip()))
+    ]
 
     chips: list[str] = [f"years {ys}–{ye}"]
     if len(list(controls.series_select.value or [])) > cq.MAX_SERIES:
         chips.append(f"capped at {cq.MAX_SERIES} series")
-    for sel in selections:
+    for sel in fetch_sels:
         spec = cq.series_by_id(sel.series_id)
         if spec is None:
             continue
@@ -126,8 +152,11 @@ def render_compare_panel(
         if chips
         else mo.md("_No series selected_")
     )
+    notes_block = (
+        mo.md(" · ".join(f"_{n}_" for n in notes)) if notes else mo.md("")
+    )
 
-    raw = cq.fetch_monthly(conn, selections, year_start=ys, year_end=ye)
+    raw = cq.fetch_monthly(conn, fetch_sels, year_start=ys, year_end=ye)
     norm = cq.normalize_pct_of_max(raw)
     fig = panel_charts.normalized_overlay(
         px,
@@ -135,6 +164,17 @@ def render_compare_panel(
         title="Monthly activity (% of each series' max)",
         empty_title="Select up to 6 series (pick entities where required)",
     )
+
+    corr = cq.correlation_matrix(norm)
+    corr_fig = panel_charts.correlation_heatmap(
+        px,
+        corr,
+        title="Series shape correlation (Pearson on % of max)",
+        empty_title="Need ≥2 series with overlapping months",
+    )
+    corr_table = pd.DataFrame()
+    if not corr.empty:
+        corr_table = corr.reset_index().rename(columns={"index": "series"}).round(3)
 
     table_df = raw.copy()
     if not table_df.empty:
@@ -153,19 +193,43 @@ def render_compare_panel(
         else mo.md("_No entity series selected_")
     )
 
+    n_series = int(norm["series_label"].nunique()) if not norm.empty else 0
+    corr_section: list[Any] = [
+        mo.md("### Correlations"),
+        mo.md(
+            f"Pearson **r** on aligned monthly **% of max** shapes "
+            f"(need ≥{cq.MIN_CORR_OVERLAP} overlapping months; "
+            "constant series → blank)."
+        ),
+    ]
+    if n_series >= 2 and not corr.empty:
+        corr_section.extend(
+            [
+                mo.ui.plotly(corr_fig),
+                mo.ui.table(corr_table) if not corr_table.empty else mo.md(""),
+            ]
+        )
+    else:
+        corr_section.append(
+            mo.md("_Select at least two series with overlapping months._")
+        )
+
     return mo.vstack(
         [
             mo.md("## Compare"),
             mo.md(
-                "Overlay monthly activity across sources and threads. "
+                "Multiviewer for monthly activity across sources and threads. "
                 "Each series is scaled to **% of its own maximum** in the "
-                "selected year window so different units line up."
+                "selected year window so different units line up; the "
+                "correlation matrix measures how those shapes move together."
             ),
             filter_row,
             entity_block,
             chip_row,
+            notes_block,
             mo.md("### Normalized overlay"),
             mo.ui.plotly(fig),
+            *corr_section,
             mo.md("### Raw monthly values"),
             mo.ui.table(table_df) if not table_df.empty else mo.md("_No data_"),
         ],

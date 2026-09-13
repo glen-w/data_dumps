@@ -22,7 +22,7 @@ Full workflows, Docker, and troubleshooting: **[docs/WAREHOUSE.md](docs/WAREHOUS
 uv sync
 uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_data.zip
 uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
-# Charts-only app view (Compare + per-source tabs). Use `marimo edit` only when editing cells.
+# Charts-only app view (Correlations + Compare + per-source tabs). Use `marimo edit` only when editing cells.
 ```
 
 ### Docker (reproducible run)
@@ -33,6 +33,8 @@ docker compose run --rm --entrypoint ingest app /data/spotify/my_spotify_data.zi
 docker compose up app
 # → http://127.0.0.1:2718 — token printed in logs (marimo ?access_token=…)
 ```
+
+**Tailscale (phone / other devices):** house Serve is `https://laptop.tail1ff5ae.ts.net:2718/` via `~/Documents/server/compose/laptop/data-dumps` (Homer tile **Data dumps**). Mac must be awake.
 
 Stop `app` before re-ingesting or enriching — see [Warehouse lock](#warehouse-lock-read-this) and [docs/WAREHOUSE.md](docs/WAREHOUSE.md). Data lives on `~/Documents/data_dumps_raw` (mounted at `/data`) — never in the image.
 
@@ -213,6 +215,14 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Tables: `amazon.order_items|orders|searches|…` plus Alexa structured use and `dump_inventory`
 - Voice `.wav` / invoice PDFs / cards / addresses / IPs / geolocation are **not** loaded (voice appears only as footprint inventory)
 - Explorer: Amazon tab — spend (multi-currency), product types, search funnel, Alexa utterances, dump footprint
+
+### Compare (cross-source)
+
+Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Catalog lives in `compare_queries.py` (no plugin registry).
+
+### Correlations (cross-source)
+
+Explorer **Correlations** tab: daily-first Pearson matrix across curated source totals, ranked pairs (Spearman too), focus scatter + z-score overlay, and ±7 day lag scan. Presets: Life rhythm / Comms / Sleep & body. Catalog in `correlation_queries.py`.
 
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 

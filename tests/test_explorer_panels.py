@@ -16,6 +16,7 @@ import pytest
 from data_dumps import amazon_queries as amzq
 from data_dumps import browser_queries as brq
 from data_dumps import compare_queries as cq
+from data_dumps import correlation_queries as crq
 from data_dumps import slack_queries as skq
 from data_dumps import spotify_queries as spq
 from data_dumps import telegram_queries as tgq
@@ -23,6 +24,7 @@ from data_dumps.explorer_panels import (
     make_amazon_controls,
     make_browser_controls,
     make_compare_controls,
+    make_correlate_controls,
     make_linkedin_controls,
     make_miband_controls,
     make_ring_controls,
@@ -33,6 +35,7 @@ from data_dumps.explorer_panels import (
     render_amazon_panel,
     render_browser_panel,
     render_compare_panel,
+    render_correlate_panel,
     render_linkedin_panel,
     render_miband_panel,
     render_ring_panel,
@@ -460,4 +463,24 @@ def test_render_compare_panel(combo_conn):
     html = out._repr_html_()
     assert "Compare" in html
     assert "Normalized overlay" in html
+    assert "Correlations" in html
     assert "Raw monthly values" in html
+
+
+def test_render_correlate_panel(combo_conn):
+    bounds = crq.correlate_bounds(combo_conn)
+    metrics = crq.list_available_metrics(combo_conn)
+    assert len(metrics) >= 2
+    controls = make_correlate_controls(mo, bounds, metrics)
+    out = render_correlate_panel(
+        mo=mo,
+        px=px,
+        conn=combo_conn,
+        bounds=bounds,
+        controls=controls,
+    )
+    assert _is_marimo_element(out)
+    html = out._repr_html_()
+    assert "Correlations" in html
+    assert "Correlation matrix" in html
+    assert "Lag scan" in html

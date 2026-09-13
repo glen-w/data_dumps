@@ -668,9 +668,10 @@ def fetch_monthly(
 
 
 def normalize_pct_of_max(df: pd.DataFrame) -> pd.DataFrame:
-    """Add ``pct_of_max`` (0–100) per ``series_label``; drop empty series.
+    """Add ``pct_of_max`` (0–100) per ``series_label``.
 
     When a series max is 0, all its ``pct_of_max`` values are 0.
+    Empty input returns an empty frame that still has ``pct_of_max``.
     """
     if df.empty:
         out = df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame(columns=OUT_COLS)
@@ -686,5 +687,91 @@ def normalize_pct_of_max(df: pd.DataFrame) -> pd.DataFrame:
     out.loc[nonzero, "pct_of_max"] = (
         out.loc[nonzero, "value"] / maxima[nonzero] * 100.0
     )
-    # Drop series with no rows after coalesce (keep zero-max series).
     return out.reset_index(drop=True)
+
+
+MIN_CORR_OVERLAP = 3
+
+
+def correlation_matrix(
+    df: pd.DataFrame,
+    *,
+    value_col: str = "pct_of_max",
+    min_overlap: int = MIN_CORR_OVERLAP,
+) -> pd.DataFrame:
+    """Pairwise Pearson correlation of monthly series shapes.
+
+    Pivots on ``year_month`` × ``series_label`` using ``value_col`` (default
+    ``pct_of_max`` so different units compare as activity shapes). Pairs with
+    fewer than ``min_overlap`` shared months get NaN (diagonal stays 1.0 when
+    a series has any rows).
+    """
+    need = {"year_month", "series_label", value_col}
+    if df.empty or not need <= set(df.columns):
+        return pd.DataFrame()
+
+    wide = (
+        df.pivot_table(
+            index="year_month",
+            columns="series_label",
+            values=value_col,
+            aggfunc="mean",
+        )
+        .sort_index()
+    )
+    if wide.shape[1] == 0:
+        return pd.DataFrame()
+    if wide.shape[1] == 1:
+        label = wide.columns[0]
+        return pd.DataFrame([[1.0]], index=[label], columns=[label])
+
+    labels = list(wide.columns)
+    mat = pd.DataFrame(index=labels, columns=labels, dtype=float)
+    for i, a in enumerate(labels):
+        for j, b in enumerate(labels):
+            if i == j:
+                mat.loc[a, b] = 1.0
+                continue
+            pair = wide[[a, b]].dropna()
+            if len(pair) < min_overlap:
+                mat.loc[a, b] = float("nan")
+                continue
+            # Constant series → undefined Pearson; treat as NaN.
+            if pair[a].nunique(dropna=True) < 2 or pair[b].nunique(dropna=True) < 2:
+                mat.loc[a, b] = float("nan")
+                continue
+            mat.loc[a, b] = float(pair[a].corr(pair[b], method="pearson"))
+    return mat
+
+
+def selection_notes(
+    selections: list[SeriesSelection] | list[dict[str, Any]],
+    conn: duckdb.DuckDBPyConnection,
+) -> list[str]:
+    """Human-readable reasons a selection will not contribute rows."""
+    notes: list[str] = []
+    parsed: list[SeriesSelection] = []
+    for sel in selections:
+        if isinstance(sel, SeriesSelection):
+            parsed.append(sel)
+        else:
+            parsed.append(
+                SeriesSelection(
+                    series_id=str(sel["series_id"]),
+                    entity=sel.get("entity"),
+                )
+            )
+    if len(parsed) > MAX_SERIES:
+        notes.append(f"Only the first {MAX_SERIES} series are used")
+        parsed = parsed[:MAX_SERIES]
+    for sel in parsed:
+        spec = _SERIES_BY_ID.get(sel.series_id)
+        if spec is None:
+            notes.append(f"Unknown series id: {sel.series_id}")
+            continue
+        if not spec.available(conn):
+            notes.append(f"{spec.label}: source not in warehouse")
+            continue
+        if spec.requires_entity and not (sel.entity and str(sel.entity).strip()):
+            notes.append(f"{spec.label}: pick an entity")
+    return notes

@@ -97,6 +97,51 @@ def test_normalize_empty():
     assert out.empty
 
 
+def test_correlation_matrix_perfect_and_sparse():
+    df = pd.DataFrame(
+        {
+            "year_month": ["2020-01", "2020-02", "2020-03", "2020-01", "2020-02", "2020-03"],
+            "series_label": ["A", "A", "A", "B", "B", "B"],
+            "pct_of_max": [10.0, 20.0, 30.0, 5.0, 10.0, 15.0],
+            "value": [1.0, 2.0, 3.0, 10.0, 20.0, 30.0],
+            "unit": ["x"] * 6,
+            "series_id": ["a", "a", "a", "b", "b", "b"],
+        }
+    )
+    mat = cq.correlation_matrix(df)
+    assert mat.loc["A", "B"] == pytest.approx(1.0)
+    assert mat.loc["A", "A"] == pytest.approx(1.0)
+
+    short = df[df["year_month"].isin(["2020-01", "2020-02"])]
+    sparse = cq.correlation_matrix(short, min_overlap=3)
+    assert pd.isna(sparse.loc["A", "B"])
+
+
+def test_correlation_matrix_constant_is_nan():
+    df = pd.DataFrame(
+        {
+            "year_month": ["2020-01", "2020-02", "2020-03", "2020-01", "2020-02", "2020-03"],
+            "series_label": ["A", "A", "A", "B", "B", "B"],
+            "pct_of_max": [50.0, 50.0, 50.0, 10.0, 20.0, 30.0],
+        }
+    )
+    mat = cq.correlation_matrix(df)
+    assert pd.isna(mat.loc["A", "B"])
+
+
+def test_selection_notes(cmp_conn):
+    notes = cq.selection_notes(
+        [
+            cq.SeriesSelection("telegram_chat"),
+            cq.SeriesSelection("spotify_hours"),
+            cq.SeriesSelection("nope"),
+        ],
+        cmp_conn,
+    )
+    assert any("pick an entity" in n for n in notes)
+    assert any("Unknown series" in n for n in notes)
+
+
 def test_fetch_monthly_totals(cmp_conn):
     raw = cq.fetch_monthly(
         cmp_conn,
@@ -190,6 +235,26 @@ def test_linkedin_conversation_entity(cmp_conn):
     )
     assert not raw.empty
     assert raw["series_id"].eq("linkedin_conversation").all()
+
+
+def test_thunderbird_and_twitter_entities(cmp_conn):
+    contacts = cq.entity_options(cmp_conn, "thunderbird_contact")
+    accounts = cq.entity_options(cmp_conn, "twitter_account")
+    assert contacts and accounts
+    raw = cq.fetch_monthly(
+        cmp_conn,
+        [
+            cq.SeriesSelection("thunderbird_contact", entity=contacts[0]["value"]),
+            cq.SeriesSelection("twitter_account", entity=accounts[0]["value"]),
+            cq.SeriesSelection("miband_bpm"),
+        ],
+    )
+    assert {"thunderbird_contact", "twitter_account", "miband_bpm"} <= set(
+        raw["series_id"]
+    )
+    corr = cq.correlation_matrix(cq.normalize_pct_of_max(raw))
+    assert corr.shape[0] >= 2
+    assert (corr.values.diagonal() == 1.0).all()
 
 
 def test_year_window_filters_spotify(cmp_conn):
