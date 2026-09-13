@@ -208,6 +208,20 @@ TELEGRAM_SYSTEM = (
     "Do not invent names or numbers. Two short paragraphs max. Warm but not cheesy."
 )
 
+THUNDERBIRD_SYSTEM = (
+    "You write short, personal year-in-review narratives about someone's "
+    "email habits from Thunderbird metadata. Use only the aggregate statistics "
+    "provided (counts, domains, senders, signals). Never quote or invent "
+    "message bodies or subjects beyond the aggregates given. "
+    "Two short paragraphs max. Warm but not cheesy."
+)
+
+BROWSER_SYSTEM = (
+    "Summarize this browsing-history view from aggregates only. "
+    "Use only the statistics provided (domains, categories, search engines, "
+    "counts). Do not invent sites or numbers. Two short paragraphs max."
+)
+
 
 def narrate(
     context: dict[str, Any],

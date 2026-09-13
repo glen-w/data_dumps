@@ -98,6 +98,16 @@ Merged CSV with `dateTime,rate,rateZone`.
 2. `uv run ingest ~/Documents/data_dumps_raw/miband_hr/heart_rate.csv`
 3. Start the dashboard again (Mi Band tab)
 
+### Ingest Ring GDPR
+
+`All Data Categories.zip` from a Ring data request (devices, online/offline, sparse motion retention, app telemetry, subscriptions).
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest ~/Documents/data_dumps_raw/ring/All\ Data\ Categories.zip`
+3. Start the dashboard again (Ring tab)
+
+Tables: `ring.devices`, `ring.setups`, `ring.locations`, `ring.device_events`, `ring.events`, `ring.app_events`, `ring.subscriptions`, `ring.accounting`, `ring.dump_inventory`. Address, coords, SSID, IPs, and hardware ids are dropped; city/country and device names are kept.
+
 ### Ingest browser history (Firefox Sky + legacy)
 
 Sky History Export JSON (canonical dated file) plus optional Chrome-style `history.json` (may be two concatenated arrays).
@@ -161,6 +171,7 @@ docker compose run --rm --entrypoint ingest app /data/twitter/twitter-archive-20
 docker compose run --rm --entrypoint ingest app "/data/slack/REN21 Slack export May 13 2018 - Sep 26 2025.zip"
 docker compose run --rm --entrypoint ingest app /data/sleep_as_android/sleep-export.zip
 docker compose run --rm --entrypoint ingest app /data/miband_hr/heart_rate.csv
+docker compose run --rm --entrypoint ingest app "/data/ring/All Data Categories.zip"
 docker compose run --rm --entrypoint ingest app /data/firefox/
 docker compose run --rm --entrypoint ingest app /data/amazon
 docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run

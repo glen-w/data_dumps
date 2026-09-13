@@ -8,6 +8,8 @@ from typing import Any
 import duckdb
 import pandas as pd
 
+from data_dumps import query_util
+
 
 @dataclass
 class FilterState:
@@ -107,27 +109,16 @@ def filter_from_widgets(
     )
 
 
-def has_table(conn: duckdb.DuckDBPyConnection, schema: str, table: str) -> bool:
-    row = conn.execute(
-        """
-        SELECT count(*) FROM information_schema.tables
-        WHERE table_schema = ? AND table_name = ?
-        """,
-        [schema, table],
-    ).fetchone()
-    return row is not None and row[0] > 0
-
-
 def has_miband_hr(conn: duckdb.DuckDBPyConnection) -> bool:
-    return has_table(conn, "miband", "heart_rate")
+    return query_util.has_table(conn, "miband", "heart_rate")
 
 
 def has_spotify_plays(conn: duckdb.DuckDBPyConnection) -> bool:
-    return has_table(conn, "spotify", "plays")
+    return query_util.has_table(conn, "spotify", "plays")
 
 
 def has_alarms(conn: duckdb.DuckDBPyConnection) -> bool:
-    return has_table(conn, "sleep", "alarms")
+    return query_util.has_table(conn, "sleep", "alarms")
 
 
 def _scoreboard_row(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
@@ -252,7 +243,9 @@ def circadian_heatmap(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.Dat
     )
 
 
-def snore_noise_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+def snore_noise_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
     where, params = _where("s", f)
     return _query_df(
         conn,
@@ -351,7 +344,9 @@ def hours_over_time(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataF
     )
 
 
-def bedtime_distribution(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+def bedtime_distribution(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
     where, params = _where("s", f)
     return _query_df(
         conn,

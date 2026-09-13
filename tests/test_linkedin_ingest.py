@@ -203,4 +203,19 @@ def test_linkedin_queries(tmp_path):
     assert not conv.empty
     mix = activity_mix(conn, f)
     assert {"reaction", "share", "comment"} <= set(mix["kind"].tolist())
+
+    from data_dumps.linkedin_queries import (
+        conversation_scatter,
+        forgotten_conversations,
+        invitation_mix,
+        message_streaks,
+        monthly_messages,
+    )
+
+    assert not monthly_messages(conn, f).empty
+    assert not message_streaks(conn, f).empty
+    assert "me_pct" in conversation_scatter(conn, f).columns
+    invites = invitation_mix(conn, f)
+    assert not invites.empty
+    forgotten_conversations(conn, f, min_messages=1, silent_years=0)
     conn.close()

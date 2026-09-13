@@ -82,7 +82,9 @@ class MiBandSource:
 
     def detect(self, path: Path) -> bool:
         path = path.resolve()
-        csv_path = _find_csv(path) if path.is_dir() else (path if path.is_file() else None)
+        csv_path = (
+            _find_csv(path) if path.is_dir() else (path if path.is_file() else None)
+        )
         if csv_path is None:
             return False
         if csv_path.name == "heart_rate.csv":
@@ -166,8 +168,9 @@ class MiBandSource:
         last = span[1] if span else None
         avg_r = span[2] if span else None
         summary = (
-            f"miband.heart_rate={n_rows} span={first}→{last} "
-            f"avg={avg_r:.1f}" if avg_r is not None else f"miband.heart_rate={n_rows}"
+            f"miband.heart_rate={n_rows} span={first}→{last} " f"avg={avg_r:.1f}"
+            if avg_r is not None
+            else f"miband.heart_rate={n_rows}"
         )
         return {
             "n_readings": n_rows,

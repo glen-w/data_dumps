@@ -88,9 +88,7 @@ class ThunderbirdSource:
 
         accounts_df = pd.DataFrame(prefs_rows)
         if accounts_df.empty:
-            keys = sorted(
-                {f["account_key"] for f in folders if f.get("account_key")}
-            )
+            keys = sorted({f["account_key"] for f in folders if f.get("account_key")})
             accounts_df = pd.DataFrame(
                 [
                     {
@@ -210,14 +208,12 @@ class ThunderbirdSource:
         span = conn.execute(
             "SELECT min(local_date), max(local_date) FROM thunderbird.messages"
         ).fetchone()
-        dirs = conn.execute(
-            """
+        dirs = conn.execute("""
             SELECT direction, count(*)::BIGINT
             FROM thunderbird.messages
             GROUP BY 1
             ORDER BY 1
-            """
-        ).fetchall()
+            """).fetchall()
         n_msg = n[0] if n else 0
         first = span[0] if span else None
         last = span[1] if span else None

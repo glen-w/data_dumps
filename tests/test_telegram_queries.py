@@ -268,7 +268,7 @@ def test_narrative_context_privacy(tg_conn):
     ]
     for t in texts:
         assert t not in blob
-    for forbidden in ("\"text\":", "from_id", "phone_number", "message_id"):
+    for forbidden in ('"text":', "from_id", "phone_number", "message_id"):
         assert forbidden not in blob
     assert len(ctx["top_chats"]) <= 10
     assert FilterState(year_start=2024).filter_digest() != FilterState().filter_digest()

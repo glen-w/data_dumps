@@ -95,6 +95,14 @@ def test_narrate_system_override_and_source_isolation(tmp_path, monkeypatch):
     assert "Telegram" in TELEGRAM_SYSTEM and "message content" in TELEGRAM_SYSTEM
 
 
+def test_browser_system_prompt_is_aggregates_only():
+    from data_dumps.llm_client import BROWSER_SYSTEM
+
+    assert "aggregates only" in BROWSER_SYSTEM
+    assert "domains" in BROWSER_SYSTEM
+    assert "Do not invent" in BROWSER_SYSTEM
+
+
 def test_narrate_cache(tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path))
     cfg = LLMConfig(enabled=True, model="test-model")

@@ -13,26 +13,44 @@ import marimo as mo
 import plotly.express as px
 import pytest
 
+from data_dumps import amazon_queries as amzq
+from data_dumps import browser_queries as brq
 from data_dumps import slack_queries as skq
 from data_dumps import spotify_queries as spq
 from data_dumps import telegram_queries as tgq
 from data_dumps.explorer_panels import (
+    make_amazon_controls,
+    make_browser_controls,
+    make_linkedin_controls,
+    make_miband_controls,
+    make_ring_controls,
     make_slack_controls,
     make_sleep_controls,
     make_spotify_controls,
     make_telegram_controls,
+    render_amazon_panel,
+    render_browser_panel,
+    render_linkedin_panel,
+    render_miband_panel,
+    render_ring_panel,
     render_slack_panel,
     render_sleep_panel,
     render_spotify_panel,
     render_telegram_panel,
 )
-from data_dumps.llm_client import narrate
 from data_dumps.sleep_queries import data_bounds as sl_bounds
+from data_dumps.sources.amazon import AmazonSource
+from data_dumps.sources.browser import BrowserSource
+from data_dumps.sources.linkedin import LinkedInSource
+from data_dumps.sources.ring import RingSource
 from data_dumps.sources.slack import SlackSource
 from data_dumps.sources.sleep import SleepSource
 from data_dumps.sources.telegram import TelegramSource
 
 from .conftest import make_plays_conn
+from .test_amazon_ingest import make_mini_amazon_dir
+from .test_linkedin_ingest import make_mini_linkedin_zip
+from .test_ring_ingest import make_mini_ring_zip
 from .test_slack_ingest import ALICE, make_mini_slack_zip
 from .test_sleep_queries import _make_zip as make_sleep_zip
 from .test_telegram_ingest import make_mini_telegram_dir
@@ -87,6 +105,25 @@ def tg_conn(tmp_path, monkeypatch):
     conn.close()
 
 
+@pytest.fixture
+def li_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    conn = duckdb.connect(str(tmp_path / "li.duckdb"))
+    LinkedInSource().load(make_mini_linkedin_zip(tmp_path), conn)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture
+def amz_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    root = make_mini_amazon_dir(tmp_path)
+    conn = duckdb.connect(str(tmp_path / "amz.duckdb"))
+    AmazonSource().load(root, conn)
+    yield conn
+    conn.close()
+
+
 def _is_marimo_element(obj) -> bool:
     return hasattr(obj, "_repr_html_") or hasattr(obj, "text")
 
@@ -95,7 +132,12 @@ def test_render_sleep_panel_with_all_cross_sources(combo_conn):
     bounds = sl_bounds(combo_conn)
     controls = make_sleep_controls(mo, bounds)
     out = render_sleep_panel(
-        mo=mo, px=px, conn=combo_conn, bounds=bounds, controls=controls, dow_labels=ISO_DOW
+        mo=mo,
+        px=px,
+        conn=combo_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
     )
     assert _is_marimo_element(out)
     html = out._repr_html_()
@@ -139,39 +181,54 @@ def test_render_spotify_panel(combo_conn):
         bounds=bounds,
         mb_ready=False,
         controls=controls,
-        filter_from_widgets=spq.filter_from_widgets,
-        scoreboard=spq.scoreboard,
-        streak_stats=spq.streak_stats,
-        top_artists=spq.top_artists,
-        top_tracks=spq.top_tracks,
-        top_albums=spq.top_albums,
-        top_shows=spq.top_shows,
-        discovery_vs_repeats=spq.discovery_vs_repeats,
-        shuffle_intent=spq.shuffle_intent,
-        circadian_heatmap=spq.circadian_heatmap,
-        forgotten_artists=spq.forgotten_artists,
-        comeback_artists=spq.comeback_artists,
-        monthly_hours=spq.monthly_hours,
-        hours_by_kind=spq.hours_by_kind,
-        hours_by_platform=spq.hours_by_platform,
-        hours_by_country=spq.hours_by_country,
-        skip_trends=spq.skip_trends,
-        treemap_artist_album=spq.treemap_artist_album,
-        calendar_daily=spq.calendar_daily,
-        bump_chart_artists=spq.bump_chart_artists,
-        artist_hours_vs_skip=spq.artist_hours_vs_skip,
-        kind_platform_sunburst=spq.kind_platform_sunburst,
-        genre_treemap=spq.genre_treemap,
-        decade_bars=spq.decade_bars,
-        narrative_context=spq.narrative_context,
-        narrate=narrate,
     )
     html = out._repr_html_()
-    for needle in ("Milestones", "Rank movement", "Album depth", "Longest listening sessions"):
+    for needle in (
+        "Milestones",
+        "Rank movement",
+        "Album depth",
+        "Longest listening sessions",
+        "Hours by weekday × hour",
+    ):
         assert needle in html, needle
     # Narration was not triggered (button not clicked) -> no LLM call.
     assert "Narrate this view" in html
     assert "### Narrative" not in html
+
+
+@pytest.fixture
+def br_conn(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    fixtures = Path(__file__).parent / "fixtures"
+    inbox = tmp_path / "firefox"
+    inbox.mkdir()
+    (inbox / "history-2026-09-10T01-36-58.json").write_bytes(
+        (fixtures / "browser_history_sky_mini.json").read_bytes()
+    )
+    (inbox / "history.json").write_bytes(
+        (fixtures / "browser_history_legacy_concat.json").read_bytes()
+    )
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    conn = duckdb.connect(str(tmp_path / "br.duckdb"))
+    BrowserSource().load(inbox, conn)
+    yield conn
+    conn.close()
+
+
+def test_render_browser_panel(br_conn):
+    bounds = brq.data_bounds(br_conn)
+    controls = make_browser_controls(mo, bounds)
+    html = render_browser_panel(
+        mo=mo,
+        px=px,
+        conn=br_conn,
+        bounds=bounds,
+        controls=controls,
+    )._repr_html_()
+    for needle in ("Narrate this view", "Scoreboard", "Top domains"):
+        assert needle in html, needle
+    assert "### Narration" not in html
 
 
 def test_render_slack_panel_and_spotlight(sk_conn):
@@ -217,27 +274,15 @@ def test_render_telegram_panel(tg_conn):
         px=px,
         conn=tg_conn,
         bounds=bounds,
-        people_chat_types=list(tgq.PEOPLE_CHAT_TYPES),
         dow_labels=TG_DOW,
         controls=controls,
-        filter_from_widgets=tgq.filter_from_widgets,
-        scoreboard=tgq.scoreboard,
-        streak_stats=tgq.streak_stats,
-        monthly_by_chat_type=tgq.monthly_by_chat_type,
-        me_vs_them=tgq.me_vs_them,
-        messages_by_chat=tgq.messages_by_chat,
-        chat_reply_scatter=tgq.chat_reply_scatter,
-        forgotten_chats=tgq.forgotten_chats,
-        comeback_chats=tgq.comeback_chats,
-        calendar_daily=tgq.calendar_daily,
-        circadian_heatmap=tgq.circadian_heatmap,
-        bump_chart_chats=tgq.bump_chart_chats,
-        media_mix=tgq.media_mix,
-        reaction_mix=tgq.reaction_mix,
-        calls_by_year=tgq.calls_by_year,
     )
     html = render_telegram_panel(**kwargs)._repr_html_()
-    for needle in ("Text — words, emoji, length", "People — lock a group chat", "Who talks"):
+    for needle in (
+        "Text — words, emoji, length",
+        "People — lock a group chat",
+        "Who talks",
+    ):
         assert needle in html, needle
 
     # Lock the one personal chat: per-sender title changes and Sankey path runs.
@@ -257,6 +302,85 @@ def tb_conn(tmp_path, monkeypatch):
     ThunderbirdSource().load(make_mini_gloda_profile(tmp_path), conn)
     yield conn
     conn.close()
+
+
+def test_render_miband_panel(combo_conn):
+    from data_dumps import miband_queries as mbq
+
+    bounds = mbq.data_bounds(combo_conn)
+    controls = make_miband_controls(mo, bounds)
+    html = render_miband_panel(
+        mo=mo,
+        px=px,
+        conn=combo_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in (
+        "Mi Band heart rate",
+        "Scoreboard",
+        "Longitudinal",
+        "Resting HR",
+        "Anomalies",
+    ):
+        assert needle in html, needle
+
+
+@pytest.fixture
+def ring_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    conn = duckdb.connect(str(tmp_path / "ring_wh.duckdb"))
+    RingSource().load(make_mini_ring_zip(tmp_path), conn)
+    yield conn
+    conn.close()
+
+
+def test_render_ring_panel(ring_conn):
+    from data_dumps import ring_queries as ringq
+
+    bounds = ringq.data_bounds(ring_conn)
+    controls = make_ring_controls(mo, bounds)
+    html = render_ring_panel(
+        mo=mo,
+        px=px,
+        conn=ring_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in (
+        "Ring",
+        "Scoreboard",
+        "Data footprint",
+        "Device online/offline",
+        "App activity spikes",
+        "Billing",
+    ):
+        assert needle in html, needle
+
+
+def test_render_linkedin_panel(li_conn):
+    from data_dumps import linkedin_queries as liq
+
+    bounds = liq.data_bounds(li_conn)
+    controls = make_linkedin_controls(mo, bounds)
+    html = render_linkedin_panel(
+        mo=mo,
+        px=px,
+        conn=li_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in (
+        "LinkedIn explorer",
+        "Scoreboard",
+        "Relationships",
+        "Career",
+        "Invitations",
+    ):
+        assert needle in html, needle
 
 
 def test_render_thunderbird_panel(tb_conn):
@@ -281,5 +405,38 @@ def test_render_thunderbird_panel(tb_conn):
         controls=controls,
         dow_labels=ISO_DOW,
     )._repr_html_()
-    for needle in ("Thunderbird mail", "Scoreboard", "Top senders", "Signals"):
+    for needle in (
+        "Thunderbird mail",
+        "Scoreboard",
+        "Top senders",
+        "Signals",
+        "Relationships",
+        "Forgotten",
+    ):
+        assert needle in html, needle
+
+
+def test_render_amazon_panel(amz_conn):
+    bounds = amzq.data_bounds(amz_conn)
+    controls = make_amazon_controls(mo, bounds)
+    out = render_amazon_panel(
+        mo=mo,
+        px=px,
+        conn=amz_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )
+    assert _is_marimo_element(out)
+    html = out._repr_html_()
+    # Always-rendered sections survive the fixture (which has orders, cart,
+    # returns, alexa intents, impressions, and a shadowed voice file).
+    for needle in (
+        "Spend scoreboard",
+        "Impulse vs planned",
+        "Cart → order",
+        "Refund burden by product family",
+        "Alexa in the house",
+        "Data footprint",
+    ):
         assert needle in html, needle

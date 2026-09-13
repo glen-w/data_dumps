@@ -396,9 +396,7 @@ def merge_pages(rows: list[dict[str, Any]]) -> pd.DataFrame:
             by_url[url] = dict(row)
             continue
         sources = sorted(set(existing["sources"]) | set(row["sources"]))
-        export_ids = list(
-            dict.fromkeys([*existing["export_ids"], *row["export_ids"]])
-        )
+        export_ids = list(dict.fromkeys([*existing["export_ids"], *row["export_ids"]]))
         prefer_new = row["_canonical"] and not existing["_canonical"]
         prefer_new_time = row["last_visit_utc"] > existing["last_visit_utc"]
         if prefer_new or (prefer_new_time and not existing["_canonical"]):
@@ -582,20 +580,16 @@ class BrowserSource:
         conn.execute("CREATE TABLE browser.pages AS SELECT * FROM _browser_pages")
         conn.unregister("_browser_pages")
         conn.register("_browser_meta", meta)
-        conn.execute(
-            "CREATE TABLE browser.ingest_meta AS SELECT * FROM _browser_meta"
-        )
+        conn.execute("CREATE TABLE browser.ingest_meta AS SELECT * FROM _browser_meta")
         conn.unregister("_browser_meta")
 
     def inventory(self, conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
         n = conn.execute("SELECT count(*) FROM browser.pages").fetchone()
-        span = conn.execute(
-            """
+        span = conn.execute("""
             SELECT min(local_date), max(local_date),
                    sum(visit_count)::BIGINT, count(*) FILTER (WHERE is_private)
             FROM browser.pages
-            """
-        ).fetchone()
+            """).fetchone()
         n_rows = int(n[0]) if n else 0
         first = span[0] if span else None
         last = span[1] if span else None

@@ -40,9 +40,7 @@ EMAIL_RE = re.compile(
     r"[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+"
 )
 GLODA_UNDEFINED_RE = re.compile(r"\s+undefined\s*$", re.IGNORECASE)
-PREF_RE = re.compile(
-    r'^user_pref\("(?P<key>[^"]+)",\s*(?P<val>.+)\);\s*$'
-)
+PREF_RE = re.compile(r'^user_pref\("(?P<key>[^"]+)",\s*(?P<val>.+)\);\s*$')
 
 SENT_FOLDER_RE = re.compile(
     r"(^|[/\s\[\]])(sent|sent mail|sent messages|outbox)($|[/\s\]])",
@@ -246,11 +244,7 @@ def _pref_unquote(val: str) -> str:
     val = val.strip()
     if len(val) >= 2 and val[0] == '"' and val[-1] == '"':
         inner = val[1:-1]
-        return (
-            inner.replace(r"\\", "\\")
-            .replace(r"\"", '"')
-            .replace(r"\n", "\n")
-        )
+        return inner.replace(r"\\", "\\").replace(r"\"", '"').replace(r"\n", "\n")
     return val
 
 
@@ -523,9 +517,7 @@ def _text_columns(con: sqlite3.Connection) -> dict[str, str]:
 
 
 def extract_folders(con: sqlite3.Connection) -> list[dict[str, Any]]:
-    rows = con.execute(
-        "SELECT id, name, folderURI FROM folderLocations"
-    ).fetchall()
+    rows = con.execute("SELECT id, name, folderURI FROM folderLocations").fetchall()
     out: list[dict[str, Any]] = []
     for folder_id, name, uri in rows:
         out.append(

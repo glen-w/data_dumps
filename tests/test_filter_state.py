@@ -1,5 +1,9 @@
 """FilterState and WHERE clause tests."""
 
+from data_dumps.amazon_queries import FilterState as AmazonFilterState
+from data_dumps.amazon_queries import _year_clause as amazon_year_clause
+from data_dumps.linkedin_queries import FilterState as LinkedInFilterState
+from data_dumps.linkedin_queries import _year_clause as linkedin_year_clause
 from data_dumps.spotify_queries import (
     FilterState,
     _where_and_params,
@@ -72,3 +76,33 @@ def test_filter_digest_stable():
     f1 = FilterState(year_start=2020, kinds=["track"])
     f2 = FilterState(kinds=["track"], year_start=2020)
     assert f1.filter_digest() == f2.filter_digest()
+
+
+def test_amazon_year_clause():
+    where, params = amazon_year_clause(
+        "i", AmazonFilterState(year_start=2020, year_end=2022)
+    )
+    assert "i.year >=" in where
+    assert "i.year <=" in where
+    assert params == [2020, 2022]
+    open_where, open_params = amazon_year_clause("i", AmazonFilterState())
+    assert open_where == "1=1"
+    assert open_params == []
+
+
+def test_linkedin_year_clause():
+    where, params = linkedin_year_clause(
+        "m", LinkedInFilterState(year_start=2019, year_end=2021)
+    )
+    assert "m.year >=" in where
+    assert params == [2019, 2021]
+
+
+def test_query_util_year_clause_and_previous_bounds():
+    from data_dumps import query_util
+
+    where, params = query_util.year_clause("x", 2020, 2021)
+    assert where == "x.year >= ? AND x.year <= ?"
+    assert params == [2020, 2021]
+    assert query_util.previous_year_bounds(2020, 2021) == (2018, 2019)
+    assert query_util.previous_year_bounds(None, 2021) is None

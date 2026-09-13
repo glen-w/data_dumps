@@ -136,9 +136,7 @@ def test_alarms_ingested_and_queries(sleep_conn):
     assert len(cfg) == 2
     enabled = cfg.loc[cfg["enabled"]].iloc[0]
     assert int(enabled["hour"]) == 7
-    days = sleep_conn.execute(
-        "SELECT days FROM sleep.alarms ORDER BY id"
-    ).fetchall()
+    days = sleep_conn.execute("SELECT days FROM sleep.alarms ORDER BY id").fetchall()
     assert days[0][0] == "Mon Tue Wed Thu Fri"
     assert days[1][0] == "Sat Sun"
 
@@ -209,12 +207,20 @@ def test_late_night_spotify_with_plays(tmp_path, monkeypatch):
     # 1.5 h of late listening on the evening of 2020-01-06 (bedtime 23:00 same day)
     # and 0.5 h on 2020-01-03 evening (bedtime 04 Jan 01:00 -> prior evening).
     _insert_play(
-        conn, played_at="2020-01-06T22:10:00", artist="Night", track="A",
-        track_id="n1", hours=1.5,
+        conn,
+        played_at="2020-01-06T22:10:00",
+        artist="Night",
+        track="A",
+        track_id="n1",
+        hours=1.5,
     )
     _insert_play(
-        conn, played_at="2020-01-03T23:00:00", artist="Night", track="B",
-        track_id="n2", hours=0.5,
+        conn,
+        played_at="2020-01-03T23:00:00",
+        artist="Night",
+        track="B",
+        track_id="n2",
+        hours=0.5,
     )
     df = late_night_spotify_vs_sleep(conn, FilterState())
     assert len(df) == 6

@@ -13,6 +13,8 @@ from typing import Any
 import duckdb
 import pandas as pd
 
+from data_dumps import query_util
+
 NARRATIVE_CONTEXT_KEYS = frozenset(
     {
         "filter_digest",
@@ -75,14 +77,7 @@ class FilterState:
 
 
 def has_table(conn: duckdb.DuckDBPyConnection, table: str = "pages") -> bool:
-    row = conn.execute(
-        """
-        SELECT count(*) FROM information_schema.tables
-        WHERE table_schema = 'browser' AND table_name = ?
-        """,
-        [table],
-    ).fetchone()
-    return row is not None and row[0] > 0
+    return query_util.has_table(conn, "browser", table)
 
 
 def _query_df(
@@ -94,33 +89,21 @@ def _query_df(
 
 
 def data_bounds(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
-    span = conn.execute(
-        """
+    span = conn.execute("""
         SELECT min(year)::INTEGER, max(year)::INTEGER,
                min(local_date), max(local_date)
         FROM browser.pages
-        """
-    ).fetchone()
-    cats = [
-        r[0]
-        for r in conn.execute(
-            """
+        """).fetchone()
+    cats = [r[0] for r in conn.execute("""
             SELECT category FROM browser.pages
             WHERE category IS NOT NULL
             GROUP BY 1 ORDER BY count(*) DESC
-            """
-        ).fetchall()
-    ]
-    schemes = [
-        r[0]
-        for r in conn.execute(
-            """
+            """).fetchall()]
+    schemes = [r[0] for r in conn.execute("""
             SELECT scheme FROM browser.pages
             WHERE scheme IS NOT NULL
             GROUP BY 1 ORDER BY count(*) DESC
-            """
-        ).fetchall()
-    ]
+            """).fetchall()]
     # Distinct source labels from comma-separated column
     source_rows = conn.execute("SELECT DISTINCT sources FROM browser.pages").fetchall()
     sources: set[str] = set()
@@ -398,9 +381,7 @@ def monthly_last_visits(
     )
 
 
-def calendar_last_seen(
-    conn: duckdb.DuckDBPyConnection, f: FilterState
-) -> pd.DataFrame:
+def calendar_last_seen(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
     where, params = _pages_where(f)
     return _query_df(
         conn,

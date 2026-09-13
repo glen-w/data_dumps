@@ -91,12 +91,13 @@ def _parse_saa_dt(value: str, tz_name: str | None) -> datetime | None:
     if _blank(value):
         return None
     raw = str(value).strip()
+    naive: datetime | None = None
     for fmt in ("%d. %m. %Y %H:%M", "%d.%m.%Y %H:%M", "%d. %m. %Y %H:%M:%S"):
         try:
             naive = datetime.strptime(raw, fmt)
             break
         except ValueError:
-            naive = None  # type: ignore[assignment]
+            continue
     else:
         ts = pd.to_datetime(raw, dayfirst=True, errors="coerce")
         if pd.isna(ts):
@@ -106,6 +107,8 @@ def _parse_saa_dt(value: str, tz_name: str | None) -> datetime | None:
             return None
         naive = ts.to_pydatetime().replace(tzinfo=None)
 
+    if naive is None:
+        return None
     tz: ZoneInfo | None = None
     if tz_name and not _blank(tz_name):
         try:

@@ -44,8 +44,7 @@ def make_mini_gloda_profile(root: Path, *, identity: str = "me@example.com") -> 
     db_path = profile / "global-messages-db.sqlite"
     conn = sqlite3.connect(str(db_path))
     try:
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE folderLocations (
                 id INTEGER PRIMARY KEY,
                 folderURI TEXT NOT NULL,
@@ -72,8 +71,7 @@ def make_mini_gloda_profile(root: Path, *, identity: str = "me@example.com") -> 
                 c3author TEXT,
                 c4recipients TEXT
             );
-            """
-        )
+            """)
         conn.execute(
             "INSERT INTO folderLocations (id, folderURI, name) VALUES "
             "(1, 'imap://me@example.com/INBOX', 'Inbox'),"
@@ -214,7 +212,9 @@ def test_load_no_body_direction_signals(tmp_path, monkeypatch):
         ThunderbirdSource().load(profile, conn)
         cols = [
             r[1]
-            for r in conn.execute("PRAGMA table_info('thunderbird.messages')").fetchall()
+            for r in conn.execute(
+                "PRAGMA table_info('thunderbird.messages')"
+            ).fetchall()
         ]
         assert "subject" in cols
         assert "from_addr" in cols
@@ -258,6 +258,23 @@ def test_load_no_body_direction_signals(tmp_path, monkeypatch):
         assert not top_domains(conn, f).empty
         assert not calendar_daily(conn, f).empty
 
+        from data_dumps.thunderbird_queries import (
+            contact_scatter,
+            forgotten_contacts,
+            message_streaks,
+            narrative_context,
+            sender_rank_bump,
+            thread_latency,
+        )
+
+        assert not message_streaks(conn, f).empty
+        assert "span_hours" in thread_latency(conn, f).columns
+        sender_rank_bump(conn, f)
+        contact_scatter(conn, f)
+        forgotten_contacts(conn, f, min_messages=1, silent_years=0)
+        ctx = narrative_context(conn, f)
+        assert "scoreboard" in ctx
+
         conn.execute(
             "UPDATE thunderbird.messages SET local_date = NULL "
             "WHERE gloda_id = (SELECT min(gloda_id) FROM thunderbird.messages)"
@@ -297,6 +314,8 @@ def test_cli_ingest(tmp_path, monkeypatch):
     )
     conn = duckdb.connect(str(tmp_path / "catalog.duckdb"), read_only=True)
     try:
-        assert conn.execute("SELECT count(*) FROM thunderbird.messages").fetchone()[0] == 3
+        assert (
+            conn.execute("SELECT count(*) FROM thunderbird.messages").fetchone()[0] == 3
+        )
     finally:
         conn.close()

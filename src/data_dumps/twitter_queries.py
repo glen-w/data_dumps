@@ -10,6 +10,8 @@ from typing import Any
 import duckdb
 import pandas as pd
 
+from data_dumps import query_util
+
 NARRATIVE_CONTEXT_KEYS = frozenset(
     {
         "filter_digest",
@@ -94,14 +96,7 @@ class FilterState:
 
 
 def has_table(conn: duckdb.DuckDBPyConnection, table: str) -> bool:
-    row = conn.execute(
-        """
-        SELECT count(*) FROM information_schema.tables
-        WHERE table_schema = 'twitter' AND table_name = ?
-        """,
-        [table],
-    ).fetchone()
-    return row is not None and row[0] > 0
+    return query_util.has_table(conn, "twitter", table)
 
 
 def table_row_count(conn: duckdb.DuckDBPyConnection, table: str) -> int:

@@ -12,11 +12,14 @@ from data_dumps.amazon_queries import (
     alexa_tag_monthly,
     alexa_tags,
     basket_sizes,
+    cart_vs_ordered,
     comeback_asins,
     data_bounds,
     footprint_by_category,
     impression_mix,
+    impulse_index_by_family,
     order_calendar,
+    returns_by_family,
     scoreboard,
     search_funnel_stages,
     spend_by_currency,
@@ -118,12 +121,10 @@ def make_mini_amazon_dir(path: Path) -> Path:
 
 
 def _all_columns(conn: duckdb.DuckDBPyConnection) -> set[str]:
-    rows = conn.execute(
-        """
+    rows = conn.execute("""
         SELECT column_name FROM information_schema.columns
         WHERE table_schema = 'amazon'
-        """
-    ).fetchall()
+        """).fetchall()
     return {r[0].lower() for r in rows}
 
 
@@ -158,29 +159,23 @@ def test_load_strips_pii_and_loads_surfaces(tmp_path, monkeypatch):
     assert not leaked, f"PII columns survived ingest: {leaked}"
 
     # Address / IP text must not land in product_name etc.
-    bad = conn.execute(
-        """
+    bad = conn.execute("""
         SELECT count(*) FROM amazon.order_items
         WHERE product_name ILIKE '%Secret St%'
            OR product_name ILIKE '%@%'
-        """
-    ).fetchone()
+        """).fetchone()
     assert bad is not None and bad[0] == 0
 
-    ip_in_search = conn.execute(
-        """
+    ip_in_search = conn.execute("""
         SELECT count(*) FROM amazon.searches
         WHERE keywords ILIKE '%203.0.113%'
-        """
-    ).fetchone()
+        """).fetchone()
     assert ip_in_search is not None and ip_in_search[0] == 0
 
-    contact = conn.execute(
-        """
+    contact = conn.execute("""
         SELECT count(*) FROM amazon.alexa_intents
         WHERE utterance ILIKE '%Alice Secret%'
-        """
-    ).fetchone()
+        """).fetchone()
     assert contact is not None and contact[0] == 0
 
     families = {
@@ -207,23 +202,19 @@ def test_load_strips_pii_and_loads_surfaces(tmp_path, monkeypatch):
 
     n_imp = conn.execute("SELECT count(*) FROM amazon.product_impressions").fetchone()
     assert n_imp is not None and n_imp[0] == 1
-    city_leak = conn.execute(
-        """
+    city_leak = conn.execute("""
         SELECT count(*) FROM amazon.product_impressions
         WHERE product_name ILIKE '%BRIERLEY%' OR coalesce(asin, '') = ''
-        """
-    ).fetchone()
+        """).fetchone()
     assert city_leak is not None and city_leak[0] == 0
 
     n_dev = conn.execute("SELECT count(*) FROM amazon.devices_summary").fetchone()
     assert n_dev is not None and n_dev[0] >= 1
-    serial_plain = conn.execute(
-        """
+    serial_plain = conn.execute("""
         SELECT count(*) FROM amazon.devices_summary
         WHERE coalesce(serial_hash, '') ILIKE '%SECRET%'
            OR coalesce(device_model, '') ILIKE '%203.0.113%'
-        """
-    ).fetchone()
+        """).fetchone()
     assert serial_plain is not None and serial_plain[0] == 0
 
     orders = conn.execute("SELECT count(*) FROM amazon.orders").fetchone()
@@ -290,6 +281,28 @@ def test_amazon_queries(tmp_path, monkeypatch):
     assert "B00TEST1" in set(comes["asin"].tolist())
     tag_m = alexa_tag_monthly(conn, f)
     assert not tag_m.empty
+
+    # Impulse vs planned: every kept order line here sits in a one-line basket,
+    # so both kept lines are impulse and none are planned.
+    imp = impulse_index_by_family(conn, f)
+    assert not imp.empty
+    assert set(imp["basket_kind"].tolist()) == {"impulse"}
+    books_impulse = imp.loc[imp["dept_family"] == "books", "lines"].sum()
+    assert books_impulse >= 1
+
+    # Cart vs ordered: the fixture carries one add-to-cart ASIN (B00CART) that is
+    # never in an order, i.e. abandoned.
+    cart = cart_vs_ordered(conn, f)
+    assert not cart.empty
+    assert set(cart["outcome"].tolist()) == {"abandoned"}
+    assert "B00CART" in set(cart["asin"].tolist())
+
+    # Returns by family: the single refund (5.00) lands on the bought order_id,
+    # whose line is a book.
+    ret_fam = returns_by_family(conn, f)
+    assert not ret_fam.empty
+    assert "books" in set(ret_fam["dept_family"].tolist())
+    assert float(ret_fam["refund_sum"].sum()) > 0
     conn.close()
 
 

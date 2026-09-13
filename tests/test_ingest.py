@@ -141,7 +141,9 @@ def test_all_null_string_columns_are_varchar(tmp_path):
     zip_path = make_mini_spotify_zip(tmp_path)
     conn = duckdb.connect(str(tmp_path / "types.duckdb"))
     SpotifySource().load(zip_path, conn)
-    types = {row[0]: row[1] for row in conn.execute("DESCRIBE spotify.plays").fetchall()}
+    types = {
+        row[0]: row[1] for row in conn.execute("DESCRIBE spotify.plays").fetchall()
+    }
     for col in (
         "track_name",
         "artist_name",

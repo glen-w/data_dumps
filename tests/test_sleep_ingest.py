@@ -61,7 +61,9 @@ def test_load_and_queries(tmp_path, monkeypatch):
 
     bounds = data_bounds(conn)
     assert bounds["min_year"] == 2020
-    filters = filter_from_widgets(bounds, year_start=2020, year_end=2020, tags=["#watch"])
+    filters = filter_from_widgets(
+        bounds, year_start=2020, year_end=2020, tags=["#watch"]
+    )
     score = scoreboard(conn, filters)
     assert int(score.iloc[0]["nights"]) == 2
     conn.close()

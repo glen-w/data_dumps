@@ -1,180 +1,18 @@
-"""Filter state and DuckDB queries for the Amazon Marimo dashboard."""
+"""Amazon retail / order analytics queries."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any
 
 import duckdb
 import pandas as pd
 
-
-@dataclass
-class FilterState:
-    year_start: int | None = None
-    year_end: int | None = None
-    marketplaces: list[str] = field(default_factory=list)
-    currencies: list[str] = field(default_factory=list)
-    dept_families: list[str] = field(default_factory=list)
-    include_cancelled: bool = False
-
-    def chip_labels(self) -> list[tuple[str, str]]:
-        chips: list[tuple[str, str]] = []
-        if self.year_start is not None or self.year_end is not None:
-            ys = self.year_start if self.year_start is not None else "…"
-            ye = self.year_end if self.year_end is not None else "…"
-            chips.append(("year_range", f"years {ys}–{ye}"))
-        if self.marketplaces:
-            chips.append(("marketplaces", "mkts " + ",".join(self.marketplaces)))
-        if self.currencies:
-            chips.append(("currencies", "fx " + ",".join(self.currencies)))
-        if self.dept_families:
-            chips.append(("dept_families", "types " + ",".join(self.dept_families)))
-        if self.include_cancelled:
-            chips.append(("cancelled", "incl. cancelled"))
-        return chips
-
-
-def filter_from_widgets(
-    bounds: dict[str, Any],
-    *,
-    year_start: int,
-    year_end: int,
-    marketplaces: list[str] | None = None,
-    currencies: list[str] | None = None,
-    dept_families: list[str] | None = None,
-    include_cancelled: bool = False,
-) -> FilterState:
-    return FilterState(
-        year_start=year_start,
-        year_end=year_end,
-        marketplaces=list(marketplaces or []),
-        currencies=list(currencies or []),
-        dept_families=list(dept_families or []),
-        include_cancelled=include_cancelled,
-    )
-
-
-def _year_clause(alias: str, f: FilterState) -> tuple[str, list[Any]]:
-    clauses: list[str] = []
-    params: list[Any] = []
-    prefix = f"{alias}." if alias else ""
-    if f.year_start is not None:
-        clauses.append(f"{prefix}year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append(f"{prefix}year <= ?")
-        params.append(f.year_end)
-    where = " AND ".join(clauses) if clauses else "1=1"
-    return where, params
-
-
-def _item_where(f: FilterState, alias: str = "i") -> tuple[str, list[Any]]:
-    parts: list[str] = []
-    params: list[Any] = []
-    yw, yp = _year_clause(alias, f)
-    if yw != "1=1":
-        parts.append(yw)
-        params.extend(yp)
-    if not f.include_cancelled:
-        parts.append(f"NOT {alias}.is_cancelled")
-    if f.marketplaces:
-        placeholders = ", ".join("?" for _ in f.marketplaces)
-        parts.append(f"{alias}.marketplace IN ({placeholders})")
-        params.extend(f.marketplaces)
-    if f.currencies:
-        placeholders = ", ".join("?" for _ in f.currencies)
-        parts.append(f"{alias}.currency IN ({placeholders})")
-        params.extend(f.currencies)
-    if f.dept_families:
-        placeholders = ", ".join("?" for _ in f.dept_families)
-        parts.append(f"{alias}.dept_family IN ({placeholders})")
-        params.extend(f.dept_families)
-    where = " AND ".join(parts) if parts else "1=1"
-    return where, params
-
-
-def _query_df(
-    conn: duckdb.DuckDBPyConnection,
-    sql: str,
-    params: list[Any] | None = None,
-) -> pd.DataFrame:
-    return conn.execute(sql, params or []).df()
-
-
-def has_table(conn: duckdb.DuckDBPyConnection, table: str) -> bool:
-    row = conn.execute(
-        """
-        SELECT count(*) FROM information_schema.tables
-        WHERE table_schema = 'amazon' AND table_name = ?
-        """,
-        [table],
-    ).fetchone()
-    return row is not None and row[0] > 0
-
-
-def data_bounds(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
-    row = conn.execute(
-        """
-        SELECT
-            min(year)::INT,
-            max(year)::INT,
-            min(order_ts_local)::DATE,
-            max(order_ts_local)::DATE
-        FROM amazon.order_items
-        WHERE year IS NOT NULL
-        """
-    ).fetchone()
-    assert row is not None
-    min_year, max_year = row[0], row[1]
-    if min_year is None or max_year is None:
-        # Fall back to alexa intents
-        row2 = conn.execute(
-            """
-            SELECT min(year)::INT, max(year)::INT
-            FROM amazon.alexa_intents WHERE year IS NOT NULL
-            """
-        ).fetchone()
-        if row2 and row2[0] is not None:
-            min_year, max_year = row2[0], row2[1]
-        else:
-            min_year, max_year = 2015, 2026
-    marketplaces = [
-        r[0]
-        for r in conn.execute(
-            """
-            SELECT DISTINCT marketplace FROM amazon.order_items
-            WHERE marketplace IS NOT NULL ORDER BY 1
-            """
-        ).fetchall()
-    ]
-    currencies = [
-        r[0]
-        for r in conn.execute(
-            """
-            SELECT DISTINCT currency FROM amazon.order_items
-            WHERE currency IS NOT NULL ORDER BY 1
-            """
-        ).fetchall()
-    ]
-    families = [
-        r[0]
-        for r in conn.execute(
-            """
-            SELECT DISTINCT dept_family FROM amazon.order_items
-            WHERE dept_family IS NOT NULL ORDER BY 1
-            """
-        ).fetchall()
-    ]
-    return {
-        "min_year": int(min_year),
-        "max_year": int(max_year),
-        "first_day": row[2],
-        "last_day": row[3],
-        "marketplaces": marketplaces,
-        "currencies": currencies,
-        "dept_families": families,
-    }
+from data_dumps.amazon_queries.filters import (
+    FilterState,
+    _item_where,
+    _query_df,
+    _year_clause,
+)
 
 
 def scoreboard(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
@@ -286,7 +124,9 @@ def dept_treemap(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFram
     )
 
 
-def top_products(conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 25) -> pd.DataFrame:
+def top_products(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 25
+) -> pd.DataFrame:
     where, params = _item_where(f)
     return _query_df(
         conn,
@@ -414,152 +254,6 @@ def footprint_scoreboard(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     )
 
 
-def alexa_scoreboard(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("a", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT
-            count(*)::BIGINT AS utterances,
-            count(DISTINCT utterance_tag)::BIGINT AS tags,
-            min(intent_ts_local)::TIMESTAMP AS first_ts,
-            max(intent_ts_local)::TIMESTAMP AS last_ts
-        FROM amazon.alexa_intents a
-        WHERE {where}
-        """,
-        params,
-    )
-
-
-def alexa_tags(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("a", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT utterance_tag AS tag, count(*)::BIGINT AS n
-        FROM amazon.alexa_intents a
-        WHERE {where}
-        GROUP BY 1
-        ORDER BY n DESC
-        """,
-        params,
-    )
-
-
-def alexa_circadian(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("a", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT dow, hour, count(*)::BIGINT AS events
-        FROM amazon.alexa_intents a
-        WHERE {where} AND dow IS NOT NULL AND hour IS NOT NULL
-        GROUP BY 1, 2
-        """,
-        params,
-    )
-
-
-def alexa_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("a", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT
-            make_date(year::INT, month::INT, 1) AS month_start,
-            count(*)::BIGINT AS utterances
-        FROM amazon.alexa_intents a
-        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
-        GROUP BY 1
-        ORDER BY 1
-        """,
-        params,
-    )
-
-
-def alexa_devices(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("s", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT coalesce(device_type, 'unknown') AS device_type, count(*)::BIGINT AS events
-        FROM amazon.alexa_sessions s
-        WHERE {where}
-        GROUP BY 1
-        ORDER BY events DESC
-        """,
-        params,
-    )
-
-
-def alexa_show_engagement(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("s", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT
-            make_date(year::INT, month::INT, 1) AS month_start,
-            sum(voice_count)::BIGINT AS voice,
-            sum(touch_count)::BIGINT AS touch,
-            sum(impression_count)::BIGINT AS impressions
-        FROM amazon.alexa_show_daily s
-        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
-        GROUP BY 1
-        ORDER BY 1
-        """,
-        params,
-    )
-
-
-def alexa_skills(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    return _query_df(
-        conn,
-        """
-        SELECT skill_name, stage, status, enabled_ts_utc
-        FROM amazon.alexa_skills
-        ORDER BY enabled_ts_utc DESC NULLS LAST
-        LIMIT 50
-        """,
-    )
-
-
-def audible_hours(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("a", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT
-            coalesce(product_name, asin) AS title,
-            round(sum(coalesce(duration_ms, 0)) / 3600000.0, 2) AS hours
-        FROM amazon.audible_listens a
-        WHERE {where}
-        GROUP BY 1
-        ORDER BY hours DESC
-        LIMIT 20
-        """,
-        params,
-    )
-
-
-def video_titles(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("v", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT
-            title,
-            round(sum(coalesce(seconds_viewed, 0)) / 60.0, 1) AS minutes,
-            count(*)::BIGINT AS sessions
-        FROM amazon.video_views v
-        WHERE {where} AND title IS NOT NULL
-        GROUP BY 1
-        ORDER BY minutes DESC
-        LIMIT 20
-        """,
-        params,
-    )
-
-
 def surface_counts(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     return _query_df(
         conn,
@@ -577,21 +271,6 @@ def surface_counts(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         UNION ALL SELECT 'devices', count(*) FROM amazon.devices_summary
         ORDER BY n DESC
         """,
-    )
-
-
-def impression_mix(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("p", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT kind, count(*)::BIGINT AS n
-        FROM amazon.product_impressions p
-        WHERE {where}
-        GROUP BY 1
-        ORDER BY n DESC
-        """,
-        params,
     )
 
 
@@ -810,118 +489,6 @@ def search_funnel_stages(
     )
 
 
-def alexa_tag_monthly(
-    conn: duckdb.DuckDBPyConnection, f: FilterState
-) -> pd.DataFrame:
-    where, params = _year_clause("a", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT
-            make_date(year::INT, month::INT, 1) AS month_start,
-            utterance_tag AS tag,
-            count(*)::BIGINT AS n
-        FROM amazon.alexa_intents a
-        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
-        GROUP BY 1, 2
-        ORDER BY 1, 2
-        """,
-        params,
-    )
-
-
-def alexa_top_utterances(
-    conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 25
-) -> pd.DataFrame:
-    where, params = _year_clause("a", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT utterance, utterance_tag AS tag, count(*)::BIGINT AS n
-        FROM amazon.alexa_intents a
-        WHERE {where} AND utterance IS NOT NULL AND length(utterance) > 2
-        GROUP BY 1, 2
-        ORDER BY n DESC
-        LIMIT ?
-        """,
-        params + [limit],
-    )
-
-
-def kindle_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    where, params = _year_clause("k", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT
-            make_date(year::INT, month::INT, 1) AS month_start,
-            count(*)::BIGINT AS sessions,
-            round(sum(coalesce(duration_ms, 0)) / 3600000.0, 2) AS hours
-        FROM amazon.kindle_sessions k
-        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
-        GROUP BY 1
-        ORDER BY 1
-        """,
-        params,
-    )
-
-
-def music_top_searches(
-    conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 20
-) -> pd.DataFrame:
-    where, params = _year_clause("m", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT query, count(*)::BIGINT AS n
-        FROM amazon.music_searches m
-        WHERE {where} AND query IS NOT NULL
-        GROUP BY 1
-        ORDER BY n DESC
-        LIMIT ?
-        """,
-        params + [limit],
-    )
-
-
-def rufus_top(conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 20) -> pd.DataFrame:
-    where, params = _year_clause("r", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT query, count(*)::BIGINT AS n
-        FROM amazon.rufus_queries r
-        WHERE {where} AND query IS NOT NULL
-        GROUP BY 1
-        ORDER BY n DESC
-        LIMIT ?
-        """,
-        params + [limit],
-    )
-
-
-def impression_top(
-    conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 20
-) -> pd.DataFrame:
-    where, params = _year_clause("p", f)
-    return _query_df(
-        conn,
-        f"""
-        SELECT
-            asin,
-            any_value(product_name) AS product_name,
-            kind,
-            count(*)::BIGINT AS views
-        FROM amazon.product_impressions p
-        WHERE {where} AND asin IS NOT NULL
-        GROUP BY asin, kind
-        ORDER BY views DESC
-        LIMIT ?
-        """,
-        params + [limit],
-    )
-
-
 def footprint_by_zip(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     return _query_df(
         conn,
@@ -956,4 +523,105 @@ def spend_sunburst(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFr
         ORDER BY spend DESC
         """,
         params,
+    )
+
+
+def impulse_index_by_family(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    """Split each product family into impulse (one-line) vs planned (multi-line) baskets.
+
+    A kept basket of a single line is treated as an un-planned grab; anything with
+    ≥2 kept lines is treated as a planned multi-item order. Returns long form:
+    ``dept_family, basket_kind, lines, spend`` — the panel pivots to shares.
+    """
+    where, params = _item_where(f)
+    return _query_df(
+        conn,
+        f"""
+        WITH baskets AS (
+            SELECT order_id, count(*)::BIGINT AS n_items
+            FROM amazon.order_items i
+            WHERE {where}
+            GROUP BY order_id
+        )
+        SELECT
+            coalesce(i.dept_family, 'other') AS dept_family,
+            CASE WHEN b.n_items = 1 THEN 'impulse' ELSE 'planned' END AS basket_kind,
+            count(*)::BIGINT AS lines,
+            round(sum(coalesce(i.line_total, 0)), 2) AS spend
+        FROM amazon.order_items i
+        JOIN baskets b USING (order_id)
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+        """,
+        params,
+    )
+
+
+def cart_vs_ordered(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 30
+) -> pd.DataFrame:
+    """Add-to-cart ASINs vs whether they ever converted to an order.
+
+    ``outcome`` is ``ordered`` when the ASIN appears in kept order lines inside the
+    window, else ``abandoned`` (added to cart but never bought). The panel turns the
+    ASIN-level rollup into a small funnel.
+    """
+    cw, cp = _year_clause("c", f)
+    ow, op = _item_where(f)
+    return _query_df(
+        conn,
+        f"""
+        WITH carted AS (
+            SELECT
+                asin,
+                any_value(product_name) AS product_name,
+                count(*)::BIGINT AS cart_adds
+            FROM amazon.cart_events c
+            WHERE {cw} AND asin IS NOT NULL
+            GROUP BY asin
+        ),
+        ordered AS (
+            SELECT asin, count(*)::BIGINT AS times
+            FROM amazon.order_items i
+            WHERE {ow} AND asin IS NOT NULL
+            GROUP BY asin
+        )
+        SELECT
+            c.asin,
+            c.product_name,
+            c.cart_adds,
+            CASE WHEN o.asin IS NULL THEN 'abandoned' ELSE 'ordered' END AS outcome
+        FROM carted c
+        LEFT JOIN ordered o USING (asin)
+        ORDER BY outcome, cart_adds DESC
+        LIMIT ?
+        """,
+        cp + op + [limit],
+    )
+
+
+def returns_by_family(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """Return burden (orders, lines, refund sum) attributable to each product family.
+
+    Returns are joined to ``order_items`` via ``order_id`` so the family comes from
+    the bought line, not the refund row (which may lack an ASIN).
+    """
+    yw, yp = _year_clause("r", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            coalesce(o.dept_family, 'unknown') AS dept_family,
+            count(DISTINCT r.order_id)::BIGINT AS return_orders,
+            count(*)::BIGINT AS return_lines,
+            round(sum(coalesce(r.refund_amount, 0)), 2) AS refund_sum
+        FROM amazon.returns r
+        LEFT JOIN amazon.order_items o ON o.order_id = r.order_id
+        WHERE {yw}
+        GROUP BY 1
+        ORDER BY refund_sum DESC
+        """,
+        yp,
     )

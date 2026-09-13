@@ -154,6 +154,16 @@ uv run ingest ~/Documents/data_dumps_raw/miband_hr/heart_rate.csv
 - Explorer: Mi Band tab (scoreboard, daily avg, hour-of-day, weekday×hour heatmap, zones)
 - Originals archived at `miband_hr/originals.zip`
 
+## Ring
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/ring/All\ Data\ Categories.zip
+```
+
+- Tables: `ring.devices`, `ring.device_events`, `ring.events`, `ring.app_events`, `ring.subscriptions`, `ring.accounting`, `ring.dump_inventory`, …
+- Explorer: Ring tab (footprint, online/offline spikes, sparse motion, app volume, billing)
+- Address, coords, SSID, IPs, and hardware ids dropped at ingest
+
 ## Thunderbird mail (Gloda)
 
 Read-only aggregation from Thunderbird’s search index — does **not** copy or move mail directories.
@@ -252,6 +262,7 @@ twitter/              # YTD HTML-viewer archive folder (data/*.js + media)
 slack/                # workspace export zip
 sleep_as_android/     # sleep-export.zip + originals.zip
 miband_hr/            # heart_rate.csv + originals.zip
+ring/                 # All Data Categories.zip (Ring GDPR)
 raw/spotify/          # extracted Streaming_History JSON
 raw/spotify_account/  # Account Data JSON (library/playlists/searches only)
 raw/telegram/         # result.json copy only (not media)
@@ -260,6 +271,7 @@ raw/twitter/          # ingested YTD JS keep-list (PII/ad files never copied)
 raw/slack/            # users.json + channels.json copies (daily files read from zip)
 raw/sleep/            # extracted sleep-export.csv (+ sidecars)
 raw/miband/           # heart_rate.csv copy
+raw/ring/             # keep-list CSVs + flattened app_events.csv
 warehouse/            # DuckDB catalog + llm_cache
 ```
 
@@ -267,7 +279,9 @@ Docker mounts that folder at `/data` and sets `DATA_DUMPS_ROOT=/data`. `DATA_DUM
 
 ## Adding a source later
 
-Implement `Source` in `src/data_dumps/sources/base.py`: `detect(path) -> bool`, `load(path, conn)`, `tables() -> list[str]`, `inventory(conn) -> dict`. One file per platform when a dump is in hand — no plugin registry yet.
+Follow **[docs/guides/add-a-dump.md](docs/guides/add-a-dump.md)** (agents: [AGENTS.md](AGENTS.md), rule `.cursor/rules/add-dump.mdc`).
+
+Short version: implement `Source` in `src/data_dumps/sources/<slug>.py` (`detect` / `load` / `tables` / `inventory`), register in `ingest.SOURCES`, add synthetic tests with PII drop assertions, then queries + explorer tab when that is the lane. One file per platform when a dump is in hand — no plugin registry.
 
 ## Privacy
 

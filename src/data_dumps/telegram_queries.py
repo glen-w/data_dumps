@@ -26,8 +26,7 @@ NARRATIVE_CONTEXT_KEYS = frozenset(
 )
 
 # Small multilingual stopword list (en / it / es) for the top-words chart.
-STOPWORDS = frozenset(
-    """
+STOPWORDS = frozenset("""
     the and for you that with this have from are was but not they will what
     all can your just like about when there out get been how one also would
     into more some them then than too very its our who did has had were
@@ -38,8 +37,7 @@ STOPWORDS = frozenset(
     http https www com
     dont didnt doesnt isnt wasnt cant couldnt wont wouldnt shouldnt
     thats whats its youre theyre weve ive youve hes shes lets gonna
-    """.split()
-)
+    """.split())
 
 _WORD_SPLIT_RE = r"[^\p{L}\p{N}]+"
 _EMOJI_RE = (
@@ -707,7 +705,9 @@ def calls_by_year(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFra
 
 
 def _text_where(where: str) -> str:
-    return f"{where} AND m.event_type = 'message' AND m.text IS NOT NULL AND m.text <> ''"
+    return (
+        f"{where} AND m.event_type = 'message' AND m.text IS NOT NULL AND m.text <> ''"
+    )
 
 
 def text_stats(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:

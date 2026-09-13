@@ -53,10 +53,11 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Standalone `notebooks/sleep.py`
 - Future re-exports: same zip layout as the Android app
 
-### Mi Band heart rate (one-off)
+### Mi Band heart rate (one-off, frozen)
 
 - Merged `heart_rate.csv` → `miband.heart_rate`
-- Explorer Mi Band tab (simple scoreboard, daily avg, heatmaps, zones)
+- Explorer Mi Band tab (scoreboard, longitudinal, circadian/calendar, resting HR, zones, anomalies; optional Sleep overlay)
+- **No further work** — one-off dump only; keep ingest + existing tab for Sleep HR joins; do not deepen, re-ingest formats, or add non-HR metrics
 
 ### Thunderbird mail (Gloda)
 
@@ -131,6 +132,7 @@ Four phases, shippable independently after A:
 - Spotify Web API enrichment
 - Cloud LLM as silent default
 - Last.fm (account deleted)
+- **Mi Band beyond the shipped one-off** — no new metrics, devices, or explorer investment; Sleep may keep using existing `miband.heart_rate` when present
 - Hosted multi-user SaaS
 - Plugin registry for sources (one file per platform until needed)
 
@@ -140,7 +142,10 @@ Four phases, shippable independently after A:
 |-----|------|
 | [README.md](../README.md) | Setup, Docker, privacy |
 | [WAREHOUSE.md](WAREHOUSE.md) | **Single-writer lock** — UI vs ingest vs enrich |
-| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn / Twitter / Slack / Browser / Sleep / Mi Band) |
+| [guides/add-a-dump.md](guides/add-a-dump.md) | **Add a dump** checklist (Source + explorer); agents start here |
+| [../AGENTS.md](../AGENTS.md) | Agent entrypoint |
+| [../assessments/dashboard-depth-2026-09.md](../assessments/dashboard-depth-2026-09.md) | Explorer depth scorecard |
+| [../notebooks/explorer.py](../notebooks/explorer.py) | Combined Marimo dashboard (Spotify / Telegram / LinkedIn / Twitter / Slack / Browser / Sleep / Mi Band / …) |
 | [../notebooks/spotify.py](../notebooks/spotify.py) | Spotify-only notebook |
 | [../notebooks/telegram.py](../notebooks/telegram.py) | Telegram-only notebook |
 | [../notebooks/sleep.py](../notebooks/sleep.py) | Sleep-only notebook (thin wrapper over `render_sleep_panel`) |
