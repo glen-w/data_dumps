@@ -34,7 +34,7 @@ docker compose up app
 # → http://127.0.0.1:2718 — token printed in logs (marimo ?access_token=…)
 ```
 
-**Tailscale (phone / other devices):** house Serve is `https://laptop.tail1ff5ae.ts.net:2718/` via `~/Documents/server/compose/laptop/data-dumps` (Homer tile **Data dumps**). Mac must be awake.
+**Tailscale (phone / other devices):** house Serve is `https://laptop.tail1ff5ae.ts.net:2718/` via `~/Documents/server/compose/laptop/data-dumps` (Homer tile **data_dumps**). Mac must be awake; Docker Desktop must be running.
 
 Stop `app` before re-ingesting or enriching — see [Warehouse lock](#warehouse-lock-read-this) and [docs/WAREHOUSE.md](docs/WAREHOUSE.md). Data lives on `~/Documents/data_dumps_raw` (mounted at `/data`) — never in the image.
 
@@ -218,11 +218,11 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 
 ### Compare (cross-source)
 
-Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Catalog lives in `compare_queries.py` (no plugin registry).
+Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Series merge from `contributions.CONTRIBUTIONS` (descriptors in `contribution_series.py`).
 
 ### Correlations (cross-source)
 
-Explorer **Correlations** tab: daily-first Pearson matrix across curated source totals, ranked pairs (Spearman too), focus scatter + z-score overlay, and ±7 day lag scan. Presets: Life rhythm / Comms / Sleep & body. Catalog in `correlation_queries.py`.
+Explorer **Correlations** tab: daily-first Pearson matrix across source totals, ranked pairs (Spearman too), focus scatter + z-score overlay, and ±7 day lag scan. Presets: Life rhythm / Comms / Sleep & body. Metrics merge from the same `CONTRIBUTIONS` registry (includes Browser last-seen URLs and Ring events when ingested).
 
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 
@@ -291,7 +291,7 @@ Docker mounts that folder at `/data` and sets `DATA_DUMPS_ROOT=/data`. `DATA_DUM
 
 Follow **[docs/guides/add-a-dump.md](docs/guides/add-a-dump.md)** (agents: [AGENTS.md](AGENTS.md), rule `.cursor/rules/add-dump.mdc`).
 
-Short version: implement `Source` in `src/data_dumps/sources/<slug>.py` (`detect` / `load` / `tables` / `inventory`), register in `ingest.SOURCES`, add synthetic tests with PII drop assertions, then queries + explorer tab when that is the lane. One file per platform when a dump is in hand — no plugin registry.
+Short version: implement `Source` in `src/data_dumps/sources/<slug>.py` (`detect` / `load` / `tables` / `inventory`), append one `Contribution` in `contributions.py`, add synthetic tests with PII drop assertions, then queries + explorer tab when that is the lane. Thin explicit registry — no dynamic discovery.
 
 ## Privacy
 

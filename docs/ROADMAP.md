@@ -83,15 +83,20 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 ### Compare tab (cross-source)
 
-- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat, Slack channel/person, LinkedIn conversation, Spotify artist, Thunderbird contact, Twitter account)
+- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat, Slack channel/person, LinkedIn conversation, Spotify artist, Thunderbird contact, Twitter account, Browser URLs last-seen, Ring events, …)
 - Monthly multiviewer overlay with each series as **% of its own max**; Pearson correlation heatmap on aligned shapes; raw values table alongside
-- Explicit series catalog in `compare_queries.py` (no plugin registry)
+- Series descriptors live in `contribution_series.py`; catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
 
 ### Correlations tab (cross-source)
 
-- Explorer **Correlations** tab: daily-first Pearson matrix across curated source totals, top pairs (+ Spearman), focus scatter + z-score overlay, ±7 day lag scan
+- Explorer **Correlations** tab: daily-first Pearson matrix across source totals, top pairs (+ Spearman), focus scatter + z-score overlay, ±7 day lag scan
 - Presets: Life rhythm / Comms / Sleep & body; monthly grain fallback; min-n gating; no zero-fill
-- Catalog in `correlation_queries.py` (explicit; no plugin registry)
+- Metric descriptors merge from the same `CONTRIBUTIONS` registry (callable fetch; no warehouse column scan)
+
+### Thin contribution registry
+
+- Explicit `CONTRIBUTIONS` list bundles ingest `Source`, explorer gate/bounds, and Compare/Correlations series — one append per dump
+- No dynamic discovery / entry points; panel imports stay lazy so `uv run ingest` does not pull Marimo
 
 ### Dashboard upgrades from the open-source landscape
 
@@ -131,7 +136,7 @@ Four phases, shippable independently after A:
 
 ## Later
 
-- **Correlations tab configurability** — method picker (Pearson / Spearman / Kendall); rolling-window r; partial correlation; entity-level pairs; circadian/hour-bin correlations; zero-fill vs inner-join toggle; configurable min-n and lag range; Browser + Ring metrics; optional aggregate-only LLM “Narrate top correlations”; share z-score/min-max helpers with Compare’s planned norm modes
+- **Correlations tab configurability** — method picker (Pearson / Spearman / Kendall); rolling-window r; partial correlation; entity-level pairs; circadian/hour-bin correlations; zero-fill vs inner-join toggle; configurable min-n and lag range; optional aggregate-only LLM “Narrate top correlations”; share z-score/min-max helpers with Compare’s planned norm modes
 - **Compare tab normalization modes** — min–max [0,1], z-score, absolute small-multiples; make the mode selectable in the UI (today: % of series max only)
 - **GUI-driven operations** — eventually all warehouse actions from the Marimo dashboard: ingest, MusicBrainz enrich, re-ingest, and LLM setup — not only explore/filter/narrate. Today ingest and enrich are CLI-only because DuckDB is single-writer; a GUI path needs an orchestration layer (stop dashboard → run job → reopen, or a dedicated writer service) without asking the user to juggle terminals. See [WAREHOUSE.md](WAREHOUSE.md) for current constraints.
 - Wikidata P136 genre enrichment (deferred; MusicBrainz tags only today)
@@ -148,7 +153,8 @@ Four phases, shippable independently after A:
 - Last.fm (account deleted)
 - **Mi Band beyond the shipped one-off** — no new metrics, devices, or explorer investment; Sleep may keep using existing `miband.heart_rate` when present
 - Hosted multi-user SaaS
-- Plugin registry for sources (one file per platform until needed)
+- Dynamic plugin discovery (setuptools entry points, auto-import of every module) — thin explicit `CONTRIBUTIONS` only
+- Warehouse column auto-discovery as Compare/Correlations catalog (grain/agg still human-chosen descriptors)
 
 ## Related
 

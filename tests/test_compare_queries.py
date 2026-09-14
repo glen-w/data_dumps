@@ -63,8 +63,15 @@ def test_list_available_series_gates_on_tables(cmp_conn):
         "amazon_orders",
     ):
         assert expected in ids
-    assert not any("browser" in i for i in ids)
-    assert not any(i.startswith("ring") for i in ids)
+    # Browser / Ring are in the catalog but not loaded in this fixture.
+    assert "browser_urls_last_seen" not in ids
+    assert "ring_events" not in ids
+
+
+def test_catalog_includes_browser_and_ring():
+    ids = {s.id for s in cq.SERIES}
+    assert "browser_urls_last_seen" in ids
+    assert "ring_events" in ids
 
 
 def test_compare_bounds_union(cmp_conn):

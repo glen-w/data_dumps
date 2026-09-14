@@ -421,3 +421,56 @@ def devices_table(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         ORDER BY created_at
         """,
     )
+
+
+def _events_union_where(f: FilterState) -> tuple[str, list[Any]]:
+    """Year filter for the union of Ring event tables (no table alias)."""
+    return _where("", f)
+
+
+def calendar_daily_events(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    """Daily count of device + motion + app events (activity volume)."""
+    where, params = _events_union_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT local_date AS day, count(*)::BIGINT AS events
+        FROM (
+            SELECT local_date, year FROM ring.device_events
+            UNION ALL
+            SELECT local_date, year FROM ring.events
+            UNION ALL
+            SELECT local_date, year FROM ring.app_events
+        ) u
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def monthly_events(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """Monthly count of device + motion + app events."""
+    where, params = _events_union_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            date_trunc('month', local_date)::DATE AS month,
+            count(*)::BIGINT AS events
+        FROM (
+            SELECT local_date, year FROM ring.device_events
+            UNION ALL
+            SELECT local_date, year FROM ring.events
+            UNION ALL
+            SELECT local_date, year FROM ring.app_events
+        ) u
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )

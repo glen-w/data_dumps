@@ -24,8 +24,8 @@ Standing ops: [WAREHOUSE.md](../WAREHOUSE.md) (single-writer). Direction: [ROADM
 - Commit dumps, extracted JSON/CSV, DuckDB files, `.env`, or media bytes. Data lives under `~/Documents/data_dumps_raw` (`DATA_DUMPS_ROOT`), outside git.
 - Run `ingest` / enrich while Marimo (or `docker compose up app`) holds the warehouse. Stop the dashboard first — [WAREHOUSE.md](../WAREHOUSE.md).
 - Load IPs, emails, phones, payment instruments, KYC / ads / inference blobs, precise home addresses, or Wi‑Fi SSIDs **by default**. Drop at ingest; keep a forbidden-column test. Message text is OK when the product is messaging (Telegram, Slack, LinkedIn, Twitter) — document it.
-- Invent a plugin registry. One `sources/<slug>.py` + register in `ingest.SOURCES` is enough ([ROADMAP non-goals](../ROADMAP.md#non-goals)).
-- Ship an explorer tab with only a raw table and call it done. Aim for the Wrapped checklist (below) unless the dump is ingest-only for now (Ring is an example of ingest-first).
+- Invent a **dynamic** plugin registry (entry points, auto-import of every module). Use the thin explicit [`CONTRIBUTIONS`](../../src/data_dumps/contributions.py) list instead — one append per dump.
+- Ship an explorer tab with only a raw table and call it done. Aim for the Wrapped checklist (below) unless the dump is ingest-only for now.
 - Expand **Mi Band** — frozen one-off; Sleep may keep using `miband.heart_rate` when present.
 - Put LLM prompts on raw rows. Narrate aggregates only (`narrative_context` dicts).
 - Run Black/Ruff on `notebooks/` — Marimo cell structure is not a formatter target.
@@ -62,10 +62,11 @@ Copy into a session note and tick as you go.
 - [ ] Media / attachments: leave bytes on disk; store relative paths or metadata only (Telegram/Slack pattern).
 - [ ] Derive `year` / `month` / local timestamps when time series matter (explorer filters are year-based).
 
-### 2. Register ingest
+### 2. Register contribution
 
-- [ ] Import + append instance in [`ingest.py` `SOURCES`](../../src/data_dumps/ingest.py) (order matters only for overlapping `detect` — be specific).
 - [ ] Export from [`sources/__init__.py`](../../src/data_dumps/sources/__init__.py).
+- [ ] Append one [`Contribution(...)`](../../src/data_dumps/contributions.py) to `CONTRIBUTIONS` (detect order matters for overlapping `detect` — be specific). This derives `ingest.SOURCES`, explorer tab presence/bounds, and Compare/Correlations catalogs. Explorer tabs use plain `tab_label` plus a Lucide `tab_icon` (`lucide:…`); the notebook renders via `mo.icon`.
+- [ ] Define callable series/metrics in [`contribution_series.py`](../../src/data_dumps/contribution_series.py) (or import tuples into the Contribution). Choose grain and aggregation explicitly — do not scan warehouse columns.
 - [ ] `pick_source` smoke: synthetic mini dump → correct `source.name`.
 
 ### 3. Tests (synthetic fixtures only)
@@ -94,7 +95,7 @@ Marimo rule: **do not** read `widget.value` in the cell that created the widget.
 2. `render_<slug>_panel` — read values, query, return one `mo.vstack` (leaf; inactive tab gated with `mo.stop` in `explorer.py`)
 
 - [ ] `Controls` dataclass + `make_*_controls` + `render_*_panel` in `explorer_panels/<slug>.py`
-- [ ] Wire [`notebooks/explorer.py`](../../notebooks/explorer.py): import queries bounds, `_has_table`, controls cell, render cell, tab label when schema present
+- [ ] Wire [`notebooks/explorer.py`](../../notebooks/explorer.py): controls cell + render cell (presence/tabs come from `CONTRIBUTIONS`; keep Marimo create-vs-read cells separate)
 - [ ] Optional thin standalone `notebooks/<slug>.py` wrapping the panel (LinkedIn/Sleep/Twitter style) — not required for every source
 - [ ] Panel smoke in [`tests/test_explorer_panels.py`](../../tests/test_explorer_panels.py)
 
@@ -142,7 +143,9 @@ Do not match Amazon’s multi-surface breadth on day one. Prefer pattern complet
 | Protocol | `src/data_dumps/sources/base.py` |
 | Loader | `src/data_dumps/sources/<slug>.py` |
 | Package export | `src/data_dumps/sources/__init__.py` |
-| CLI detect order | `src/data_dumps/ingest.py` → `SOURCES` |
+| **Contribution registry** | `src/data_dumps/contributions.py` → `CONTRIBUTIONS` (ingest + tab gate + series) |
+| Series descriptors | `src/data_dumps/contribution_series.py` + `series_catalog.py` |
+| CLI | `src/data_dumps/ingest.py` (uses `contributions.SOURCES`) |
 | Data paths | `src/data_dumps/paths.py` → `raw/<slug>/`, shared `warehouse/catalog.duckdb` |
 | Queries | `src/data_dumps/<slug>_queries.py` |
 | UI builders | `src/data_dumps/explorer_panels/<slug>.py` (+ package `__init__` re-exports) |

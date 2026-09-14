@@ -10,12 +10,12 @@ Follow [docs/guides/add-a-dump.md](docs/guides/add-a-dump.md). Do not improvise 
 Must include, unless the guide says it does not apply:
 
 - `sources/<slug>.py` implementing `Source` (`detect` / `load` / `tables` / `inventory`)
-- Register in `ingest.SOURCES` and `sources/__init__.py`
+- Append one `Contribution` in `contributions.py` (derives ingest + explorer gate + Compare/Correlations series); export from `sources/__init__.py`
 - Synthetic fixture tests (detect, load, **forbidden PII columns**); no real dumps in git
 - Data under `DATA_DUMPS_ROOT` / `raw/<slug>/` only — never commit dumps or DuckDB
 - Stop Marimo before ingest ([docs/WAREHOUSE.md](docs/WAREHOUSE.md))
-- Explorer lane: `<slug>_queries.py` + `explorer_panels/<slug>.py` (`make_*_controls` / `render_*_panel`) + `notebooks/explorer.py` wiring + panel smoke test
+- Explorer lane: `<slug>_queries.py` + `explorer_panels/<slug>.py` (`make_*_controls` / `render_*_panel`) + `notebooks/explorer.py` control/render cells + panel smoke test
 - Aim for the Wrapped checklist in the guide (compare, streaks, circadian+calendar, forgotten/comeback, bump or scatter, filters) — see [assessments/dashboard-depth-2026-09.md](assessments/dashboard-depth-2026-09.md)
 - README + ROADMAP shipped blurb (+ WAREHOUSE if the path is weird) in the **same session**
 
-Do not expand Mi Band (frozen). Do not add a plugin registry. Ask if the dump is not on disk.
+Do not expand Mi Band (frozen). Do not add dynamic plugin discovery — append to `CONTRIBUTIONS` only. Ask if the dump is not on disk.

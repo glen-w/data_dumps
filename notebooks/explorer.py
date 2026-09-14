@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.9.0"
-app = marimo.App(width="full")
+app = marimo.App(width="full", app_title="data_dumps")
 
 
 @app.cell(hide_code=True)
@@ -39,32 +39,19 @@ def _():
         render_twitter_panel,
     )
     from data_dumps.paths import warehouse_db
-    from data_dumps.amazon_queries import data_bounds as amz_data_bounds
-    from data_dumps.browser_queries import data_bounds as br_data_bounds
     from data_dumps.compare_queries import compare_bounds as cmp_data_bounds
     from data_dumps.compare_queries import list_available_series as cmp_list_series
     from data_dumps.correlation_queries import correlate_bounds as corr_data_bounds
     from data_dumps.correlation_queries import list_available_metrics as corr_list_metrics
-    from data_dumps.linkedin_queries import data_bounds as li_data_bounds
-    from data_dumps.miband_queries import data_bounds as mb_hr_data_bounds
-    from data_dumps.ring_queries import data_bounds as ring_data_bounds
-    from data_dumps.slack_queries import data_bounds as sk_data_bounds
-    from data_dumps.sleep_queries import data_bounds as sl_data_bounds
-    from data_dumps.spotify_queries import data_bounds as sp_data_bounds
     from data_dumps.spotify_queries import has_mb_data
-    from data_dumps.telegram_queries import data_bounds as tg_data_bounds
-    from data_dumps.thunderbird_queries import data_bounds as tb_data_bounds
-    from data_dumps.twitter_queries import data_bounds as tw_data_bounds
-
-    def _has_table(conn, schema: str, table: str) -> bool:
-        row = conn.execute(
-            """
-            SELECT count(*) FROM information_schema.tables
-            WHERE table_schema = ? AND table_name = ?
-            """,
-            [schema, table],
-        ).fetchone()
-        return row is not None and row[0] > 0
+    from data_dumps.contributions import (
+        COMPARE_TAB_ICON,
+        COMPARE_TAB_LABEL,
+        CORRELATE_TAB_ICON,
+        CORRELATE_TAB_LABEL,
+        explorer_contributions,
+    )
+    from data_dumps.query_util import has_table as _qu_has_table
 
     db_path = warehouse_db()
     if not db_path.exists():
@@ -72,28 +59,51 @@ def _():
             f"No warehouse at {db_path}. Run ingest, then reopen this notebook."
         )
     conn = duckdb.connect(str(db_path), read_only=True)
-    has_spotify = _has_table(conn, "spotify", "plays")
-    has_telegram = _has_table(conn, "telegram", "messages")
-    has_linkedin = _has_table(conn, "linkedin", "connections")
-    has_twitter = _has_table(conn, "twitter", "tweets")
-    has_sleep = _has_table(conn, "sleep", "sessions")
-    has_miband = _has_table(conn, "miband", "heart_rate")
-    has_ring = _has_table(conn, "ring", "device_events")
-    has_slack = _has_table(conn, "slack", "messages")
-    has_browser = _has_table(conn, "browser", "pages")
-    has_thunderbird = _has_table(conn, "thunderbird", "messages")
-    has_amazon = _has_table(conn, "amazon", "order_items")
-    sp_bounds = sp_data_bounds(conn) if has_spotify else None
-    tg_bounds = tg_data_bounds(conn) if has_telegram else None
-    li_bounds = li_data_bounds(conn) if has_linkedin else None
-    tw_bounds = tw_data_bounds(conn) if has_twitter else None
-    sl_bounds = sl_data_bounds(conn) if has_sleep else None
-    mb_hr_bounds = mb_hr_data_bounds(conn) if has_miband else None
-    ring_bounds = ring_data_bounds(conn) if has_ring else None
-    sk_bounds = sk_data_bounds(conn) if has_slack else None
-    br_bounds = br_data_bounds(conn) if has_browser else None
-    tb_bounds = tb_data_bounds(conn) if has_thunderbird else None
-    amz_bounds = amz_data_bounds(conn) if has_amazon else None
+
+    def _tab_label(icon: str, label: str) -> str:
+        return f"{mo.icon(icon, size=16)} {label}"
+
+    tab_compare = _tab_label(COMPARE_TAB_ICON, COMPARE_TAB_LABEL)
+    tab_correlate = _tab_label(CORRELATE_TAB_ICON, CORRELATE_TAB_LABEL)
+
+    # Presence + bounds driven by CONTRIBUTIONS (thin registry).
+    _by_slug: dict = {}
+    for _c in explorer_contributions():
+        assert _c.gate_table is not None
+        assert _c.tab_label is not None and _c.tab_icon is not None
+        _schema, _table = _c.gate_table
+        _present = _qu_has_table(conn, _schema, _table)
+        _bounds = (
+            _c.data_bounds(conn) if _present and _c.data_bounds is not None else None
+        )
+        _by_slug[_c.slug] = {
+            "present": _present,
+            "bounds": _bounds,
+            "tab_label": _tab_label(_c.tab_icon, _c.tab_label),
+        }
+
+    has_spotify = _by_slug["spotify"]["present"]
+    has_telegram = _by_slug["telegram"]["present"]
+    has_linkedin = _by_slug["linkedin"]["present"]
+    has_twitter = _by_slug["twitter"]["present"]
+    has_sleep = _by_slug["sleep"]["present"]
+    has_miband = _by_slug["miband"]["present"]
+    has_ring = _by_slug["ring"]["present"]
+    has_slack = _by_slug["slack"]["present"]
+    has_browser = _by_slug["browser"]["present"]
+    has_thunderbird = _by_slug["thunderbird"]["present"]
+    has_amazon = _by_slug["amazon"]["present"]
+    sp_bounds = _by_slug["spotify"]["bounds"]
+    tg_bounds = _by_slug["telegram"]["bounds"]
+    li_bounds = _by_slug["linkedin"]["bounds"]
+    tw_bounds = _by_slug["twitter"]["bounds"]
+    sl_bounds = _by_slug["sleep"]["bounds"]
+    mb_hr_bounds = _by_slug["miband"]["bounds"]
+    ring_bounds = _by_slug["ring"]["bounds"]
+    sk_bounds = _by_slug["slack"]["bounds"]
+    br_bounds = _by_slug["browser"]["bounds"]
+    tb_bounds = _by_slug["thunderbird"]["bounds"]
+    amz_bounds = _by_slug["amazon"]["bounds"]
     cmp_bounds = cmp_data_bounds(conn)
     cmp_series = cmp_list_series(conn)
     has_compare = len(cmp_series) > 0
@@ -103,6 +113,7 @@ def _():
     mb_ready = has_mb_data(conn) if has_spotify else False
     tg_dow = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
     iso_dow = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
+    explorer_by_slug = _by_slug
     return (
         amz_bounds,
         br_bounds,
@@ -111,6 +122,7 @@ def _():
         conn,
         corr_bounds,
         corr_metrics,
+        explorer_by_slug,
         has_amazon,
         has_browser,
         has_compare,
@@ -160,6 +172,8 @@ def _():
         sk_bounds,
         sl_bounds,
         sp_bounds,
+        tab_compare,
+        tab_correlate,
         tb_bounds,
         tg_bounds,
         tg_dow,
@@ -173,6 +187,7 @@ def _(
     br_bounds,
     cmp_bounds,
     corr_bounds,
+    explorer_by_slug,
     has_amazon,
     has_browser,
     has_compare,
@@ -193,97 +208,77 @@ def _(
     sk_bounds,
     sl_bounds,
     sp_bounds,
+    tab_compare,
+    tab_correlate,
     tb_bounds,
     tg_bounds,
     tw_bounds,
 ):
     default_tab = (
-        "🎵 Spotify"
+        explorer_by_slug["spotify"]["tab_label"]
         if has_spotify
-        else "✈️ Telegram"
+        else explorer_by_slug["telegram"]["tab_label"]
         if has_telegram
-        else "🐦 Twitter"
+        else explorer_by_slug["twitter"]["tab_label"]
         if has_twitter
-        else "💬 Slack"
+        else explorer_by_slug["slack"]["tab_label"]
         if has_slack
-        else "🌐 Browser"
+        else explorer_by_slug["browser"]["tab_label"]
         if has_browser
-        else "😴 Sleep"
+        else explorer_by_slug["sleep"]["tab_label"]
         if has_sleep
-        else "⌚ Mi Band"
+        else explorer_by_slug["miband"]["tab_label"]
         if has_miband
-        else "🔔 Ring"
+        else explorer_by_slug["ring"]["tab_label"]
         if has_ring
-        else "📧 Thunderbird"
+        else explorer_by_slug["thunderbird"]["tab_label"]
         if has_thunderbird
-        else "📦 Amazon"
+        else explorer_by_slug["amazon"]["tab_label"]
         if has_amazon
-        else "💼 LinkedIn"
+        else explorer_by_slug["linkedin"]["tab_label"]
         if has_linkedin
-        else "📊 Compare"
+        else tab_compare
         if has_compare
-        else "📈 Correlations"
+        else tab_correlate
     )
-    sp_caption = (
-        f"{sp_bounds['first_day']} → {sp_bounds['last_day']}"
-        if sp_bounds
-        else "Not ingested"
-    )
-    tg_caption = (
-        f"{tg_bounds['first_day']} → {tg_bounds['last_day']} · {len(tg_bounds['chats'])} chats"
-        if tg_bounds
-        else "Not ingested"
-    )
-    li_caption = (
-        f"{li_bounds['first_day']} → {li_bounds['last_day']}"
-        if li_bounds
-        else "Not ingested"
-    )
-    tw_caption = (
-        f"{tw_bounds['first_day']} → {tw_bounds['last_day']}"
-        if tw_bounds
-        else "Not ingested"
-    )
-    sl_caption = (
-        f"{sl_bounds['first_day']} → {sl_bounds['last_day']}"
-        if sl_bounds
-        else "Not ingested"
-    )
-    mb_caption = (
-        f"{mb_hr_bounds['first_day']} → {mb_hr_bounds['last_day']}"
-        if mb_hr_bounds
-        else "Not ingested"
-    )
-    ring_caption = (
-        f"{ring_bounds['first_day']} → {ring_bounds['last_day']}"
-        if ring_bounds
-        else "Not ingested"
-    )
-    sk_caption = (
-        f"{sk_bounds['first_day']} → {sk_bounds['last_day']} · "
-        f"{len(sk_bounds['channels'])} channels"
-        if sk_bounds
-        else "Not ingested"
-    )
-    br_caption = (
-        f"{br_bounds['first_day']} → {br_bounds['last_day']}"
-        if br_bounds
-        else "Not ingested"
-    )
-    tb_caption = (
-        f"{tb_bounds['first_day']} → {tb_bounds['last_day']}"
-        if tb_bounds
-        else "Not ingested"
-    )
-    amz_caption = (
-        f"{amz_bounds['first_day']} → {amz_bounds['last_day']}"
-        if amz_bounds and amz_bounds.get("first_day")
-        else (
-            f"{amz_bounds['min_year']} → {amz_bounds['max_year']}"
-            if amz_bounds
+
+    def _span_caption(bounds):
+        if not bounds:
+            return "Not ingested"
+        if bounds.get("first_day") is not None and bounds.get("last_day") is not None:
+            return f"{bounds['first_day']} → {bounds['last_day']}"
+        return f"{bounds['min_year']} → {bounds['max_year']}"
+
+    captions = {
+        "spotify": _span_caption(sp_bounds),
+        "telegram": (
+            f"{tg_bounds['first_day']} → {tg_bounds['last_day']} · {len(tg_bounds['chats'])} chats"
+            if tg_bounds
             else "Not ingested"
-        )
-    )
+        ),
+        "linkedin": _span_caption(li_bounds),
+        "twitter": _span_caption(tw_bounds),
+        "sleep": _span_caption(sl_bounds),
+        "miband": _span_caption(mb_hr_bounds),
+        "ring": _span_caption(ring_bounds),
+        "slack": (
+            f"{sk_bounds['first_day']} → {sk_bounds['last_day']} · "
+            f"{len(sk_bounds['channels'])} channels"
+            if sk_bounds
+            else "Not ingested"
+        ),
+        "browser": _span_caption(br_bounds),
+        "thunderbird": _span_caption(tb_bounds),
+        "amazon": (
+            f"{amz_bounds['first_day']} → {amz_bounds['last_day']}"
+            if amz_bounds and amz_bounds.get("first_day")
+            else (
+                f"{amz_bounds['min_year']} → {amz_bounds['max_year']}"
+                if amz_bounds
+                else "Not ingested"
+            )
+        ),
+    }
     cmp_caption = (
         f"{cmp_bounds['n_series']} series · "
         f"{cmp_bounds['min_year']} → {cmp_bounds['max_year']}"
@@ -296,25 +291,28 @@ def _(
         if has_correlate and corr_bounds
         else "Need ≥2 sources"
     )
-    source = mo.ui.tabs(
-        {
-            "📈 Correlations": mo.md(f"_{corr_caption}_"),
-            "📊 Compare": mo.md(f"_{cmp_caption}_"),
-            "📦 Amazon": mo.md(f"_{amz_caption}_"),
-            "🌐 Browser": mo.md(f"_{br_caption}_"),
-            "📧 Thunderbird": mo.md(f"_{tb_caption}_"),
-            "💼 LinkedIn": mo.md(f"_{li_caption}_"),
-            "⌚ Mi Band": mo.md(f"_{mb_caption}_"),
-            "🔔 Ring": mo.md(f"_{ring_caption}_"),
-            "💬 Slack": mo.md(f"_{sk_caption}_"),
-            "😴 Sleep": mo.md(f"_{sl_caption}_"),
-            "🎵 Spotify": mo.md(f"_{sp_caption}_"),
-            "✈️ Telegram": mo.md(f"_{tg_caption}_"),
-            "🐦 Twitter": mo.md(f"_{tw_caption}_"),
-        },
-        value=default_tab,
+    # Cross-cutting tabs first; platform tabs from CONTRIBUTIONS order.
+    tab_items = {
+        tab_correlate: mo.md(f"_{corr_caption}_"),
+        tab_compare: mo.md(f"_{cmp_caption}_"),
+    }
+    for slug, meta in explorer_by_slug.items():
+        label = meta["tab_label"]
+        tab_items[label] = mo.md(f"_{captions.get(slug, 'Not ingested')}_")
+    source = mo.ui.tabs(tab_items, value=default_tab)
+    from pathlib import Path
+
+    logo = Path(__file__).resolve().parent.parent / "assets" / "logo.png"
+    header = mo.hstack(
+        [
+            mo.image(src=logo, alt="data_dumps", width=48, height=48),
+            mo.md("# data_dumps"),
+        ],
+        justify="start",
+        align="center",
+        gap=0.75,
     )
-    mo.vstack([mo.md("# data dumps"), source], gap=0.5)
+    mo.vstack([header, source], gap=0.5)
     return (source,)
 
 
@@ -444,8 +442,9 @@ def _(
     px,
     render_compare_panel,
     source,
+    tab_compare,
 ):
-    mo.stop(source.value != "📊 Compare", output=None)
+    mo.stop(source.value != tab_compare, output=None)
     if not has_compare or cmp_controls is None:
         mo.stop(
             True,
@@ -472,8 +471,9 @@ def _(
     px,
     render_correlate_panel,
     source,
+    tab_correlate,
 ):
-    mo.stop(source.value != "📈 Correlations", output=None)
+    mo.stop(source.value != tab_correlate, output=None)
     if not has_correlate or corr_controls is None:
         mo.stop(
             True,
@@ -493,6 +493,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     conn,
+    explorer_by_slug,
     has_spotify,
     mb_ready,
     mo,
@@ -503,7 +504,7 @@ def _(
     sp_controls,
 ):
     # Leaf cell: mo.stop must not fan out to descendants.
-    mo.stop(source.value != "🎵 Spotify", output=None)
+    mo.stop(source.value != explorer_by_slug["spotify"]["tab_label"], output=None)
     if not has_spotify or sp_controls is None:
         mo.stop(
             True,
@@ -527,6 +528,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     conn,
+    explorer_by_slug,
     has_telegram,
     mo,
     px,
@@ -536,7 +538,7 @@ def _(
     tg_controls,
     tg_dow,
 ):
-    mo.stop(source.value != "✈️ Telegram", output=None)
+    mo.stop(source.value != explorer_by_slug["telegram"]["tab_label"], output=None)
     if not has_telegram or tg_controls is None:
         mo.stop(
             True,
@@ -560,6 +562,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     conn,
+    explorer_by_slug,
     has_linkedin,
     li_bounds,
     li_controls,
@@ -569,7 +572,7 @@ def _(
     source,
     tg_dow,
 ):
-    mo.stop(source.value != "💼 LinkedIn", output=None)
+    mo.stop(source.value != explorer_by_slug["linkedin"]["tab_label"], output=None)
     if not has_linkedin or li_controls is None:
         mo.stop(
             True,
@@ -593,6 +596,7 @@ def _(
     amz_bounds,
     amz_controls,
     conn,
+    explorer_by_slug,
     has_amazon,
     iso_dow,
     mo,
@@ -600,7 +604,7 @@ def _(
     render_amazon_panel,
     source,
 ):
-    mo.stop(source.value != "📦 Amazon", output=None)
+    mo.stop(source.value != explorer_by_slug["amazon"]["tab_label"], output=None)
     if not has_amazon or amz_controls is None:
         mo.stop(
             True,
@@ -622,6 +626,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     conn,
+    explorer_by_slug,
     has_twitter,
     mo,
     px,
@@ -631,7 +636,7 @@ def _(
     tw_bounds,
     tw_controls,
 ):
-    mo.stop(source.value != "🐦 Twitter", output=None)
+    mo.stop(source.value != explorer_by_slug["twitter"]["tab_label"], output=None)
     if not has_twitter or tw_controls is None:
         mo.stop(
             True,
@@ -655,6 +660,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     conn,
+    explorer_by_slug,
     has_sleep,
     iso_dow,
     mo,
@@ -664,7 +670,7 @@ def _(
     sl_controls,
     source,
 ):
-    mo.stop(source.value != "😴 Sleep", output=None)
+    mo.stop(source.value != explorer_by_slug["sleep"]["tab_label"], output=None)
     if not has_sleep or sl_controls is None:
         mo.stop(
             True,
@@ -686,6 +692,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     conn,
+    explorer_by_slug,
     has_miband,
     iso_dow,
     mb_hr_bounds,
@@ -695,7 +702,7 @@ def _(
     render_miband_panel,
     source,
 ):
-    mo.stop(source.value != "⌚ Mi Band", output=None)
+    mo.stop(source.value != explorer_by_slug["miband"]["tab_label"], output=None)
     if not has_miband or mb_hr_controls is None:
         mo.stop(
             True,
@@ -717,6 +724,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     conn,
+    explorer_by_slug,
     has_ring,
     iso_dow,
     mo,
@@ -726,7 +734,7 @@ def _(
     ring_controls,
     source,
 ):
-    mo.stop(source.value != "🔔 Ring", output=None)
+    mo.stop(source.value != explorer_by_slug["ring"]["tab_label"], output=None)
     if not has_ring or ring_controls is None:
         mo.stop(
             True,
@@ -748,6 +756,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     conn,
+    explorer_by_slug,
     has_slack,
     iso_dow,
     mo,
@@ -757,7 +766,7 @@ def _(
     sk_controls,
     source,
 ):
-    mo.stop(source.value != "💬 Slack", output=None)
+    mo.stop(source.value != explorer_by_slug["slack"]["tab_label"], output=None)
     if not has_slack or sk_controls is None:
         mo.stop(
             True,
@@ -781,13 +790,14 @@ def _(
     br_bounds,
     br_controls,
     conn,
+    explorer_by_slug,
     has_browser,
     mo,
     px,
     render_browser_panel,
     source,
 ):
-    mo.stop(source.value != "🌐 Browser", output=None)
+    mo.stop(source.value != explorer_by_slug["browser"]["tab_label"], output=None)
     if not has_browser or br_controls is None:
         mo.stop(
             True,
@@ -809,6 +819,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     conn,
+    explorer_by_slug,
     has_thunderbird,
     iso_dow,
     mo,
@@ -818,7 +829,7 @@ def _(
     tb_bounds,
     tb_controls,
 ):
-    mo.stop(source.value != "📧 Thunderbird", output=None)
+    mo.stop(source.value != explorer_by_slug["thunderbird"]["tab_label"], output=None)
     if not has_thunderbird or tb_controls is None:
         mo.stop(
             True,

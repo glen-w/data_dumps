@@ -197,10 +197,10 @@ def test_amazon_orders_metric(tmp_path, monkeypatch):
         conn.close()
 
 
-def test_no_browser_or_ring_in_catalog():
+def test_catalog_includes_browser_and_ring():
     ids = {m.id for m in crq.METRICS}
-    assert not any("browser" in i for i in ids)
-    assert not any(i.startswith("ring") for i in ids)
+    assert "browser_urls_last_seen" in ids
+    assert "ring_events" in ids
 
 
 def test_spearman_without_scipy():

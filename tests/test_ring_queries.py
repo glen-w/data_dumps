@@ -34,3 +34,10 @@ def test_ring_query_smoke(ring_conn):
 
     daily = ringq.daily_offline_flips(ring_conn, filters)
     assert "day" in daily.columns or daily.empty
+
+    monthly = ringq.monthly_events(ring_conn, filters)
+    cal = ringq.calendar_daily_events(ring_conn, filters)
+    assert not monthly.empty
+    assert "events" in monthly.columns
+    assert not cal.empty
+    assert "events" in cal.columns

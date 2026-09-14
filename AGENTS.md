@@ -6,4 +6,4 @@ Start from [README.md](README.md) and [docs/WAREHOUSE.md](docs/WAREHOUSE.md) (si
 
 When **adding a new dump / Source / explorer tab**, follow [docs/guides/add-a-dump.md](docs/guides/add-a-dump.md) before writing loaders or panels. Companion rule: [`.cursor/rules/add-dump.mdc`](.cursor/rules/add-dump.mdc).
 
-**Do not:** commit dumps or DuckDB; run ingest while Marimo holds the warehouse; load IPs/emails/phones/ads/KYC by default; expand Mi Band; invent a plugin registry; format `notebooks/` with Black/Ruff.
+**Do not:** commit dumps or DuckDB; run ingest while Marimo holds the warehouse; load IPs/emails/phones/ads/KYC by default; expand Mi Band; invent dynamic plugin discovery (use thin `CONTRIBUTIONS`); format `notebooks/` with Black/Ruff.
