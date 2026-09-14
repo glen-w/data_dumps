@@ -163,3 +163,196 @@ def empty_compare() -> pd.DataFrame:
 
 def empty_correlate() -> pd.DataFrame:
     return pd.DataFrame(columns=CORRELATE_LONG_COLS)
+
+
+# --- Spec factories (explicit registration, less boilerplate) ----------------
+
+MonthlyLoadFn = Callable[
+    [duckdb.DuckDBPyConnection, int | None, int | None],
+    pd.DataFrame,
+]
+EntityMonthlyLoadFn = Callable[
+    [duckdb.DuckDBPyConnection, int | None, int | None, str],
+    pd.DataFrame,
+]
+DailyLoadFn = Callable[
+    [duckdb.DuckDBPyConnection, int | None, int | None],
+    pd.DataFrame,
+]
+
+
+def make_compare_total(
+    *,
+    id: str,
+    label: str,
+    source: str,
+    schema: str,
+    table: str,
+    unit: str,
+    value_col: str,
+    load_monthly: MonthlyLoadFn,
+) -> SeriesSpec:
+    """Build a total Compare series. ``load_monthly`` must return ``year_month`` + value."""
+
+    def fetch(
+        conn: duckdb.DuckDBPyConnection,
+        year_start: int | None,
+        year_end: int | None,
+        entity: str | None,
+    ) -> pd.DataFrame:
+        del entity
+        return pack_compare(
+            load_monthly(conn, year_start, year_end),
+            value_col=value_col,
+            series_id=id,
+            series_label=label,
+            unit=unit,
+        )
+
+    return SeriesSpec(
+        id,
+        label,
+        source,
+        "total",
+        unit,
+        False,
+        schema,
+        table,
+        fetch,
+    )
+
+
+def make_compare_entity(
+    *,
+    id: str,
+    label: str,
+    source: str,
+    schema: str,
+    table: str,
+    unit: str,
+    value_col: str,
+    load_monthly: EntityMonthlyLoadFn,
+    entity_options: EntityOptionsFn,
+) -> SeriesSpec:
+    """Build an entity Compare series. ``load_monthly`` receives a non-empty entity."""
+
+    def fetch(
+        conn: duckdb.DuckDBPyConnection,
+        year_start: int | None,
+        year_end: int | None,
+        entity: str | None,
+    ) -> pd.DataFrame:
+        if not entity:
+            return empty_compare()
+        return pack_compare(
+            load_monthly(conn, year_start, year_end, entity),
+            value_col=value_col,
+            series_id=id,
+            series_label=entity_label(label, entity),
+            unit=unit,
+        )
+
+    return SeriesSpec(
+        id,
+        label,
+        source,
+        "entity",
+        unit,
+        True,
+        schema,
+        table,
+        fetch,
+        entity_options,
+    )
+
+
+def make_correlate_metric(
+    *,
+    id: str,
+    label: str,
+    source: str,
+    schema: str,
+    table: str,
+    unit: str,
+    supports_daily: bool,
+    supports_monthly: bool,
+    value_col: str,
+    load_daily: DailyLoadFn | None = None,
+    load_monthly: MonthlyLoadFn | None = None,
+    daily_time_col: str = "day",
+    monthly_time_col: str = "time_key",
+    monthly_value_col: str | None = None,
+) -> MetricSpec:
+    """Build a Correlate metric. Monthly frames need ``monthly_time_col`` (often ``time_key``)."""
+    m_value = monthly_value_col or value_col
+    if supports_daily and load_daily is None:
+        raise ValueError(f"{id}: supports_daily requires load_daily")
+    if supports_monthly and load_monthly is None:
+        raise ValueError(f"{id}: supports_monthly requires load_monthly")
+
+    def fetch(
+        conn: duckdb.DuckDBPyConnection,
+        year_start: int | None,
+        year_end: int | None,
+        grain: Grain,
+    ) -> pd.DataFrame:
+        if grain == "daily":
+            if not supports_daily or load_daily is None:
+                return empty_correlate()
+            return pack_correlate(
+                load_daily(conn, year_start, year_end),
+                time_col=daily_time_col,
+                value_col=value_col,
+                metric_id=id,
+                metric_label=label,
+                unit=unit,
+                grain=grain,
+            )
+        if not supports_monthly or load_monthly is None:
+            return empty_correlate()
+        return pack_correlate(
+            load_monthly(conn, year_start, year_end),
+            time_col=monthly_time_col,
+            value_col=m_value,
+            metric_id=id,
+            metric_label=label,
+            unit=unit,
+            grain=grain,
+        )
+
+    return MetricSpec(
+        id,
+        label,
+        source,
+        unit,
+        schema,
+        table,
+        supports_daily,
+        supports_monthly,
+        fetch,
+    )
+
+
+def monthly_from_daily(
+    daily_df: pd.DataFrame,
+    *,
+    day_col: str = "day",
+    value_col: str,
+    how: Literal["sum", "mean"] = "sum",
+) -> pd.DataFrame:
+    """Roll daily rows up to ``year_month`` for Compare."""
+    if (
+        daily_df.empty
+        or day_col not in daily_df.columns
+        or value_col not in daily_df.columns
+    ):
+        return pd.DataFrame(columns=["year_month", value_col])
+    out = daily_df[[day_col, value_col]].copy()
+    out[day_col] = pd.to_datetime(out[day_col], errors="coerce")
+    out = out.dropna(subset=[day_col])
+    out["year_month"] = out[day_col].dt.strftime("%Y-%m")
+    if how == "mean":
+        grouped = out.groupby("year_month", as_index=False).agg({value_col: "mean"})
+    else:
+        grouped = out.groupby("year_month", as_index=False).agg({value_col: "sum"})
+    return grouped

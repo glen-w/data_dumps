@@ -66,7 +66,7 @@ Copy into a session note and tick as you go.
 
 - [ ] Export from [`sources/__init__.py`](../../src/data_dumps/sources/__init__.py).
 - [ ] Append one [`Contribution(...)`](../../src/data_dumps/contributions.py) to `CONTRIBUTIONS` (detect order matters for overlapping `detect` — be specific). This derives `ingest.SOURCES`, explorer tab presence/bounds, and Compare/Correlations catalogs. Explorer tabs use plain `tab_label` plus a Lucide `tab_icon` (`lucide:…`); the notebook renders via `mo.icon`.
-- [ ] Define callable series/metrics in [`contribution_series.py`](../../src/data_dumps/contribution_series.py) (or import tuples into the Contribution). Choose grain and aggregation explicitly — do not scan warehouse columns.
+- [ ] Define callable series/metrics in [`contribution_series.py`](../../src/data_dumps/contribution_series.py) (prefer `make_compare_total` / `make_correlate_metric` / `make_compare_entity` from [`series_catalog.py`](../../src/data_dumps/series_catalog.py); or import tuples into the Contribution). Choose grain and aggregation explicitly — do not scan warehouse columns.
 - [ ] `pick_source` smoke: synthetic mini dump → correct `source.name`.
 
 ### 3. Tests (synthetic fixtures only)

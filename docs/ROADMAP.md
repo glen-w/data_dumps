@@ -83,9 +83,9 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 ### Compare tab (cross-source)
 
-- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat, Slack channel/person, LinkedIn conversation, Spotify artist, Thunderbird contact, Twitter account, Browser URLs last-seen, Ring events, …)
+- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat, Slack channel/person, LinkedIn conversation, Spotify artist, Thunderbird contact, Twitter account, Browser URLs last-seen / search URLs, Ring events / flips, Sleep snore/noise, Amazon Alexa/Kindle, Slack active people, …)
 - Monthly multiviewer overlay with each series as **% of its own max**; Pearson correlation heatmap on aligned shapes; raw values table alongside
-- Series descriptors live in `contribution_series.py`; catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
+- Series descriptors live in `contribution_series.py` (`make_compare_total` / `make_compare_entity` / `make_correlate_metric` helpers in `series_catalog.py`); catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
 
 ### Correlations tab (cross-source)
 
@@ -96,6 +96,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 ### Thin contribution registry
 
 - Explicit `CONTRIBUTIONS` list bundles ingest `Source`, explorer gate/bounds, and Compare/Correlations series — one append per dump
+- Prefer `series_catalog.make_*` factories for new totals; grain/agg stay human-chosen (no warehouse column auto-discovery)
 - No dynamic discovery / entry points; panel imports stay lazy so `uv run ingest` does not pull Marimo
 
 ### Dashboard upgrades from the open-source landscape
