@@ -81,6 +81,12 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Voice WAVs inventory-only; cards/addresses/IPs/geolocation dropped; multi-currency spend (no FX merge)
 - Explorer Amazon tab: footprint observatory, spend/life chapters/types, search funnel, Alexa utterance Wrapped, Audible/Video
 
+### Duolingo GDPR
+
+- CSV zip → `duolingo.account|languages|leaderboards|inventory|friends|progress_events`
+- Email/fullname/IPs/auth/ads/avatars/`payment_processor` dropped; tree progress blob kept as length only
+- Explorer Duolingo tab (light LinkedIn/Ring-depth: scoreboard, XP, leagues, progress calendar, inventory)
+
 ### Compare tab (cross-source)
 
 - Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat, Slack channel/person, LinkedIn conversation, Spotify artist, Thunderbird contact, Twitter account, Browser URLs last-seen / search URLs, Ring events / flips, Sleep snore/noise, Amazon Alexa/Kindle, Slack active people, …)

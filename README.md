@@ -31,10 +31,10 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 docker compose build
 docker compose run --rm --entrypoint ingest app /data/spotify/my_spotify_data.zip
 docker compose up app
-# → http://127.0.0.1:2718 — token printed in logs (marimo ?access_token=…)
+# → http://127.0.0.1:2718 (no access_token)
 ```
 
-**Tailscale (phone / other devices):** house Serve is `https://laptop.tail1ff5ae.ts.net:2718/` via `~/Documents/server/compose/laptop/data-dumps` (Homer tile **data_dumps**). Mac must be awake; Docker Desktop must be running.
+**Tailscale (phone / other devices):** `https://laptop.tail1ff5ae.ts.net:2718/` via `~/Documents/server/compose/laptop/data-dumps` (Homer **data_dumps**). No Marimo password — Tailnet only. Mac + Docker Desktop must be awake.
 
 Stop `app` before re-ingesting or enriching — see [Warehouse lock](#warehouse-lock-read-this) and [docs/WAREHOUSE.md](docs/WAREHOUSE.md). Data lives on `~/Documents/data_dumps_raw` (mounted at `/data`) — never in the image.
 
@@ -216,6 +216,21 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Voice `.wav` / invoice PDFs / cards / addresses / IPs / geolocation are **not** loaded (voice appears only as footprint inventory)
 - Explorer: Amazon tab — spend (multi-currency), product types, search funnel, Alexa utterances, dump footprint
 
+## Duolingo GDPR export
+
+Stop the dashboard first ([WAREHOUSE.md](docs/WAREHOUSE.md)).
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/duolingo   # keep-list CSVs already on disk
+# or: uv run ingest /path/to/duolingo.zip
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+```
+
+- Tables: `duolingo.account|languages|leaderboards|inventory|friends|progress_events`
+- Grain: progress events = one row per `event_timestamp` + language pair (tree blob stored as byte length only)
+- Dropped at ingest: auth, IPs, emails/fullname, blast/notify, avatars, experiments, tutor/video, DET profile, `payment_processor` / `code_id` (profile/inventory scrubbed in `raw/duolingo/` too)
+- Explorer: Duolingo tab (light — scoreboard, XP languages, league tiers, progress rhythm, inventory)
+
 ### Compare (cross-source)
 
 Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Series merge from `contributions.CONTRIBUTIONS` (descriptors in `contribution_series.py` via `series_catalog.make_*` factories). Catalog includes secondary totals (Sleep snore/noise, Amazon Alexa/Kindle, Browser search URLs, Ring flips, Slack active people) when those tables are ingested — still explicit registration, not warehouse column discovery.
@@ -282,6 +297,7 @@ raw/slack/            # users.json + channels.json copies (daily files read from
 raw/sleep/            # extracted sleep-export.csv (+ sidecars)
 raw/miband/           # heart_rate.csv copy
 raw/ring/             # keep-list CSVs + flattened app_events.csv
+raw/duolingo/         # keep-list CSVs only (PII/avatar files never copied)
 warehouse/            # DuckDB catalog + llm_cache
 ```
 

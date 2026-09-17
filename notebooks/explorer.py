@@ -15,6 +15,7 @@ def _():
         make_browser_controls,
         make_compare_controls,
         make_correlate_controls,
+        make_duolingo_controls,
         make_linkedin_controls,
         make_miband_controls,
         make_ring_controls,
@@ -28,6 +29,7 @@ def _():
         render_browser_panel,
         render_compare_panel,
         render_correlate_panel,
+        render_duolingo_panel,
         render_linkedin_panel,
         render_miband_panel,
         render_ring_panel,
@@ -93,6 +95,7 @@ def _():
     has_browser = _by_slug["browser"]["present"]
     has_thunderbird = _by_slug["thunderbird"]["present"]
     has_amazon = _by_slug["amazon"]["present"]
+    has_duolingo = _by_slug["duolingo"]["present"]
     sp_bounds = _by_slug["spotify"]["bounds"]
     tg_bounds = _by_slug["telegram"]["bounds"]
     li_bounds = _by_slug["linkedin"]["bounds"]
@@ -104,6 +107,7 @@ def _():
     br_bounds = _by_slug["browser"]["bounds"]
     tb_bounds = _by_slug["thunderbird"]["bounds"]
     amz_bounds = _by_slug["amazon"]["bounds"]
+    duo_bounds = _by_slug["duolingo"]["bounds"]
     cmp_bounds = cmp_data_bounds(conn)
     cmp_series = cmp_list_series(conn)
     has_compare = len(cmp_series) > 0
@@ -122,11 +126,13 @@ def _():
         conn,
         corr_bounds,
         corr_metrics,
+        duo_bounds,
         explorer_by_slug,
         has_amazon,
         has_browser,
         has_compare,
         has_correlate,
+        has_duolingo,
         has_linkedin,
         has_miband,
         has_ring,
@@ -142,6 +148,7 @@ def _():
         make_browser_controls,
         make_compare_controls,
         make_correlate_controls,
+        make_duolingo_controls,
         make_linkedin_controls,
         make_miband_controls,
         make_ring_controls,
@@ -159,6 +166,7 @@ def _():
         render_browser_panel,
         render_compare_panel,
         render_correlate_panel,
+        render_duolingo_panel,
         render_linkedin_panel,
         render_miband_panel,
         render_ring_panel,
@@ -187,11 +195,13 @@ def _(
     br_bounds,
     cmp_bounds,
     corr_bounds,
+    duo_bounds,
     explorer_by_slug,
     has_amazon,
     has_browser,
     has_compare,
     has_correlate,
+    has_duolingo,
     has_linkedin,
     has_miband,
     has_ring,
@@ -235,6 +245,8 @@ def _(
         if has_thunderbird
         else explorer_by_slug["amazon"]["tab_label"]
         if has_amazon
+        else explorer_by_slug["duolingo"]["tab_label"]
+        if has_duolingo
         else explorer_by_slug["linkedin"]["tab_label"]
         if has_linkedin
         else tab_compare
@@ -278,6 +290,7 @@ def _(
                 else "Not ingested"
             )
         ),
+        "duolingo": _span_caption(duo_bounds),
     }
     cmp_caption = (
         f"{cmp_bounds['n_series']} series · "
@@ -343,6 +356,16 @@ def _(amz_bounds, has_amazon, make_amazon_controls, mo):
         make_amazon_controls(mo, amz_bounds) if has_amazon and amz_bounds else None
     )
     return (amz_controls,)
+
+
+@app.cell(hide_code=True)
+def _(duo_bounds, has_duolingo, make_duolingo_controls, mo):
+    duo_controls = (
+        make_duolingo_controls(mo, duo_bounds)
+        if has_duolingo and duo_bounds
+        else None
+    )
+    return (duo_controls,)
 
 
 @app.cell(hide_code=True)
@@ -619,6 +642,38 @@ def _(
         conn=conn,
         bounds=amz_bounds,
         controls=amz_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    conn,
+    duo_bounds,
+    duo_controls,
+    explorer_by_slug,
+    has_duolingo,
+    iso_dow,
+    mo,
+    px,
+    render_duolingo_panel,
+    source,
+):
+    mo.stop(source.value != explorer_by_slug["duolingo"]["tab_label"], output=None)
+    if not has_duolingo or duo_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `duolingo.progress_events` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Documents/data_dumps_raw/duolingo`  # keep-list CSVs"
+            ),
+        )
+    render_duolingo_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=duo_bounds,
+        controls=duo_controls,
         dow_labels=iso_dow,
     )
 

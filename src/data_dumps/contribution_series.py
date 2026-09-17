@@ -13,6 +13,7 @@ import pandas as pd
 
 from data_dumps import amazon_queries as amzq
 from data_dumps import browser_queries as brq
+from data_dumps import duolingo_queries as duoq
 from data_dumps import linkedin_queries as liq
 from data_dumps import miband_queries as mbq
 from data_dumps import ring_queries as ringq
@@ -1576,5 +1577,58 @@ RING_CORRELATE: tuple[MetricSpec, ...] = (
         value_col="flips",
         load_daily=_ring_flips_daily,
         load_monthly=_ring_flips_corr_monthly,
+    ),
+)
+
+
+# --- Duolingo ----------------------------------------------------------------
+
+
+def _duolingo_progress_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = duoq.FilterState(year_start=year_start, year_end=year_end)
+    return duoq.progress_monthly(conn, f)
+
+
+def _duolingo_progress_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = duoq.FilterState(year_start=year_start, year_end=year_end)
+    return duoq.calendar_daily_progress(conn, f)
+
+
+def _duolingo_progress_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_duolingo_progress_monthly(conn, year_start, year_end))
+
+
+DUOLINGO_COMPARE: tuple[SeriesSpec, ...] = (
+    make_compare_total(
+        id="duolingo_progress",
+        label="Duolingo · progress events",
+        source="duolingo",
+        schema="duolingo",
+        table="progress_events",
+        unit="events",
+        value_col="events",
+        load_monthly=_duolingo_progress_monthly,
+    ),
+)
+
+DUOLINGO_CORRELATE: tuple[MetricSpec, ...] = (
+    make_correlate_metric(
+        id="duolingo_progress",
+        label="Duolingo · progress events",
+        source="duolingo",
+        schema="duolingo",
+        table="progress_events",
+        unit="events",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="events",
+        load_daily=_duolingo_progress_daily,
+        load_monthly=_duolingo_progress_corr_monthly,
     ),
 )

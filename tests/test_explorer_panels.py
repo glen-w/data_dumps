@@ -25,6 +25,7 @@ from data_dumps.explorer_panels import (
     make_browser_controls,
     make_compare_controls,
     make_correlate_controls,
+    make_duolingo_controls,
     make_linkedin_controls,
     make_miband_controls,
     make_ring_controls,
@@ -36,6 +37,7 @@ from data_dumps.explorer_panels import (
     render_browser_panel,
     render_compare_panel,
     render_correlate_panel,
+    render_duolingo_panel,
     render_linkedin_panel,
     render_miband_panel,
     render_ring_panel,
@@ -47,6 +49,7 @@ from data_dumps.explorer_panels import (
 from data_dumps.sleep_queries import data_bounds as sl_bounds
 from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.browser import BrowserSource
+from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.linkedin import LinkedInSource
 from data_dumps.sources.ring import RingSource
 from data_dumps.sources.slack import SlackSource
@@ -55,6 +58,7 @@ from data_dumps.sources.telegram import TelegramSource
 
 from .conftest import make_plays_conn
 from .test_amazon_ingest import make_mini_amazon_dir
+from .test_duolingo_ingest import make_mini_duolingo_zip
 from .test_linkedin_ingest import make_mini_linkedin_zip
 from .test_ring_ingest import make_mini_ring_zip
 from .test_slack_ingest import ALICE, make_mini_slack_zip
@@ -362,6 +366,40 @@ def test_render_ring_panel(ring_conn):
         "Device online/offline",
         "App activity spikes",
         "Billing",
+    ):
+        assert needle in html, needle
+
+
+@pytest.fixture
+def duo_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    conn = duckdb.connect(str(tmp_path / "duo_wh.duckdb"))
+    DuolingoSource().load(make_mini_duolingo_zip(tmp_path), conn)
+    yield conn
+    conn.close()
+
+
+def test_render_duolingo_panel(duo_conn):
+    from data_dumps import duolingo_queries as duoq
+
+    bounds = duoq.data_bounds(duo_conn)
+    controls = make_duolingo_controls(mo, bounds)
+    html = render_duolingo_panel(
+        mo=mo,
+        px=px,
+        conn=duo_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in (
+        "Duolingo",
+        "Scoreboard",
+        "Languages",
+        "League tier",
+        "Progress events",
+        "Inventory",
+        "Rhythm",
     ):
         assert needle in html, needle
 

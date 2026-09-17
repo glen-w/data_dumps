@@ -1,6 +1,7 @@
 from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.base import Source
 from data_dumps.sources.browser import BrowserSource
+from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.linkedin import LinkedInSource
 from data_dumps.sources.miband import MiBandSource
 from data_dumps.sources.ring import RingSource
@@ -26,4 +27,5 @@ __all__ = [
     "ThunderbirdSource",
     "RingSource",
     "AmazonSource",
+    "DuolingoSource",
 ]
