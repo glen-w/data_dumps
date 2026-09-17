@@ -15,8 +15,12 @@ def empty_line(px: Any, title: str) -> Any:
     return px.line(title=title)
 
 
+# Carto (not tile.openstreetmap.org): OSM volunteer tiles 403 Plotly/browser UAs.
+_GEO_MAP_STYLE = "carto-positron"
+
+
 def empty_geo_map(px: Any, title: str) -> Any:
-    return px.scatter_map(title=title, map_style="open-street-map")
+    return px.scatter_map(title=title, map_style=_GEO_MAP_STYLE)
 
 
 def geo_bubble_map(
@@ -34,7 +38,7 @@ def geo_bubble_map(
     zoom: float | None = None,
     height: int = 420,
 ) -> Any:
-    """OpenStreetMap bubble map for pre-geocoded rows (lat/lon columns)."""
+    """Bubble map for pre-geocoded rows (lat/lon); Carto basemap, no OSM tiles."""
     if df.empty or lat not in df.columns or lon not in df.columns:
         return empty_geo_map(px, empty_title or title)
     plot = df.dropna(subset=[lat, lon]).copy()
@@ -51,7 +55,7 @@ def geo_bubble_map(
         "size": size if size in plot.columns else None,
         "hover_name": hover_name if hover_name in plot.columns else None,
         "title": title,
-        "map_style": "open-street-map",
+        "map_style": _GEO_MAP_STYLE,
         "size_max": size_max,
         "height": height,
     }

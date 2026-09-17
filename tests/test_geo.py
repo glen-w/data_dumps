@@ -55,6 +55,8 @@ def test_geo_bubble_map_and_choropleth_smoke():
         px, cities, size="trips", hover_name="city", title="Trips"
     )
     assert fig.data
+    # Avoid tile.openstreetmap.org (403 for Plotly UAs); use Carto.
+    assert fig.layout.map.style == "carto-positron"
     countries = attach_country_iso3(
         pd.DataFrame({"country": ["FR", "GB"], "hours": [10.0, 4.0]})
     )
