@@ -134,6 +134,16 @@ Folder of `All Data Categories*.zip` (+ `FileDescriptions.csv`), or a single cur
 
 Commerce, search, returns, Audible/Video/Music, Kindle, Rufus, and Alexa **structured** tables land in `amazon.*`. Voice WAVs and payment/address PII are skipped; `amazon.dump_inventory` records the full on-disk footprint.
 
+### Ingest Uber GDPR
+
+Zip named like `Uber Data Request ….zip` (or extracted `Uber Data/` folder) with `Rider/rider_lifetime_trips-0.csv`.
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest ~/Documents/data_dumps_raw/uber/"Uber Data Request ….zip"`
+3. Start the dashboard again (Uber tab)
+
+Tables: `uber.trips`, `uber.order_items`, `uber.ratings`, `uber.support_messages`. Profile, payment methods, saved locations, and app GPS analytics are not loaded; trip coords/address strings/card numbers and Eats special instructions are scrubbed.
+
 ### MusicBrainz enrichment (genres / decades)
 
 `--artist-limit` and `--track-limit` default to **`0` (no cap)**. The CLI assumes you want the **full dataset** — every artist/track above the min lifetime hours — not a sample. MusicBrainz has no free-tier count quota; the only API constraint is **~1 request/second** per IP.
@@ -174,6 +184,7 @@ docker compose run --rm --entrypoint ingest app /data/miband_hr/heart_rate.csv
 docker compose run --rm --entrypoint ingest app "/data/ring/All Data Categories.zip"
 docker compose run --rm --entrypoint ingest app /data/firefox/
 docker compose run --rm --entrypoint ingest app /data/amazon
+docker compose run --rm --entrypoint ingest app "/data/uber/Uber Data Request 820F71B0.zip"
 docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run
 docker compose up app
 ```

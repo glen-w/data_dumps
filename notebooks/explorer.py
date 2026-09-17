@@ -25,6 +25,7 @@ def _():
         make_telegram_controls,
         make_thunderbird_controls,
         make_twitter_controls,
+        make_uber_controls,
         render_amazon_panel,
         render_browser_panel,
         render_compare_panel,
@@ -39,6 +40,7 @@ def _():
         render_telegram_panel,
         render_thunderbird_panel,
         render_twitter_panel,
+        render_uber_panel,
     )
     from data_dumps.paths import warehouse_db
     from data_dumps.compare_queries import compare_bounds as cmp_data_bounds
@@ -96,6 +98,7 @@ def _():
     has_thunderbird = _by_slug["thunderbird"]["present"]
     has_amazon = _by_slug["amazon"]["present"]
     has_duolingo = _by_slug["duolingo"]["present"]
+    has_uber = _by_slug["uber"]["present"]
     sp_bounds = _by_slug["spotify"]["bounds"]
     tg_bounds = _by_slug["telegram"]["bounds"]
     li_bounds = _by_slug["linkedin"]["bounds"]
@@ -108,6 +111,7 @@ def _():
     tb_bounds = _by_slug["thunderbird"]["bounds"]
     amz_bounds = _by_slug["amazon"]["bounds"]
     duo_bounds = _by_slug["duolingo"]["bounds"]
+    uber_bounds = _by_slug["uber"]["bounds"]
     cmp_bounds = cmp_data_bounds(conn)
     cmp_series = cmp_list_series(conn)
     has_compare = len(cmp_series) > 0
@@ -142,6 +146,7 @@ def _():
         has_telegram,
         has_thunderbird,
         has_twitter,
+        has_uber,
         iso_dow,
         li_bounds,
         make_amazon_controls,
@@ -158,6 +163,7 @@ def _():
         make_telegram_controls,
         make_thunderbird_controls,
         make_twitter_controls,
+        make_uber_controls,
         mb_hr_bounds,
         mb_ready,
         mo,
@@ -176,6 +182,7 @@ def _():
         render_telegram_panel,
         render_thunderbird_panel,
         render_twitter_panel,
+        render_uber_panel,
         ring_bounds,
         sk_bounds,
         sl_bounds,
@@ -186,6 +193,7 @@ def _():
         tg_bounds,
         tg_dow,
         tw_bounds,
+        uber_bounds,
     )
 
 
@@ -211,6 +219,7 @@ def _(
     has_telegram,
     has_thunderbird,
     has_twitter,
+    has_uber,
     li_bounds,
     mb_hr_bounds,
     mo,
@@ -223,6 +232,7 @@ def _(
     tb_bounds,
     tg_bounds,
     tw_bounds,
+    uber_bounds,
 ):
     default_tab = (
         explorer_by_slug["spotify"]["tab_label"]
@@ -247,6 +257,8 @@ def _(
         if has_amazon
         else explorer_by_slug["duolingo"]["tab_label"]
         if has_duolingo
+        else explorer_by_slug["uber"]["tab_label"]
+        if has_uber
         else explorer_by_slug["linkedin"]["tab_label"]
         if has_linkedin
         else tab_compare
@@ -291,6 +303,7 @@ def _(
             )
         ),
         "duolingo": _span_caption(duo_bounds),
+        "uber": _span_caption(uber_bounds),
     }
     cmp_caption = (
         f"{cmp_bounds['n_series']} series · "
@@ -366,6 +379,14 @@ def _(duo_bounds, has_duolingo, make_duolingo_controls, mo):
         else None
     )
     return (duo_controls,)
+
+
+@app.cell(hide_code=True)
+def _(has_uber, make_uber_controls, mo, uber_bounds):
+    uber_controls = (
+        make_uber_controls(mo, uber_bounds) if has_uber and uber_bounds else None
+    )
+    return (uber_controls,)
 
 
 @app.cell(hide_code=True)
@@ -674,6 +695,38 @@ def _(
         conn=conn,
         bounds=duo_bounds,
         controls=duo_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    conn,
+    explorer_by_slug,
+    has_uber,
+    iso_dow,
+    mo,
+    px,
+    render_uber_panel,
+    source,
+    uber_bounds,
+    uber_controls,
+):
+    mo.stop(source.value != explorer_by_slug["uber"]["tab_label"], output=None)
+    if not has_uber or uber_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `uber.trips` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Documents/data_dumps_raw/uber/Uber\\ Data\\ Request\\ ….zip`"
+            ),
+        )
+    render_uber_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=uber_bounds,
+        controls=uber_controls,
         dow_labels=iso_dow,
     )
 

@@ -87,9 +87,15 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Email/fullname/IPs/auth/ads/avatars/`payment_processor` dropped; tree progress blob kept as length only
 - Explorer Duolingo tab (light LinkedIn/Ring-depth: scoreboard, XP, leagues, progress calendar, inventory)
 
+### Uber GDPR
+
+- Zip / `Uber Data/` folder → `uber.trips|order_items|ratings|support_messages`
+- Profile/payments/saved locations/app GPS analytics dropped; trip coords + address strings + card numbers + Eats special instructions scrubbed (including `raw/uber/`)
+- Explorer Uber tab: scoreboard, streaks, cities/products, circadian+calendar, forgotten/comeback cities, city-rank bump, fare×distance, Eats
+
 ### Compare tab (cross-source)
 
-- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, …)
+- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, …)
 - Monthly multiviewer overlay with each series as **% of its own max**; Pearson correlation heatmap on aligned shapes; raw values table alongside
 - Series descriptors live in `contribution_series.py` (`make_compare_total` / `make_compare_entity` / `make_correlate_metric` helpers in `series_catalog.py`); catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
 
@@ -150,7 +156,6 @@ Four phases, shippable independently after A:
 
 - Other GDPR / export sources when a dump is in hand (ingest + explorer tab via [add-a-dump](guides/add-a-dump.md)):
   - **Reddit** — posts, comments, votes, saved; messaging if present
-  - **Uber** — trips, receipts, searches (drop precise home addresses / payment instruments at ingest)
   - **Airbnb** — stays, host/guest messages, searches
   - **Booking.com** — bookings, searches, messages
   - **WhatsApp** — chat export (text + relative media paths; no phonebook dump by default)

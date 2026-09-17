@@ -33,6 +33,7 @@ from data_dumps.explorer_panels import (
     make_sleep_controls,
     make_spotify_controls,
     make_telegram_controls,
+    make_uber_controls,
     render_amazon_panel,
     render_browser_panel,
     render_compare_panel,
@@ -45,6 +46,7 @@ from data_dumps.explorer_panels import (
     render_sleep_panel,
     render_spotify_panel,
     render_telegram_panel,
+    render_uber_panel,
 )
 from data_dumps.sleep_queries import data_bounds as sl_bounds
 from data_dumps.sources.amazon import AmazonSource
@@ -55,6 +57,7 @@ from data_dumps.sources.ring import RingSource
 from data_dumps.sources.slack import SlackSource
 from data_dumps.sources.sleep import SleepSource
 from data_dumps.sources.telegram import TelegramSource
+from data_dumps.sources.uber import UberSource
 
 from .conftest import make_plays_conn
 from .test_amazon_ingest import make_mini_amazon_dir
@@ -64,6 +67,7 @@ from .test_ring_ingest import make_mini_ring_zip
 from .test_slack_ingest import ALICE, make_mini_slack_zip
 from .test_sleep_queries import _make_zip as make_sleep_zip
 from .test_telegram_ingest import make_mini_telegram_dir
+from .test_uber_ingest import make_mini_uber_zip
 
 ISO_DOW = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
 TG_DOW = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
@@ -400,6 +404,40 @@ def test_render_duolingo_panel(duo_conn):
         "Progress events",
         "Inventory",
         "Rhythm",
+    ):
+        assert needle in html, needle
+
+
+@pytest.fixture
+def uber_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    conn = duckdb.connect(str(tmp_path / "uber_wh.duckdb"))
+    UberSource().load(make_mini_uber_zip(tmp_path), conn)
+    yield conn
+    conn.close()
+
+
+def test_render_uber_panel(uber_conn):
+    from data_dumps import uber_queries as ubq
+
+    bounds = ubq.data_bounds(uber_conn)
+    controls = make_uber_controls(mo, bounds)
+    html = render_uber_panel(
+        mo=mo,
+        px=px,
+        conn=uber_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in (
+        "Uber",
+        "Scoreboard",
+        "Streaks",
+        "Cities",
+        "Rhythm",
+        "Forgotten",
+        "Uber Eats",
     ):
         assert needle in html, needle
 

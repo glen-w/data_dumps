@@ -12,6 +12,7 @@ from data_dumps.sources.spotify_account import SpotifyAccountSource
 from data_dumps.sources.telegram import TelegramSource
 from data_dumps.sources.thunderbird import ThunderbirdSource
 from data_dumps.sources.twitter import TwitterSource
+from data_dumps.sources.uber import UberSource
 
 __all__ = [
     "Source",
@@ -28,4 +29,5 @@ __all__ = [
     "RingSource",
     "AmazonSource",
     "DuolingoSource",
+    "UberSource",
 ]

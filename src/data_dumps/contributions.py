@@ -28,6 +28,7 @@ from data_dumps import spotify_queries as spq
 from data_dumps import telegram_queries as tgq
 from data_dumps import thunderbird_queries as tbq
 from data_dumps import twitter_queries as twq
+from data_dumps import uber_queries as ubq
 from data_dumps.contribution_series import (
     AMAZON_COMPARE,
     AMAZON_CORRELATE,
@@ -53,6 +54,8 @@ from data_dumps.contribution_series import (
     THUNDERBIRD_CORRELATE,
     TWITTER_COMPARE,
     TWITTER_CORRELATE,
+    UBER_COMPARE,
+    UBER_CORRELATE,
 )
 from data_dumps.series_catalog import MetricSpec, SeriesSpec
 from data_dumps.sources.amazon import AmazonSource
@@ -69,6 +72,7 @@ from data_dumps.sources.spotify_account import SpotifyAccountSource
 from data_dumps.sources.telegram import TelegramSource
 from data_dumps.sources.thunderbird import ThunderbirdSource
 from data_dumps.sources.twitter import TwitterSource
+from data_dumps.sources.uber import UberSource
 
 BoundsFn = Callable[[duckdb.DuckDBPyConnection], dict[str, Any]]
 
@@ -221,6 +225,16 @@ CONTRIBUTIONS: tuple[Contribution, ...] = (
         data_bounds=duoq.data_bounds,
         compare_series=DUOLINGO_COMPARE,
         correlate_metrics=DUOLINGO_CORRELATE,
+    ),
+    Contribution(
+        slug="uber",
+        source=UberSource(),
+        tab_label="Uber",
+        tab_icon="lucide:car",
+        gate_table=("uber", "trips"),
+        data_bounds=ubq.data_bounds,
+        compare_series=UBER_COMPARE,
+        correlate_metrics=UBER_CORRELATE,
     ),
 )
 

@@ -76,6 +76,11 @@ from data_dumps.explorer_panels.twitter import (
     make_twitter_controls,
     render_twitter_panel,
 )
+from data_dumps.explorer_panels.uber import (
+    UberControls,
+    make_uber_controls,
+    render_uber_panel,
+)
 
 __all__ = [
     "AmazonControls",
@@ -92,6 +97,7 @@ __all__ = [
     "TelegramControls",
     "ThunderbirdControls",
     "TwitterControls",
+    "UberControls",
     "make_amazon_controls",
     "make_browser_controls",
     "make_compare_controls",
@@ -106,6 +112,7 @@ __all__ = [
     "make_telegram_controls",
     "make_thunderbird_controls",
     "make_twitter_controls",
+    "make_uber_controls",
     "render_amazon_panel",
     "render_browser_panel",
     "render_compare_panel",
@@ -120,4 +127,5 @@ __all__ = [
     "render_telegram_panel",
     "render_thunderbird_panel",
     "render_twitter_panel",
+    "render_uber_panel",
 ]
