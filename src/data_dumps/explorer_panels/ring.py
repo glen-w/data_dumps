@@ -8,6 +8,9 @@ from typing import Any
 import duckdb
 
 from data_dumps import ring_queries as ringq
+from data_dumps.geo import attach_city_coords
+
+from . import charts as panel_charts
 
 
 @dataclass
@@ -64,6 +67,18 @@ def render_ring_panel(
     )
     inv_df = ringq.inventory_summary(conn)
     devices_df = ringq.devices_table(conn)
+    locations_df = ringq.locations_table(conn)
+    loc_geo = attach_city_coords(locations_df, place_col="city")
+    fig_loc_map = panel_charts.geo_bubble_map(
+        px,
+        loc_geo,
+        size="sites",
+        hover_name="location_name",
+        color="country" if "country" in loc_geo.columns else None,
+        title="Device locations (city centroids — street coords scrubbed)",
+        empty_title="No geocoded device locations",
+        size_max=24,
+    )
     flips_df = ringq.daily_offline_flips(conn, filters)
     stretches_df = ringq.offline_stretches(conn, filters)
     motion_df = ringq.motion_timeline(conn, filters)
@@ -157,6 +172,9 @@ def render_ring_panel(
             mo.ui.table(inv_df),
             mo.md("### Devices"),
             mo.ui.table(devices_df),
+            mo.md("### Locations"),
+            mo.ui.plotly(fig_loc_map),
+            mo.ui.table(locations_df),
             mo.md("### Device online/offline"),
             mo.ui.plotly(fig_flips),
             mo.md("### Longest offline stretches"),

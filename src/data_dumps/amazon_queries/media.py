@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import duckdb
 import pandas as pd
 
@@ -239,4 +241,59 @@ def impression_top(
         LIMIT ?
         """,
         params + [limit],
+    )
+
+
+def activity_by_country(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    """Video sessions + product impressions by marketplace country_code."""
+    from data_dumps.amazon_queries.filters import has_table
+
+    parts: list[str] = []
+    params: list[Any] = []
+    if has_table(conn, "video_views"):
+        v_where, v_params = _year_clause("v", f)
+        parts.append(
+            f"""
+            SELECT
+                country_code AS country,
+                count(*)::BIGINT AS events,
+                'video' AS source
+            FROM amazon.video_views v
+            WHERE {v_where} AND country_code IS NOT NULL
+            GROUP BY 1
+            """
+        )
+        params.extend(v_params)
+    if has_table(conn, "product_impressions"):
+        p_where, p_params = _year_clause("p", f)
+        parts.append(
+            f"""
+            SELECT
+                country_code AS country,
+                count(*)::BIGINT AS events,
+                'impressions' AS source
+            FROM amazon.product_impressions p
+            WHERE {p_where} AND country_code IS NOT NULL
+            GROUP BY 1
+            """
+        )
+        params.extend(p_params)
+    if not parts:
+        return pd.DataFrame(columns=["country", "events", "video", "impressions"])
+    union = " UNION ALL ".join(parts)
+    return _query_df(
+        conn,
+        f"""
+        WITH raw AS ({union})
+        SELECT
+            country,
+            sum(events)::BIGINT AS events,
+            coalesce(sum(events) FILTER (WHERE source = 'video'), 0)::BIGINT AS video,
+            coalesce(sum(events) FILTER (WHERE source = 'impressions'), 0)::BIGINT
+                AS impressions
+        FROM raw
+        GROUP BY 1
+        ORDER BY events DESC
+        """,
+        params,
     )

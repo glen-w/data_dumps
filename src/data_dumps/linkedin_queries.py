@@ -349,6 +349,23 @@ def career_timeline(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     )
 
 
+def positions_by_location(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Distinct career locations with role counts (for geo map)."""
+    return _query_df(
+        conn,
+        """
+        SELECT
+            location AS city,
+            count(*)::BIGINT AS roles,
+            count(DISTINCT company_name)::BIGINT AS companies
+        FROM linkedin.positions
+        WHERE location IS NOT NULL AND trim(location) <> ''
+        GROUP BY 1
+        ORDER BY roles DESC, city
+        """,
+    )
+
+
 def messages_by_conversation(
     conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 20
 ) -> pd.DataFrame:

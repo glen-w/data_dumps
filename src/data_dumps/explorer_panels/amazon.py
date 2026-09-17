@@ -9,6 +9,7 @@ import duckdb
 import pandas as pd
 
 from data_dumps import amazon_queries as amzq
+from data_dumps.geo import attach_country_iso3
 
 from . import charts as panel_charts
 
@@ -154,6 +155,16 @@ def render_amazon_panel(
         )
         if not surfaces.empty
         else px.bar(title="No surfaces")
+    )
+    country_act = amzq.activity_by_country(conn, filters)
+    country_geo = attach_country_iso3(country_act, code_col="country")
+    fig_country_map = panel_charts.country_choropleth(
+        px,
+        country_geo,
+        color="events",
+        hover_name="country",
+        title="Video + product impressions by country_code",
+        empty_title="No marketplace country codes to map",
     )
     fig_fx = (
         px.bar(by_fx, x="currency", y="spend", title="Spend by currency (no FX merge)")
@@ -436,6 +447,8 @@ def render_amazon_panel(
         mo.md("### Data footprint"),
         mo.vstack([mo.ui.plotly(fig_foot), mo.ui.plotly(fig_foot_zip)], gap=1),
         mo.ui.plotly(fig_surf),
+        mo.md("### Marketplace map"),
+        mo.ui.plotly(fig_country_map),
         mo.md("### Spend scoreboard"),
         mo.ui.table(score),
         mo.vstack([mo.ui.plotly(fig_fx), mo.ui.plotly(fig_aov)], gap=1),

@@ -19,6 +19,7 @@ from data_dumps.amazon_queries.filters import (
     has_table,
 )
 from data_dumps.amazon_queries.media import (
+    activity_by_country,
     audible_calendar,
     audible_hours,
     audible_monthly,
@@ -122,4 +123,5 @@ __all__ = [
     "rufus_top",
     "impression_mix",
     "impression_top",
+    "activity_by_country",
 ]

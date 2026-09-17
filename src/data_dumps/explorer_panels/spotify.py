@@ -8,6 +8,7 @@ from typing import Any
 import duckdb
 
 import data_dumps.spotify_queries as spq
+from data_dumps.geo import attach_country_iso3
 from data_dumps.llm_client import narrate as llm_narrate
 
 from . import charts as panel_charts
@@ -261,6 +262,16 @@ def render_spotify_panel(
     kind_df = spq.hours_by_kind(conn, filters)
     platform_df = spq.hours_by_platform(conn, filters)
     country_df = spq.hours_by_country(conn, filters)
+    country_total_df = spq.hours_by_country_total(conn, filters)
+    country_geo = attach_country_iso3(country_total_df, code_col="country")
+    fig_country_map = panel_charts.country_choropleth(
+        px,
+        country_geo,
+        color="hours",
+        hover_name="country",
+        title="Listening hours by connection country",
+        empty_title="No country hours to map",
+    )
     skips_df = spq.skip_trends(conn, filters)
     if not monthly_df.empty:
         fig_monthly = px.bar(
@@ -658,6 +669,8 @@ def render_spotify_panel(
             mo.md("### Longitudinal (filter-aware)"),
             mo.vstack([mo.ui.plotly(fig_monthly), mo.ui.plotly(fig_kind)], gap=1),
             mo.vstack([platform_plot, mo.ui.plotly(fig_country)], gap=1),
+            mo.md("### Country map"),
+            mo.ui.plotly(fig_country_map),
             mo.ui.plotly(fig_skips),
             mo.md("### Expanded views"),
             mo.vstack([mo.ui.plotly(fig_tree), mo.ui.plotly(fig_cal)], gap=1),

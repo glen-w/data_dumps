@@ -423,6 +423,25 @@ def devices_table(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     )
 
 
+def locations_table(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Device sites with city/country (coords scrubbed at ingest)."""
+    return _query_df(
+        conn,
+        """
+        SELECT
+            coalesce(location_name, '(unnamed)') AS location_name,
+            city,
+            country,
+            timezone,
+            location_type,
+            1::BIGINT AS sites
+        FROM ring.locations
+        WHERE city IS NOT NULL OR country IS NOT NULL
+        ORDER BY city NULLS LAST, location_name
+        """,
+    )
+
+
 def _events_union_where(f: FilterState) -> tuple[str, list[Any]]:
     """Year filter for the union of Ring event tables (no table alias)."""
     return _where("", f)

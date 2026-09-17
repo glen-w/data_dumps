@@ -406,6 +406,24 @@ def hours_by_country(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.Data
     return _query_df(conn, sql, params)
 
 
+def hours_by_country_total(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    """Total listening hours by connection country (for choropleth)."""
+    where, params = _where_and_params(f)
+    sql = f"""
+        SELECT
+            conn_country AS country,
+            round(sum(hours), 2) AS hours,
+            count(*)::BIGINT AS plays
+        FROM spotify.plays
+        WHERE conn_country IS NOT NULL AND {where}
+        GROUP BY 1
+        ORDER BY hours DESC
+    """
+    return _query_df(conn, sql, params)
+
+
 def skip_trends(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
     where, params = _where_and_params(f)
     sql = f"""

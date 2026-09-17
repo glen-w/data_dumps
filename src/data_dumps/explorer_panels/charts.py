@@ -15,6 +15,106 @@ def empty_line(px: Any, title: str) -> Any:
     return px.line(title=title)
 
 
+def empty_geo_map(px: Any, title: str) -> Any:
+    return px.scatter_map(title=title, map_style="open-street-map")
+
+
+def geo_bubble_map(
+    px: Any,
+    df: pd.DataFrame,
+    *,
+    title: str,
+    size: str,
+    hover_name: str,
+    lat: str = "lat",
+    lon: str = "lon",
+    color: str | None = None,
+    empty_title: str | None = None,
+    size_max: int = 36,
+    zoom: float | None = None,
+    height: int = 420,
+) -> Any:
+    """OpenStreetMap bubble map for pre-geocoded rows (lat/lon columns)."""
+    if df.empty or lat not in df.columns or lon not in df.columns:
+        return empty_geo_map(px, empty_title or title)
+    plot = df.dropna(subset=[lat, lon]).copy()
+    if plot.empty:
+        return empty_geo_map(px, empty_title or title)
+    if size in plot.columns:
+        plot = plot[plot[size].fillna(0) > 0]
+    if plot.empty:
+        return empty_geo_map(px, empty_title or title)
+
+    kw: dict[str, Any] = {
+        "lat": lat,
+        "lon": lon,
+        "size": size if size in plot.columns else None,
+        "hover_name": hover_name if hover_name in plot.columns else None,
+        "title": title,
+        "map_style": "open-street-map",
+        "size_max": size_max,
+        "height": height,
+    }
+    if color and color in plot.columns:
+        kw["color"] = color
+    if zoom is not None:
+        kw["zoom"] = zoom
+    else:
+        # Auto zoom: tight for one city cluster, world for spread-out points.
+        lat_span = float(plot[lat].max() - plot[lat].min())
+        lon_span = float(plot[lon].max() - plot[lon].min())
+        span = max(lat_span, lon_span)
+        if len(plot) == 1 or span < 0.5:
+            kw["zoom"] = 9
+        elif span < 5:
+            kw["zoom"] = 5
+        elif span < 25:
+            kw["zoom"] = 3
+        else:
+            kw["zoom"] = 1.4
+    # Drop None kwargs plotly rejects.
+    kw = {k: v for k, v in kw.items() if v is not None}
+    fig = px.scatter_map(plot, **kw)
+    fig.update_layout(margin={"l": 0, "r": 0, "t": 40, "b": 0})
+    return fig
+
+
+def country_choropleth(
+    px: Any,
+    df: pd.DataFrame,
+    *,
+    title: str,
+    color: str,
+    locations: str = "iso3",
+    hover_name: str | None = None,
+    empty_title: str | None = None,
+    height: int = 420,
+) -> Any:
+    """World choropleth for ISO-3166-1 alpha-3 location codes."""
+    if df.empty or locations not in df.columns or color not in df.columns:
+        return px.choropleth(title=empty_title or title)
+    plot = df.dropna(subset=[locations, color]).copy()
+    plot = plot[plot[color].fillna(0) > 0]
+    if plot.empty:
+        return px.choropleth(title=empty_title or title)
+    kw: dict[str, Any] = {
+        "locations": locations,
+        "color": color,
+        "title": title,
+        "locationmode": "ISO-3",
+        "height": height,
+        "color_continuous_scale": "Blues",
+    }
+    if hover_name and hover_name in plot.columns:
+        kw["hover_name"] = hover_name
+    fig = px.choropleth(plot, **kw)
+    fig.update_layout(
+        margin={"l": 0, "r": 0, "t": 40, "b": 0},
+        geo={"showframe": False, "showcoastlines": True},
+    )
+    return fig
+
+
 def normalized_overlay(
     px: Any,
     df: pd.DataFrame,

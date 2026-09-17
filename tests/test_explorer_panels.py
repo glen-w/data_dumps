@@ -203,6 +203,7 @@ def test_render_spotify_panel(combo_conn):
         "Album depth",
         "Longest listening sessions",
         "Hours by weekday × hour",
+        "Country map",
     ):
         assert needle in html, needle
     # Narration was not triggered (button not clicked) -> no LLM call.
@@ -367,6 +368,7 @@ def test_render_ring_panel(ring_conn):
         "Ring",
         "Scoreboard",
         "Data footprint",
+        "Locations",
         "Device online/offline",
         "App activity spikes",
         "Billing",
@@ -435,6 +437,7 @@ def test_render_uber_panel(uber_conn):
         "Scoreboard",
         "Streaks",
         "Cities",
+        "Trip map",
         "Rhythm",
         "Forgotten",
         "Uber Eats",
@@ -520,6 +523,7 @@ def test_render_amazon_panel(amz_conn):
         "Refund burden by product family",
         "Alexa in the house",
         "Data footprint",
+        "Marketplace map",
     ):
         assert needle in html, needle
 

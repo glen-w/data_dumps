@@ -9,6 +9,7 @@ import duckdb
 import pandas as pd
 
 from data_dumps import linkedin_queries as liq
+from data_dumps.geo import attach_city_coords
 
 from . import charts as panel_charts
 
@@ -262,6 +263,18 @@ def render_linkedin_panel(
         else px.bar(title="No career rows")
     )
 
+    positions_loc_df = liq.positions_by_location(conn)
+    pos_geo = attach_city_coords(positions_loc_df, place_col="city")
+    fig_pos_map = panel_charts.geo_bubble_map(
+        px,
+        pos_geo,
+        size="roles",
+        hover_name="city",
+        title="Career positions by location (approx. centroids)",
+        empty_title="No geocoded career locations",
+        size_max=28,
+    )
+
     extra_sections: list[Any] = []
     if not invite_df.empty:
         fig_inv = px.bar(
@@ -313,6 +326,7 @@ def render_linkedin_panel(
             mo.ui.plotly(fig_title),
             mo.md("### Career"),
             mo.ui.plotly(fig_career),
+            mo.ui.plotly(fig_pos_map),
             mo.ui.table(career_df),
             mo.md("### Messages — select a row or click scatter to lock"),
             mo.vstack(

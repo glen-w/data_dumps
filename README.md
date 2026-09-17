@@ -91,7 +91,7 @@ docker compose up app
 
 - CSVs → `linkedin.connections`, `linkedin.messages`, positions/education, reactions/shares/comments, …
 - IPs, emails, phones, ads, inferences, receipts, and identity documents are dropped at ingest
-- Explorer: LinkedIn tab (network over time, career, messages, feed activity)
+- Explorer: LinkedIn tab (network over time, career + location map, messages, feed activity)
 
 ## Twitter / X YTD archive
 
@@ -163,7 +163,7 @@ uv run ingest ~/Documents/data_dumps_raw/ring/All\ Data\ Categories.zip
 ```
 
 - Tables: `ring.devices`, `ring.device_events`, `ring.events`, `ring.app_events`, `ring.subscriptions`, `ring.accounting`, `ring.dump_inventory`, …
-- Explorer: Ring tab (footprint, online/offline spikes, sparse motion, app volume, billing)
+- Explorer: Ring tab (footprint, device location map, online/offline spikes, sparse motion, app volume, billing)
 - Address, coords, SSID, IPs, and hardware ids dropped at ingest
 
 ## Thunderbird mail (Gloda)
@@ -214,7 +214,7 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Prefer pointing at the **folder** (all parts); a single curated zip also works
 - Tables: `amazon.order_items|orders|searches|…` plus Alexa structured use and `dump_inventory`
 - Voice `.wav` / invoice PDFs / cards / addresses / IPs / geolocation are **not** loaded (voice appears only as footprint inventory)
-- Explorer: Amazon tab — spend (multi-currency), product types, search funnel, Alexa utterances, dump footprint
+- Explorer: Amazon tab — spend (multi-currency), product types, search funnel, Alexa utterances, dump footprint, marketplace country map
 
 ## Duolingo GDPR export
 
@@ -243,7 +243,7 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Tables: `uber.trips|order_items|ratings|support_messages`
 - Grain: `trips` = one rider trip (synthetic `trip_id`); `order_items` = one Eats line item (`order_key` groups an order)
 - Dropped at ingest: profile (name/email/phone/signup coords), payment methods, saved locations, rider/eats app analytics (IPs, device ids, GPS), trip lat/lng + address strings + card numbers, Eats special instructions (scrubbed in `raw/uber/` too)
-- Explorer: Uber tab (scoreboard, streaks, cities/products, circadian + calendar, forgotten/comeback cities, city-rank bump, fare×distance scatter, Eats)
+- Explorer: Uber tab (scoreboard, streaks, cities/products, **trip/Eats city maps**, circadian + calendar, forgotten/comeback cities, city-rank bump, fare×distance scatter, Eats)
 
 ### Compare (cross-source)
 

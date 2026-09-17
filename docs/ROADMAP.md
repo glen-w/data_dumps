@@ -29,7 +29,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 - CSV bag → `linkedin.*` (connections, messages, career, feed activity)
 - IPs/emails/phones/ads/KYC dropped at ingest
-- Explorer LinkedIn tab
+- Explorer LinkedIn tab (career location map from positions)
 
 ### Twitter / X YTD archive
 
@@ -79,7 +79,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 - Folder of `All Data Categories*.zip` → `amazon.*` (orders, searches, returns, media, Alexa structured, dump inventory)
 - Voice WAVs inventory-only; cards/addresses/IPs/geolocation dropped; multi-currency spend (no FX merge)
-- Explorer Amazon tab: footprint observatory, spend/life chapters/types, search funnel, Alexa utterance Wrapped, Audible/Video
+- Explorer Amazon tab: footprint observatory, **marketplace country map**, spend/life chapters/types, search funnel, Alexa utterance Wrapped, Audible/Video
 
 ### Duolingo GDPR
 
@@ -91,7 +91,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 - Zip / `Uber Data/` folder → `uber.trips|order_items|ratings|support_messages`
 - Profile/payments/saved locations/app GPS analytics dropped; trip coords + address strings + card numbers + Eats special instructions scrubbed (including `raw/uber/`)
-- Explorer Uber tab: scoreboard, streaks, cities/products, circadian+calendar, forgotten/comeback cities, city-rank bump, fare×distance, Eats
+- Explorer Uber tab: scoreboard, streaks, cities/products, **trip/Eats city maps** (static gazetteer — trip GPS scrubbed), circadian+calendar, forgotten/comeback cities, city-rank bump, fare×distance, Eats
 
 ### Compare tab (cross-source)
 
@@ -116,8 +116,9 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 Query + chart + panel additions only (no new deps, no ingest restructuring). References: sleep_android_viz, Encore, Spotify-Unwrapped, TelAnalysis, ConvoMetrics.
 
 - **Sleep:** compare-vs-previous scoreboard, regularity KPIs (bedtime/wake stddev, social jet lag, ≥7 h %), weekday × bedtime heatmap, monthly snore/noise, N-night actigraphy small multiples, Mi Band HR overlay + nightly avg HR vs hours, alarm-vs-wake histogram, late-evening Spotify × sleep (scatter + buckets)
-- **Spotify:** milestones table, offline vs online, album depth score, longest listening sessions (30-min gap), top-artist rank movement vs previous window, artist monthly timeline (locked artist or top 3), "searched but barely played" (Account Data)
+- **Spotify:** milestones table, offline vs online, album depth score, longest listening sessions (30-min gap), top-artist rank movement vs previous window, artist monthly timeline (locked artist or top 3), "searched but barely played" (Account Data), **connection-country choropleth**
 - **Telegram:** text KPIs, top words (en/it/es stopwords), emoji-in-text, message length you vs them, per-sender breakdown, reply Sankey (topic service parents excluded), aggregate-only "Narrate this view" (`telegram_queries.narrative_context`, never message text)
+- **Geo maps (shared):** static city gazetteer + ISO country choropleths in `geo.py` / `explorer_panels.charts` — Uber trip/Eats cities, LinkedIn career locations, Ring device cities, Spotify conn_country, Amazon video/impressions country_code (no trip GPS / street coords)
 
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 

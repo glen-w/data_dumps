@@ -229,6 +229,35 @@ def trips_by_city(
     )
 
 
+def eats_by_city(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 20
+) -> pd.DataFrame:
+    where, params = _order_where("o", f)
+    return _query_df(
+        conn,
+        f"""
+        WITH orders AS (
+            SELECT
+                o.order_key,
+                max(o.city_name) AS city_name,
+                max(o.order_price_local) AS order_total
+            FROM uber.order_items o
+            WHERE {where}
+            GROUP BY 1
+        )
+        SELECT
+            coalesce(city_name, '(unknown)') AS city,
+            count(*)::BIGINT AS orders,
+            round(sum(order_total), 2) AS spend_local_sum
+        FROM orders
+        GROUP BY 1
+        ORDER BY orders DESC
+        LIMIT ?
+        """,
+        [*params, limit],
+    )
+
+
 def trips_by_product(
     conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 15
 ) -> pd.DataFrame:

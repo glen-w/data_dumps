@@ -8,6 +8,7 @@ from typing import Any
 import duckdb
 
 from data_dumps import uber_queries as ubq
+from data_dumps.geo import attach_city_coords
 
 from . import charts as panel_charts
 
@@ -84,6 +85,7 @@ def render_uber_panel(
     scatter_df = ubq.fare_vs_distance_scatter(conn, filters)
     eats_monthly_df = ubq.eats_monthly(conn, filters)
     eats_rest_df = ubq.eats_by_restaurant(conn, filters)
+    eats_city_df = ubq.eats_by_city(conn, filters)
     ratings_df = ubq.ratings_summary(conn)
     support_df = ubq.support_summary(conn, filters)
 
@@ -110,6 +112,26 @@ def render_uber_panel(
     )
     if not by_city_df.empty:
         fig_city.update_layout(yaxis={"categoryorder": "total ascending"})
+
+    trip_geo = attach_city_coords(by_city_df, place_col="city")
+    fig_trip_map = panel_charts.geo_bubble_map(
+        px,
+        trip_geo,
+        size="trips",
+        hover_name="city",
+        title="Trips by city (approx. centroids — trip GPS scrubbed at ingest)",
+        empty_title="No geocoded trip cities",
+    )
+    eats_geo = attach_city_coords(eats_city_df, place_col="city")
+    fig_eats_map = panel_charts.geo_bubble_map(
+        px,
+        eats_geo,
+        size="orders",
+        hover_name="city",
+        title="Eats orders by city (approx. centroids)",
+        empty_title="No geocoded Eats cities",
+    )
+    unmapped_trips = int(trip_geo["lat"].isna().sum()) if not trip_geo.empty else 0
 
     fig_product = (
         px.bar(
@@ -206,6 +228,11 @@ def render_uber_panel(
         if bounds.get("first_day")
         else "no dated rows"
     )
+    map_note = (
+        f"_Unmapped trip cities: {unmapped_trips}_"
+        if unmapped_trips
+        else "_All trip cities matched to the static gazetteer._"
+    )
     return mo.vstack(
         [
             mo.md(
@@ -233,6 +260,9 @@ def render_uber_panel(
             mo.ui.plotly(fig_monthly),
             mo.md("### Cities & products"),
             mo.vstack([mo.ui.plotly(fig_city), mo.ui.plotly(fig_product)], gap=1),
+            mo.md("### Trip map"),
+            mo.md(map_note),
+            mo.ui.plotly(fig_trip_map),
             mo.ui.plotly(fig_status),
             mo.md("### Rhythm"),
             mo.vstack([mo.ui.plotly(fig_cal), mo.ui.plotly(fig_circ)], gap=1),
@@ -252,7 +282,14 @@ def render_uber_panel(
             mo.md("### Rank movement & fare scatter"),
             mo.vstack([mo.ui.plotly(fig_bump), mo.ui.plotly(fig_scatter)], gap=1),
             mo.md("### Uber Eats"),
-            mo.vstack([mo.ui.plotly(fig_eats), mo.ui.plotly(fig_rest)], gap=1),
+            mo.vstack(
+                [
+                    mo.ui.plotly(fig_eats),
+                    mo.ui.plotly(fig_eats_map),
+                    mo.ui.plotly(fig_rest),
+                ],
+                gap=1,
+            ),
             mo.ui.table(eats_rest_df),
             mo.md("### Ratings & support"),
             mo.ui.table(ratings_df),
