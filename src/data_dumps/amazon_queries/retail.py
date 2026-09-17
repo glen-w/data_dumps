@@ -166,6 +166,40 @@ def search_funnel(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFra
     )
 
 
+def searches_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_clause("s", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            make_date(year::INT, month::INT, 1) AS month_start,
+            count(*)::BIGINT AS searches
+        FROM amazon.searches s
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def searches_calendar(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_clause("s", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            cast(search_ts_local AS DATE) AS day,
+            count(*)::BIGINT AS searches
+        FROM amazon.searches s
+        WHERE {where} AND search_ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
 def top_search_keywords(
     conn: duckdb.DuckDBPyConnection, f: FilterState, limit: int = 30
 ) -> pd.DataFrame:

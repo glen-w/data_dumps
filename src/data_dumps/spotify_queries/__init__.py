@@ -7,6 +7,7 @@ from data_dumps.spotify_queries.filters import (
     filter_from_widgets,
 )
 from data_dumps.spotify_queries.library import (
+    calendar_daily_searches,
     has_account_data,
     has_mb_data,
     has_mb_tables,
@@ -15,6 +16,7 @@ from data_dumps.spotify_queries.library import (
     library_overlap,
     playlist_sizes,
     search_volume,
+    search_volume_filtered,
     searched_but_rarely_played,
     top_searches,
 )
@@ -67,6 +69,8 @@ __all__ = [
     "library_never_played",
     "playlist_sizes",
     "search_volume",
+    "search_volume_filtered",
+    "calendar_daily_searches",
     "top_searches",
     "searched_but_rarely_played",
     "scoreboard",

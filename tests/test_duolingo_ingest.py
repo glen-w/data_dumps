@@ -7,7 +7,16 @@ from pathlib import Path
 
 import duckdb
 
-from data_dumps.duolingo_queries import data_bounds, filter_from_widgets, scoreboard
+from data_dumps.duolingo_queries import (
+    calendar_daily_inventory,
+    calendar_daily_league_tier,
+    data_bounds,
+    filter_from_widgets,
+    inventory_monthly,
+    leaderboard_tier_monthly,
+    progress_monthly_for_language,
+    scoreboard,
+)
 from data_dumps.ingest import main, pick_source
 from data_dumps.paths import raw_dir
 from data_dumps.sources.base import Source
@@ -192,6 +201,14 @@ def test_load_and_queries(tmp_path, monkeypatch):
     assert int(score.iloc[0]["languages_with_points"]) == 1
     assert int(score.iloc[0]["inventory_buys"]) == 2
     assert int(score.iloc[0]["league_max_tier"]) == 3
+    inv_m = inventory_monthly(conn, filters)
+    assert int(inv_m["buys"].sum()) == 2
+    tier_m = leaderboard_tier_monthly(conn, filters)
+    assert int(tier_m["max_tier"].max()) == 3
+    assert int(calendar_daily_inventory(conn, filters)["buys"].sum()) == 2
+    assert int(calendar_daily_league_tier(conn, filters)["max_tier"].max()) == 3
+    lang_m = progress_monthly_for_language(conn, filters, "es<-en")
+    assert int(lang_m["events"].sum()) == 1
     conn.close()
 
 

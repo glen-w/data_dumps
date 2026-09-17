@@ -140,6 +140,24 @@ def _spotify_late_correlate(
     )
 
 
+def _spotify_searches_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return spq.search_volume_filtered(conn, year_start=year_start, year_end=year_end)
+
+
+def _spotify_searches_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return spq.calendar_daily_searches(conn, year_start=year_start, year_end=year_end)
+
+
+def _spotify_searches_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_spotify_searches_monthly(conn, year_start, year_end))
+
+
 SPOTIFY_COMPARE: tuple[SeriesSpec, ...] = (
     make_compare_total(
         id="spotify_hours",
@@ -150,6 +168,16 @@ SPOTIFY_COMPARE: tuple[SeriesSpec, ...] = (
         unit="hours",
         value_col="hours",
         load_monthly=_spotify_hours_monthly,
+    ),
+    make_compare_total(
+        id="spotify_searches",
+        label="Spotify · searches",
+        source="spotify",
+        schema="spotify",
+        table="searches",
+        unit="searches",
+        value_col="searches",
+        load_monthly=_spotify_searches_monthly,
     ),
     make_compare_entity(
         id="spotify_artist",
@@ -177,6 +205,19 @@ SPOTIFY_CORRELATE: tuple[MetricSpec, ...] = (
         value_col="hours",
         load_daily=_spotify_hours_daily,
         load_monthly=_spotify_hours_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="spotify_searches",
+        label="Spotify · searches",
+        source="spotify",
+        schema="spotify",
+        table="searches",
+        unit="searches",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="searches",
+        load_daily=_spotify_searches_daily,
+        load_monthly=_spotify_searches_corr_monthly,
     ),
     MetricSpec(
         "spotify_late_hours",
@@ -285,6 +326,26 @@ def _telegram_events_correlate(
     )
 
 
+def _telegram_reactions_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = tgq.FilterState(year_start=year_start, year_end=year_end)
+    return tgq.reactions_monthly(conn, f)
+
+
+def _telegram_reactions_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = tgq.FilterState(year_start=year_start, year_end=year_end)
+    return tgq.calendar_daily_reactions(conn, f)
+
+
+def _telegram_reactions_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_telegram_reactions_monthly(conn, year_start, year_end))
+
+
 TELEGRAM_COMPARE: tuple[SeriesSpec, ...] = (
     SeriesSpec(
         "telegram_messages",
@@ -296,6 +357,16 @@ TELEGRAM_COMPARE: tuple[SeriesSpec, ...] = (
         "telegram",
         "messages",
         _telegram_messages_compare,
+    ),
+    make_compare_total(
+        id="telegram_reactions",
+        label="Telegram · reactions",
+        source="telegram",
+        schema="telegram",
+        table="reactions",
+        unit="reactions",
+        value_col="reactions",
+        load_monthly=_telegram_reactions_monthly,
     ),
     SeriesSpec(
         "telegram_chat",
@@ -322,6 +393,19 @@ TELEGRAM_CORRELATE: tuple[MetricSpec, ...] = (
         True,
         True,
         _telegram_events_correlate,
+    ),
+    make_correlate_metric(
+        id="telegram_reactions",
+        label="Telegram · reactions",
+        source="telegram",
+        schema="telegram",
+        table="reactions",
+        unit="reactions",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="reactions",
+        load_daily=_telegram_reactions_daily,
+        load_monthly=_telegram_reactions_corr_monthly,
     ),
 )
 
@@ -411,6 +495,26 @@ def _twitter_tweets_correlate(
     )
 
 
+def _twitter_dms_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = twq.FilterState(year_start=year_start, year_end=year_end)
+    return ym_from_year_month(twq.dm_volume(conn, f))
+
+
+def _twitter_dms_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = twq.FilterState(year_start=year_start, year_end=year_end)
+    return twq.calendar_daily_dms(conn, f)
+
+
+def _twitter_dms_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_twitter_dms_monthly(conn, year_start, year_end))
+
+
 TWITTER_COMPARE: tuple[SeriesSpec, ...] = (
     SeriesSpec(
         "twitter_tweets",
@@ -422,6 +526,16 @@ TWITTER_COMPARE: tuple[SeriesSpec, ...] = (
         "twitter",
         "tweets",
         _twitter_tweets_compare,
+    ),
+    make_compare_total(
+        id="twitter_dms",
+        label="Twitter · DMs",
+        source="twitter",
+        schema="twitter",
+        table="dm_messages",
+        unit="messages",
+        value_col="messages",
+        load_monthly=_twitter_dms_monthly,
     ),
     SeriesSpec(
         "twitter_account",
@@ -448,6 +562,19 @@ TWITTER_CORRELATE: tuple[MetricSpec, ...] = (
         True,
         True,
         _twitter_tweets_correlate,
+    ),
+    make_correlate_metric(
+        id="twitter_dms",
+        label="Twitter · DMs",
+        source="twitter",
+        schema="twitter",
+        table="dm_messages",
+        unit="messages",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="messages",
+        load_daily=_twitter_dms_daily,
+        load_monthly=_twitter_dms_corr_monthly,
     ),
 )
 
@@ -781,6 +908,66 @@ def _linkedin_events_correlate(
     )
 
 
+def _linkedin_connections_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = liq.FilterState(year_start=year_start, year_end=year_end)
+    return liq.connections_monthly(conn, f)
+
+
+def _linkedin_connections_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = liq.FilterState(year_start=year_start, year_end=year_end)
+    return liq.calendar_daily_connections(conn, f)
+
+
+def _linkedin_connections_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_linkedin_connections_monthly(conn, year_start, year_end))
+
+
+def _linkedin_reactions_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = liq.FilterState(year_start=year_start, year_end=year_end)
+    return liq.reactions_monthly(conn, f)
+
+
+def _linkedin_reactions_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = liq.FilterState(year_start=year_start, year_end=year_end)
+    return liq.calendar_daily_reactions(conn, f)
+
+
+def _linkedin_reactions_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_linkedin_reactions_monthly(conn, year_start, year_end))
+
+
+def _linkedin_shares_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = liq.FilterState(year_start=year_start, year_end=year_end)
+    return liq.shares_monthly(conn, f)
+
+
+def _linkedin_shares_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = liq.FilterState(year_start=year_start, year_end=year_end)
+    return liq.calendar_daily_shares(conn, f)
+
+
+def _linkedin_shares_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_linkedin_shares_monthly(conn, year_start, year_end))
+
+
 LINKEDIN_COMPARE: tuple[SeriesSpec, ...] = (
     SeriesSpec(
         "linkedin_messages",
@@ -792,6 +979,36 @@ LINKEDIN_COMPARE: tuple[SeriesSpec, ...] = (
         "linkedin",
         "messages",
         _linkedin_messages_compare,
+    ),
+    make_compare_total(
+        id="linkedin_connections",
+        label="LinkedIn · connections",
+        source="linkedin",
+        schema="linkedin",
+        table="connections",
+        unit="connections",
+        value_col="connections",
+        load_monthly=_linkedin_connections_monthly,
+    ),
+    make_compare_total(
+        id="linkedin_reactions",
+        label="LinkedIn · reactions",
+        source="linkedin",
+        schema="linkedin",
+        table="reactions",
+        unit="reactions",
+        value_col="reactions",
+        load_monthly=_linkedin_reactions_monthly,
+    ),
+    make_compare_total(
+        id="linkedin_shares",
+        label="LinkedIn · shares",
+        source="linkedin",
+        schema="linkedin",
+        table="shares",
+        unit="shares",
+        value_col="shares",
+        load_monthly=_linkedin_shares_monthly,
     ),
     SeriesSpec(
         "linkedin_conversation",
@@ -818,6 +1035,45 @@ LINKEDIN_CORRELATE: tuple[MetricSpec, ...] = (
         True,
         True,
         _linkedin_events_correlate,
+    ),
+    make_correlate_metric(
+        id="linkedin_connections",
+        label="LinkedIn · connections",
+        source="linkedin",
+        schema="linkedin",
+        table="connections",
+        unit="connections",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="connections",
+        load_daily=_linkedin_connections_daily,
+        load_monthly=_linkedin_connections_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="linkedin_reactions",
+        label="LinkedIn · reactions",
+        source="linkedin",
+        schema="linkedin",
+        table="reactions",
+        unit="reactions",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="reactions",
+        load_daily=_linkedin_reactions_daily,
+        load_monthly=_linkedin_reactions_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="linkedin_shares",
+        label="LinkedIn · shares",
+        source="linkedin",
+        schema="linkedin",
+        table="shares",
+        unit="shares",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="shares",
+        load_daily=_linkedin_shares_daily,
+        load_monthly=_linkedin_shares_corr_monthly,
     ),
 )
 
@@ -926,6 +1182,19 @@ def _thunderbird_messages_correlate(
     )
 
 
+def _thunderbird_signals_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = tbq.FilterState(year_start=year_start, year_end=year_end)
+    return tbq.signals_total_monthly(conn, f)
+
+
+def _thunderbird_signals_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_thunderbird_signals_monthly(conn, year_start, year_end))
+
+
 THUNDERBIRD_COMPARE: tuple[SeriesSpec, ...] = (
     SeriesSpec(
         "thunderbird_messages",
@@ -937,6 +1206,16 @@ THUNDERBIRD_COMPARE: tuple[SeriesSpec, ...] = (
         "thunderbird",
         "messages",
         _thunderbird_messages_compare,
+    ),
+    make_compare_total(
+        id="thunderbird_signals",
+        label="Thunderbird · signals",
+        source="thunderbird",
+        schema="thunderbird",
+        table="signals",
+        unit="messages",
+        value_col="messages",
+        load_monthly=_thunderbird_signals_monthly,
     ),
     SeriesSpec(
         "thunderbird_contact",
@@ -963,6 +1242,18 @@ THUNDERBIRD_CORRELATE: tuple[MetricSpec, ...] = (
         True,
         True,
         _thunderbird_messages_correlate,
+    ),
+    make_correlate_metric(
+        id="thunderbird_signals",
+        label="Thunderbird · signals",
+        source="thunderbird",
+        schema="thunderbird",
+        table="signals",
+        unit="messages",
+        supports_daily=False,
+        supports_monthly=True,
+        value_col="messages",
+        load_monthly=_thunderbird_signals_corr_monthly,
     ),
 )
 
@@ -1132,6 +1423,90 @@ def _amazon_kindle_corr_monthly(
     return amzq.kindle_monthly(conn, f).rename(columns={"month_start": "time_key"})
 
 
+def _amazon_searches_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return ym_from_date_col(amzq.searches_monthly(conn, f), "month_start")
+
+
+def _amazon_searches_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return amzq.searches_calendar(conn, f)
+
+
+def _amazon_searches_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return amzq.searches_monthly(conn, f).rename(columns={"month_start": "time_key"})
+
+
+def _amazon_audible_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return ym_from_date_col(amzq.audible_monthly(conn, f), "month_start")
+
+
+def _amazon_audible_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return amzq.audible_calendar(conn, f)
+
+
+def _amazon_audible_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return amzq.audible_monthly(conn, f).rename(columns={"month_start": "time_key"})
+
+
+def _amazon_video_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return ym_from_date_col(amzq.video_monthly(conn, f), "month_start")
+
+
+def _amazon_video_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return amzq.video_calendar(conn, f)
+
+
+def _amazon_video_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return amzq.video_monthly(conn, f).rename(columns={"month_start": "time_key"})
+
+
+def _amazon_music_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return ym_from_date_col(amzq.music_plays_monthly(conn, f), "month_start")
+
+
+def _amazon_music_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return amzq.music_plays_calendar(conn, f)
+
+
+def _amazon_music_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = amzq.FilterState(year_start=year_start, year_end=year_end)
+    return amzq.music_plays_monthly(conn, f).rename(columns={"month_start": "time_key"})
+
+
 AMAZON_COMPARE: tuple[SeriesSpec, ...] = (
     make_compare_total(
         id="amazon_orders",
@@ -1142,6 +1517,16 @@ AMAZON_COMPARE: tuple[SeriesSpec, ...] = (
         unit="orders",
         value_col="orders",
         load_monthly=_amazon_orders_monthly,
+    ),
+    make_compare_total(
+        id="amazon_searches",
+        label="Amazon · searches",
+        source="amazon",
+        schema="amazon",
+        table="searches",
+        unit="searches",
+        value_col="searches",
+        load_monthly=_amazon_searches_monthly,
     ),
     make_compare_total(
         id="amazon_alexa",
@@ -1163,6 +1548,36 @@ AMAZON_COMPARE: tuple[SeriesSpec, ...] = (
         value_col="sessions",
         load_monthly=_amazon_kindle_monthly,
     ),
+    make_compare_total(
+        id="amazon_audible",
+        label="Amazon · Audible hours",
+        source="amazon",
+        schema="amazon",
+        table="audible_listens",
+        unit="hours",
+        value_col="hours",
+        load_monthly=_amazon_audible_monthly,
+    ),
+    make_compare_total(
+        id="amazon_video",
+        label="Amazon · Video sessions",
+        source="amazon",
+        schema="amazon",
+        table="video_views",
+        unit="sessions",
+        value_col="sessions",
+        load_monthly=_amazon_video_monthly,
+    ),
+    make_compare_total(
+        id="amazon_music",
+        label="Amazon · Music plays",
+        source="amazon",
+        schema="amazon",
+        table="music_plays",
+        unit="plays",
+        value_col="plays",
+        load_monthly=_amazon_music_monthly,
+    ),
 )
 
 AMAZON_CORRELATE: tuple[MetricSpec, ...] = (
@@ -1178,6 +1593,19 @@ AMAZON_CORRELATE: tuple[MetricSpec, ...] = (
         value_col="orders",
         load_daily=_amazon_orders_daily,
         load_monthly=_amazon_orders_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="amazon_searches",
+        label="Amazon · searches",
+        source="amazon",
+        schema="amazon",
+        table="searches",
+        unit="searches",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="searches",
+        load_daily=_amazon_searches_daily,
+        load_monthly=_amazon_searches_corr_monthly,
     ),
     make_correlate_metric(
         id="amazon_alexa",
@@ -1202,6 +1630,45 @@ AMAZON_CORRELATE: tuple[MetricSpec, ...] = (
         supports_monthly=True,
         value_col="sessions",
         load_monthly=_amazon_kindle_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="amazon_audible",
+        label="Amazon · Audible hours",
+        source="amazon",
+        schema="amazon",
+        table="audible_listens",
+        unit="hours",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="hours",
+        load_daily=_amazon_audible_daily,
+        load_monthly=_amazon_audible_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="amazon_video",
+        label="Amazon · Video sessions",
+        source="amazon",
+        schema="amazon",
+        table="video_views",
+        unit="sessions",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="sessions",
+        load_daily=_amazon_video_daily,
+        load_monthly=_amazon_video_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="amazon_music",
+        label="Amazon · Music plays",
+        source="amazon",
+        schema="amazon",
+        table="music_plays",
+        unit="plays",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="plays",
+        load_daily=_amazon_music_daily,
+        load_monthly=_amazon_music_corr_monthly,
     ),
 )
 
@@ -1529,6 +1996,48 @@ def _ring_flips_corr_monthly(
     return ym_string_to_ts(_ring_flips_monthly(conn, year_start, year_end))
 
 
+def _ring_motion_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = ringq.FilterState(year_start=year_start, year_end=year_end)
+    return ym_from_date_col(ringq.monthly_motion_events(conn, f), "month")
+
+
+def _ring_motion_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = ringq.FilterState(year_start=year_start, year_end=year_end)
+    return ringq.calendar_daily_motion(conn, f)
+
+
+def _ring_motion_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = ringq.FilterState(year_start=year_start, year_end=year_end)
+    return ringq.monthly_motion_events(conn, f).rename(columns={"month": "time_key"})
+
+
+def _ring_app_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = ringq.FilterState(year_start=year_start, year_end=year_end)
+    return ym_from_date_col(ringq.monthly_app_events(conn, f), "month")
+
+
+def _ring_app_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = ringq.FilterState(year_start=year_start, year_end=year_end)
+    return ringq.calendar_daily_app_events(conn, f)
+
+
+def _ring_app_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = ringq.FilterState(year_start=year_start, year_end=year_end)
+    return ringq.monthly_app_events(conn, f).rename(columns={"month": "time_key"})
+
+
 RING_COMPARE: tuple[SeriesSpec, ...] = (
     SeriesSpec(
         "ring_events",
@@ -1540,6 +2049,26 @@ RING_COMPARE: tuple[SeriesSpec, ...] = (
         "ring",
         "device_events",
         _ring_events_compare,
+    ),
+    make_compare_total(
+        id="ring_motion",
+        label="Ring · motion events",
+        source="ring",
+        schema="ring",
+        table="events",
+        unit="events",
+        value_col="events",
+        load_monthly=_ring_motion_monthly,
+    ),
+    make_compare_total(
+        id="ring_app_events",
+        label="Ring · app events",
+        source="ring",
+        schema="ring",
+        table="app_events",
+        unit="events",
+        value_col="events",
+        load_monthly=_ring_app_monthly,
     ),
     make_compare_total(
         id="ring_offline_flips",
@@ -1564,6 +2093,32 @@ RING_CORRELATE: tuple[MetricSpec, ...] = (
         True,
         True,
         _ring_events_correlate,
+    ),
+    make_correlate_metric(
+        id="ring_motion",
+        label="Ring · motion events",
+        source="ring",
+        schema="ring",
+        table="events",
+        unit="events",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="events",
+        load_daily=_ring_motion_daily,
+        load_monthly=_ring_motion_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="ring_app_events",
+        label="Ring · app events",
+        source="ring",
+        schema="ring",
+        table="app_events",
+        unit="events",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="events",
+        load_daily=_ring_app_daily,
+        load_monthly=_ring_app_corr_monthly,
     ),
     make_correlate_metric(
         id="ring_offline_flips",
@@ -1604,6 +2159,72 @@ def _duolingo_progress_corr_monthly(
     return ym_string_to_ts(_duolingo_progress_monthly(conn, year_start, year_end))
 
 
+def _duolingo_inventory_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = duoq.FilterState(year_start=year_start, year_end=year_end)
+    return duoq.inventory_monthly(conn, f)
+
+
+def _duolingo_inventory_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = duoq.FilterState(year_start=year_start, year_end=year_end)
+    return duoq.calendar_daily_inventory(conn, f)
+
+
+def _duolingo_inventory_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_duolingo_inventory_monthly(conn, year_start, year_end))
+
+
+def _duolingo_league_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = duoq.FilterState(year_start=year_start, year_end=year_end)
+    return duoq.leaderboard_tier_monthly(conn, f)
+
+
+def _duolingo_league_daily(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    f = duoq.FilterState(year_start=year_start, year_end=year_end)
+    return duoq.calendar_daily_league_tier(conn, f)
+
+
+def _duolingo_league_corr_monthly(
+    conn: duckdb.DuckDBPyConnection, year_start: int | None, year_end: int | None
+) -> pd.DataFrame:
+    return ym_string_to_ts(_duolingo_league_monthly(conn, year_start, year_end))
+
+
+def _duolingo_language_options(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    year_start: int | None = None,
+    year_end: int | None = None,
+    limit: int = ENTITY_OPTION_LIMIT,
+) -> list[dict[str, str]]:
+    f = duoq.FilterState(year_start=year_start, year_end=year_end)
+    df = duoq.progress_by_language(conn, f).head(limit)
+    return [
+        {"value": str(r.language), "label": str(r.language)}
+        for r in df.itertuples(index=False)
+        if r.language
+    ]
+
+
+def _duolingo_language_monthly(
+    conn: duckdb.DuckDBPyConnection,
+    year_start: int | None,
+    year_end: int | None,
+    entity: str,
+) -> pd.DataFrame:
+    f = duoq.FilterState(year_start=year_start, year_end=year_end)
+    return duoq.progress_monthly_for_language(conn, f, entity)
+
+
 DUOLINGO_COMPARE: tuple[SeriesSpec, ...] = (
     make_compare_total(
         id="duolingo_progress",
@@ -1614,6 +2235,37 @@ DUOLINGO_COMPARE: tuple[SeriesSpec, ...] = (
         unit="events",
         value_col="events",
         load_monthly=_duolingo_progress_monthly,
+    ),
+    make_compare_total(
+        id="duolingo_inventory",
+        label="Duolingo · inventory buys",
+        source="duolingo",
+        schema="duolingo",
+        table="inventory",
+        unit="buys",
+        value_col="buys",
+        load_monthly=_duolingo_inventory_monthly,
+    ),
+    make_compare_total(
+        id="duolingo_league_tier",
+        label="Duolingo · league max tier",
+        source="duolingo",
+        schema="duolingo",
+        table="leaderboards",
+        unit="tier",
+        value_col="max_tier",
+        load_monthly=_duolingo_league_monthly,
+    ),
+    make_compare_entity(
+        id="duolingo_language",
+        label="Duolingo · language",
+        source="duolingo",
+        schema="duolingo",
+        table="progress_events",
+        unit="events",
+        value_col="events",
+        load_monthly=_duolingo_language_monthly,
+        entity_options=_duolingo_language_options,
     ),
 )
 
@@ -1630,5 +2282,31 @@ DUOLINGO_CORRELATE: tuple[MetricSpec, ...] = (
         value_col="events",
         load_daily=_duolingo_progress_daily,
         load_monthly=_duolingo_progress_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="duolingo_inventory",
+        label="Duolingo · inventory buys",
+        source="duolingo",
+        schema="duolingo",
+        table="inventory",
+        unit="buys",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="buys",
+        load_daily=_duolingo_inventory_daily,
+        load_monthly=_duolingo_inventory_corr_monthly,
+    ),
+    make_correlate_metric(
+        id="duolingo_league_tier",
+        label="Duolingo · league max tier",
+        source="duolingo",
+        schema="duolingo",
+        table="leaderboards",
+        unit="tier",
+        supports_daily=True,
+        supports_monthly=True,
+        value_col="max_tier",
+        load_daily=_duolingo_league_daily,
+        load_monthly=_duolingo_league_corr_monthly,
     ),
 )

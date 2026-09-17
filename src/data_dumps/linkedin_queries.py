@@ -179,6 +179,110 @@ def connections_by_year(
     )
 
 
+def connections_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_clause("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', year, month) AS year_month,
+            count(*)::BIGINT AS connections
+        FROM linkedin.connections
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY year, month
+        ORDER BY year, month
+        """,
+        params,
+    )
+
+
+def calendar_daily_connections(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_clause("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT connected_on AS day, count(*)::BIGINT AS connections
+        FROM linkedin.connections
+        WHERE {where} AND connected_on IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def reactions_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_clause("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', year, month) AS year_month,
+            count(*)::BIGINT AS reactions
+        FROM linkedin.reactions
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY year, month
+        ORDER BY year, month
+        """,
+        params,
+    )
+
+
+def calendar_daily_reactions(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_clause("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT ts_local::DATE AS day, count(*)::BIGINT AS reactions
+        FROM linkedin.reactions
+        WHERE {where} AND ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def shares_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_clause("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', year, month) AS year_month,
+            count(*)::BIGINT AS shares
+        FROM linkedin.shares
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY year, month
+        ORDER BY year, month
+        """,
+        params,
+    )
+
+
+def calendar_daily_shares(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_clause("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT ts_local::DATE AS day, count(*)::BIGINT AS shares
+        FROM linkedin.shares
+        WHERE {where} AND ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
 def top_connection_companies(
     conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 20
 ) -> pd.DataFrame:

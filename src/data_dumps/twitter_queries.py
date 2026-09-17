@@ -835,6 +835,21 @@ def dm_volume(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
     return df
 
 
+def calendar_daily_dms(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _dm_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT ts_local::DATE AS day, count(*)::BIGINT AS messages
+        FROM twitter.dm_messages
+        WHERE {where} AND ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
 def top_dm_conversations(
     conn: duckdb.DuckDBPyConnection,
     f: FilterState,

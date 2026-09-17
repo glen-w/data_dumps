@@ -89,7 +89,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 ### Compare tab (cross-source)
 
-- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat, Slack channel/person, LinkedIn conversation, Spotify artist, Thunderbird contact, Twitter account, Browser URLs last-seen / search URLs, Ring events / flips, Sleep snore/noise, Amazon Alexa/Kindle, Slack active people, …)
+- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, …)
 - Monthly multiviewer overlay with each series as **% of its own max**; Pearson correlation heatmap on aligned shapes; raw values table alongside
 - Series descriptors live in `contribution_series.py` (`make_compare_total` / `make_compare_entity` / `make_correlate_metric` helpers in `series_catalog.py`); catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
 
@@ -148,7 +148,13 @@ Four phases, shippable independently after A:
 - **GUI-driven operations** — eventually all warehouse actions from the Marimo dashboard: ingest, MusicBrainz enrich, re-ingest, and LLM setup — not only explore/filter/narrate. Today ingest and enrich are CLI-only because DuckDB is single-writer; a GUI path needs an orchestration layer (stop dashboard → run job → reopen, or a dedicated writer service) without asking the user to juggle terminals. See [WAREHOUSE.md](WAREHOUSE.md) for current constraints.
 - Wikidata P136 genre enrichment (deferred; MusicBrainz tags only today)
 
-- Other GDPR sources (Reddit) when a dump is in hand
+- Other GDPR / export sources when a dump is in hand (ingest + explorer tab via [add-a-dump](guides/add-a-dump.md)):
+  - **Reddit** — posts, comments, votes, saved; messaging if present
+  - **Uber** — trips, receipts, searches (drop precise home addresses / payment instruments at ingest)
+  - **Airbnb** — stays, host/guest messages, searches
+  - **Booking.com** — bookings, searches, messages
+  - **WhatsApp** — chat export (text + relative media paths; no phonebook dump by default)
+  - **GitHub** — contributions, issues/PRs, starred repos (account export or API archive — prefer dump-only)
 - Cover Art Archive images after MusicBrainz
 - LiteLLM sidecar in compose (TranscriptX-style gateway)
 - Chat-over-corpus / RAG over every play

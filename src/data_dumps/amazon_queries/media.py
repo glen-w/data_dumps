@@ -26,6 +26,40 @@ def audible_hours(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFra
     )
 
 
+def audible_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_clause("a", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            make_date(year::INT, month::INT, 1) AS month_start,
+            round(sum(coalesce(duration_ms, 0)) / 3600000.0, 2) AS hours
+        FROM amazon.audible_listens a
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def audible_calendar(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_clause("a", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            cast(start_ts_local AS DATE) AS day,
+            round(sum(coalesce(duration_ms, 0)) / 3600000.0, 2) AS hours
+        FROM amazon.audible_listens a
+        WHERE {where} AND start_ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
 def video_titles(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
     where, params = _year_clause("v", f)
     return _query_df(
@@ -40,6 +74,78 @@ def video_titles(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFram
         GROUP BY 1
         ORDER BY minutes DESC
         LIMIT 20
+        """,
+        params,
+    )
+
+
+def video_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_clause("v", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            make_date(year::INT, month::INT, 1) AS month_start,
+            count(*)::BIGINT AS sessions
+        FROM amazon.video_views v
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def video_calendar(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_clause("v", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            cast(start_ts_local AS DATE) AS day,
+            count(*)::BIGINT AS sessions
+        FROM amazon.video_views v
+        WHERE {where} AND start_ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def music_plays_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_clause("m", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            make_date(year::INT, month::INT, 1) AS month_start,
+            count(*)::BIGINT AS plays
+        FROM amazon.music_plays m
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def music_plays_calendar(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_clause("m", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            cast(play_ts_local AS DATE) AS day,
+            count(*)::BIGINT AS plays
+        FROM amazon.music_plays m
+        WHERE {where} AND play_ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
         """,
         params,
     )

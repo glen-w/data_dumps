@@ -687,6 +687,48 @@ def reaction_mix(
     return _query_df(conn, sql, params)
 
 
+def reactions_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', m.year, m.month) AS year_month,
+            sum(r.count)::BIGINT AS reactions
+        FROM telegram.reactions r
+        JOIN telegram.messages m
+          ON m.chat_id = r.chat_id AND m.message_id = r.message_id
+        JOIN telegram.chats c ON c.chat_id = m.chat_id
+        WHERE {where} AND m.year IS NOT NULL AND m.month IS NOT NULL
+        GROUP BY m.year, m.month
+        ORDER BY m.year, m.month
+        """,
+        params,
+    )
+
+
+def calendar_daily_reactions(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _where_and_params(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            m.ts_local::DATE AS day,
+            sum(r.count)::BIGINT AS reactions
+        FROM telegram.reactions r
+        JOIN telegram.messages m
+          ON m.chat_id = r.chat_id AND m.message_id = r.message_id
+        JOIN telegram.chats c ON c.chat_id = m.chat_id
+        WHERE {where} AND m.ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
 def calls_by_year(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
     where, params = _where_and_params(f)
     sql = f"""

@@ -48,6 +48,28 @@ def test_series_merged_from_contributions():
     assert "browser_search_urls" in compare_ids
     assert "ring_offline_flips" in compare_ids
     assert "slack_active_people" in compare_ids
+    assert "duolingo_progress" in compare_ids
+    assert "duolingo_inventory" in compare_ids
+    assert "duolingo_league_tier" in compare_ids
+    assert "duolingo_language" in compare_ids
+    assert "amazon_searches" in compare_ids
+    assert "amazon_audible" in compare_ids
+    assert "amazon_video" in compare_ids
+    assert "amazon_music" in compare_ids
+    assert "twitter_dms" in compare_ids
+    assert "linkedin_connections" in compare_ids
+    assert "linkedin_reactions" in compare_ids
+    assert "linkedin_shares" in compare_ids
+    assert "telegram_reactions" in compare_ids
+    assert "ring_motion" in compare_ids
+    assert "ring_app_events" in compare_ids
+    assert "spotify_searches" in compare_ids
+    assert "thunderbird_signals" in compare_ids
+    assert "duolingo_inventory" in corr_ids
+    assert "duolingo_league_tier" in corr_ids
+    assert "amazon_searches" in corr_ids
+    assert "twitter_dms" in corr_ids
+    assert "spotify_searches" in corr_ids
     assert "spotify_late_hours" in corr_ids
     assert "browser_urls_last_seen" in corr_ids
     assert "ring_events" in corr_ids

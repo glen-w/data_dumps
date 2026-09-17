@@ -474,3 +474,73 @@ def monthly_events(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFr
         """,
         params,
     )
+
+
+def monthly_motion_events(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _where("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            date_trunc('month', local_date)::DATE AS month,
+            count(*)::BIGINT AS events
+        FROM ring.events
+        WHERE {where} AND local_date IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def calendar_daily_motion(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _where("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT local_date AS day, count(*)::BIGINT AS events
+        FROM ring.events
+        WHERE {where} AND local_date IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def monthly_app_events(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _where("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            date_trunc('month', local_date)::DATE AS month,
+            count(*)::BIGINT AS events
+        FROM ring.app_events
+        WHERE {where} AND local_date IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def calendar_daily_app_events(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _where("", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT local_date AS day, count(*)::BIGINT AS events
+        FROM ring.app_events
+        WHERE {where} AND local_date IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )

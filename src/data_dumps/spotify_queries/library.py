@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import duckdb
 import pandas as pd
 
@@ -141,6 +143,71 @@ def search_volume(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2)
         )
     return df
+
+
+def search_volume_filtered(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    year_start: int | None = None,
+    year_end: int | None = None,
+) -> pd.DataFrame:
+    if not query_util.has_table(conn, "spotify", "searches"):
+        return pd.DataFrame(columns=["year_month", "searches"])
+    clauses = ["year IS NOT NULL", "month IS NOT NULL"]
+    params: list[Any] = []
+    if year_start is not None:
+        clauses.append("year >= ?")
+        params.append(year_start)
+    if year_end is not None:
+        clauses.append("year <= ?")
+        params.append(year_end)
+    where = " AND ".join(clauses)
+    df = _query_df(
+        conn,
+        f"""
+        SELECT year, month, count(*)::BIGINT AS searches
+        FROM spotify.searches
+        WHERE {where}
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+        """,
+        params,
+    )
+    if not df.empty:
+        df["year_month"] = (
+            df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2)
+        )
+    return df
+
+
+def calendar_daily_searches(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    year_start: int | None = None,
+    year_end: int | None = None,
+) -> pd.DataFrame:
+    if not query_util.has_table(conn, "spotify", "searches"):
+        return pd.DataFrame(columns=["day", "searches"])
+    clauses = ["searched_at_local IS NOT NULL"]
+    params: list[Any] = []
+    if year_start is not None:
+        clauses.append("year >= ?")
+        params.append(year_start)
+    if year_end is not None:
+        clauses.append("year <= ?")
+        params.append(year_end)
+    where = " AND ".join(clauses)
+    return _query_df(
+        conn,
+        f"""
+        SELECT cast(searched_at_local AS DATE) AS day, count(*)::BIGINT AS searches
+        FROM spotify.searches
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
 
 
 def top_searches(conn: duckdb.DuckDBPyConnection, *, limit: int = 20) -> pd.DataFrame:

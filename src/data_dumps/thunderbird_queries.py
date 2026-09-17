@@ -521,6 +521,16 @@ def signal_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFr
     return df
 
 
+def signals_total_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    raw = signal_monthly(conn, f)
+    if raw.empty:
+        return pd.DataFrame(columns=["year_month", "messages"])
+    summed = raw.groupby("year_month", as_index=False)["messages"].sum()
+    return pd.DataFrame(summed).sort_values("year_month")
+
+
 def mask_addr(addr: str | None) -> str:
     """InboxPie-style light masking for UI tables."""
     if not addr or "@" not in addr:

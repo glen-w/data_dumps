@@ -231,6 +231,44 @@ def progress_by_language(
     )
 
 
+def progress_monthly_for_language(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, language: str
+) -> pd.DataFrame:
+    where, params = _where("pe", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', year, month) AS year_month,
+            count(*)::BIGINT AS events
+        FROM duolingo.progress_events pe
+        WHERE {where}
+          AND coalesce(language, '(unknown)') = ?
+          AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY year, month
+        ORDER BY year, month
+        """,
+        [*params, language],
+    )
+
+
+def inventory_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _where("i", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', year, month) AS year_month,
+            count(*)::BIGINT AS buys
+        FROM duolingo.inventory i
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY year, month
+        ORDER BY year, month
+        """,
+        params,
+    )
+
+
 def inventory_by_type_monthly(
     conn: duckdb.DuckDBPyConnection, f: FilterState
 ) -> pd.DataFrame:
@@ -251,6 +289,25 @@ def inventory_by_type_monthly(
     )
 
 
+def leaderboard_tier_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _where("lb", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', year, month) AS year_month,
+            max(tier)::BIGINT AS max_tier
+        FROM duolingo.leaderboards lb
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY year, month
+        ORDER BY year, month
+        """,
+        params,
+    )
+
+
 def calendar_daily_progress(
     conn: duckdb.DuckDBPyConnection, f: FilterState
 ) -> pd.DataFrame:
@@ -262,6 +319,44 @@ def calendar_daily_progress(
             cast(ts_local AS DATE) AS day,
             count(*)::BIGINT AS events
         FROM duolingo.progress_events pe
+        WHERE {where} AND ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def calendar_daily_inventory(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _where("i", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            cast(purchase_ts_local AS DATE) AS day,
+            count(*)::BIGINT AS buys
+        FROM duolingo.inventory i
+        WHERE {where} AND purchase_ts_local IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def calendar_daily_league_tier(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _where("lb", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            cast(ts_local AS DATE) AS day,
+            max(tier)::BIGINT AS max_tier
+        FROM duolingo.leaderboards lb
         WHERE {where} AND ts_local IS NOT NULL
         GROUP BY 1
         ORDER BY 1

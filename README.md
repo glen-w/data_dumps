@@ -233,7 +233,7 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 
 ### Compare (cross-source)
 
-Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Series merge from `contributions.CONTRIBUTIONS` (descriptors in `contribution_series.py` via `series_catalog.make_*` factories). Catalog includes secondary totals (Sleep snore/noise, Amazon Alexa/Kindle, Browser search URLs, Ring flips, Slack active people) when those tables are ingested — still explicit registration, not warehouse column discovery.
+Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Series merge from `contributions.CONTRIBUTIONS` (descriptors in `contribution_series.py` via `series_catalog.make_*` factories). Catalog includes secondary totals (Sleep snore/noise, Amazon Alexa/Kindle/searches/Audible/Video/Music, Browser search URLs, Ring flips/motion/app, Slack active people, Telegram reactions, LinkedIn connections/reactions/shares, Twitter DMs, Thunderbird signals, Spotify Account searches, Duolingo inventory/league tier + language entity) when those tables are ingested — still explicit registration, not warehouse column discovery.
 
 ### Correlations (cross-source)
 
