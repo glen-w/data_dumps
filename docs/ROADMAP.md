@@ -112,7 +112,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 - Zip with `conversations-NNN.json` shards (+ shared / library / asset name map) → `chatgpt.account|conversations|messages|shared|assets`
 - Message text kept; email/phone dropped; `.dat` / `chat.html` not copied into raw
-- Explorer ChatGPT tab: period-compare scoreboard, streaks, model stack + rank bump, circadian + calendar, conversation scatter + click-lock, forgotten/comebacks, reply latency, projects/GPTs, shared + title tokens, assets metadata, optional narrative
+- Explorer ChatGPT tab: period-compare scoreboard, streaks, model stack + rank bump, circadian + calendar, conversation scatter + click-lock, forgotten/comebacks, reply latency, projects/GPTs, word clouds (user / assistant / bigrams / distinctive terms), shared + title tokens, assets metadata, optional narrative
 - Compare / Correlations: messages + conversations; Compare entity = conversation
 - Local TZ: `Europe/Paris`
 

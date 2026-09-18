@@ -176,3 +176,36 @@ def test_filter_digest_and_clear():
     assert f.shared_only is False
     assert f.roles == []
     assert f.filter_digest() != d1
+
+
+def test_message_language_queries(tmp_path, monkeypatch):
+    from data_dumps.wordcloud_util import frequencies_from_frame, wordcloud_png
+
+    conn = _conn(tmp_path, monkeypatch)
+    bounds = cgq.data_bounds(conn)
+    f = cgq.filter_from_widgets(
+        bounds,
+        year_start=bounds["min_year"],
+        year_end=bounds["max_year"],
+    )
+    tokens = cgq.message_tokens(conn, f, role="user")
+    assert not tokens.empty
+    words = set(tokens["term"])
+    assert "explain" in words
+    assert "refactor" in words
+    assert "and" not in words
+    assert "the" not in words
+    pooled = cgq.message_tokens(conn, f, role="all")
+    assert not pooled.empty
+    assert set(pooled["role"]) == {"all"}
+
+    bigrams = cgq.user_bigrams(conn, f)
+    assert list(bigrams.columns) == ["term", "n"]
+    distinctive = cgq.distinctive_terms(conn, f, min_count=1)
+    assert {"term", "n_user", "n_assistant", "score"} <= set(distinctive.columns)
+
+    png = wordcloud_png(frequencies_from_frame(tokens))
+    assert png is not None
+    assert png.startswith(b"\x89PNG")
+    assert wordcloud_png({}) is None
+    conn.close()

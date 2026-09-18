@@ -566,6 +566,7 @@ def test_render_chatgpt_panel(chatgpt_conn):
         "Rhythm",
         "Forgotten",
         "Latency",
+        "Language",
         "Assets",
     ):
         assert needle in html, needle

@@ -9,6 +9,7 @@ import duckdb
 
 from data_dumps import chatgpt_queries as cgq
 from data_dumps.llm_client import narrate as llm_narrate
+from data_dumps.wordcloud_util import frequencies_from_frame, wordcloud_png
 
 from . import charts as panel_charts
 
@@ -120,6 +121,11 @@ def render_chatgpt_panel(
     assets_df = cgq.asset_extension_mix(conn)
     shared_df = cgq.shared_list(conn, filters)
     tokens_df = cgq.title_tokens(conn, filters)
+    token_user = cgq.message_tokens(conn, filters, role="user")
+    token_asst = cgq.message_tokens(conn, filters, role="assistant")
+    token_all = cgq.message_tokens(conn, filters, role="all")
+    bigram_df = cgq.user_bigrams(conn, filters)
+    distinctive_df = cgq.distinctive_terms(conn, filters)
     thread_df = cgq.conversation_messages(conn, filters)
 
     fig_monthly = (
@@ -291,6 +297,29 @@ def render_chatgpt_panel(
     if not tokens_df.empty:
         fig_tokens.update_layout(yaxis={"categoryorder": "total ascending"})
 
+    def _cloud_block(png: bytes | None, caption: str) -> Any:
+        if png is None:
+            return mo.md(f"**{caption}**\n\n_Not enough words in this filter._")
+        return mo.vstack(
+            [mo.md(f"**{caption}**"), mo.image(src=png, alt=caption)],
+            gap=0.25,
+        )
+
+    fig_distinctive = (
+        px.bar(
+            distinctive_df,
+            x="score",
+            y="term",
+            orientation="h",
+            title="Distinctive terms (positive = more you, negative = more assistant)",
+            hover_data=["n_user", "n_assistant"],
+        )
+        if not distinctive_df.empty
+        else px.bar(title="No distinctive terms")
+    )
+    if not distinctive_df.empty:
+        fig_distinctive.update_layout(yaxis={"categoryorder": "total ascending"})
+
     def _lock_conversation(selected: Any) -> None:
         if selected is not None and len(selected) == 1:
             cid = selected.iloc[0].get("conversation_id")
@@ -382,6 +411,23 @@ def render_chatgpt_panel(
         mo.ui.plotly(fig_latency),
         mo.md("### Projects / GPTs"),
         mo.ui.plotly(fig_gizmo),
+        mo.md("### Language"),
+        mo.md(
+            "Word clouds from message text (thoughts excluded). "
+            "They follow the filters above."
+        ),
+        _cloud_block(wordcloud_png(frequencies_from_frame(token_all)), "All messages"),
+        mo.hstack(
+            [
+                _cloud_block(wordcloud_png(frequencies_from_frame(token_user)), "You"),
+                _cloud_block(
+                    wordcloud_png(frequencies_from_frame(token_asst)), "Assistant"
+                ),
+            ],
+            gap=1,
+        ),
+        _cloud_block(wordcloud_png(frequencies_from_frame(bigram_df)), "Your bigrams"),
+        mo.ui.plotly(fig_distinctive),
         mo.md("### Shared + title tokens"),
         mo.hstack(
             [

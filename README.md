@@ -289,7 +289,7 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Grain: `messages` = `(conversation_id, message_id)`; conversations roll up counts/chars/models
 - Dropped at ingest: email/phone from `user.json`, `ads.json`; `.dat` media bytes and `chat.html` not copied into `raw/chatgpt/` (asset metadata only)
 - Kept: conversation titles + message text (chat product), model slugs, thinking/multimodal content types, shared links, library file metadata
-- Explorer: ChatGPT tab (period-compare scoreboard, streaks, model eras + rank bump, circadian + calendar, conversation scatter + lock, forgotten/comebacks, reply latency, projects/GPTs, shared + title tokens, assets, optional narrative)
+- Explorer: ChatGPT tab (period-compare scoreboard, streaks, model eras + rank bump, circadian + calendar, conversation scatter + lock, forgotten/comebacks, reply latency, projects/GPTs, word clouds (user / assistant / bigrams / distinctive terms), shared + title tokens, assets, optional narrative)
 - Compare / Correlations: messages + conversations; Compare entity = conversation
 - TZ: `Europe/Paris` wall-clock
 
