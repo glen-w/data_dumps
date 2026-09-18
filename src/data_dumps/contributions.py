@@ -19,6 +19,7 @@ import duckdb
 from data_dumps import amazon_queries as amzq
 from data_dumps import browser_queries as brq
 from data_dumps import duolingo_queries as duoq
+from data_dumps import google_queries as gq
 from data_dumps import linkedin_queries as liq
 from data_dumps import miband_queries as mbq
 from data_dumps import ring_queries as ringq
@@ -36,6 +37,8 @@ from data_dumps.contribution_series import (
     BROWSER_CORRELATE,
     DUOLINGO_COMPARE,
     DUOLINGO_CORRELATE,
+    GOOGLE_COMPARE,
+    GOOGLE_CORRELATE,
     LINKEDIN_COMPARE,
     LINKEDIN_CORRELATE,
     MIBAND_COMPARE,
@@ -62,6 +65,7 @@ from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.base import Source
 from data_dumps.sources.browser import BrowserSource
 from data_dumps.sources.duolingo import DuolingoSource
+from data_dumps.sources.google import GoogleSource
 from data_dumps.sources.linkedin import LinkedInSource
 from data_dumps.sources.miband import MiBandSource
 from data_dumps.sources.ring import RingSource
@@ -235,6 +239,16 @@ CONTRIBUTIONS: tuple[Contribution, ...] = (
         data_bounds=ubq.data_bounds,
         compare_series=UBER_COMPARE,
         correlate_metrics=UBER_CORRELATE,
+    ),
+    Contribution(
+        slug="google",
+        source=GoogleSource(),
+        tab_label="Google",
+        tab_icon="lucide:chrome",
+        gate_table=("google", "calendar_events"),
+        data_bounds=gq.data_bounds,
+        compare_series=GOOGLE_COMPARE,
+        correlate_metrics=GOOGLE_CORRELATE,
     ),
 )
 

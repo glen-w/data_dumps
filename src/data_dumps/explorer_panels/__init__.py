@@ -31,6 +31,11 @@ from data_dumps.explorer_panels.duolingo import (
     make_duolingo_controls,
     render_duolingo_panel,
 )
+from data_dumps.explorer_panels.google import (
+    GoogleControls,
+    make_google_controls,
+    render_google_panel,
+)
 from data_dumps.explorer_panels.linkedin import (
     LinkedInControls,
     make_linkedin_controls,
@@ -88,6 +93,7 @@ __all__ = [
     "CompareControls",
     "CorrelateControls",
     "DuolingoControls",
+    "GoogleControls",
     "LinkedInControls",
     "MiBandControls",
     "RingControls",
@@ -103,6 +109,7 @@ __all__ = [
     "make_compare_controls",
     "make_correlate_controls",
     "make_duolingo_controls",
+    "make_google_controls",
     "make_linkedin_controls",
     "make_miband_controls",
     "make_ring_controls",
@@ -118,6 +125,7 @@ __all__ = [
     "render_compare_panel",
     "render_correlate_panel",
     "render_duolingo_panel",
+    "render_google_panel",
     "render_linkedin_panel",
     "render_miband_panel",
     "render_ring_panel",

@@ -144,6 +144,16 @@ Zip named like `Uber Data Request ….zip` (or extracted `Uber Data/` folder) wi
 
 Tables: `uber.trips`, `uber.order_items`, `uber.ratings`, `uber.support_messages`. Profile, payment methods, saved locations, and app GPS analytics are not loaded; trip coords/address strings/card numbers and Eats special instructions are scrubbed.
 
+### Ingest Google Takeout (multipart)
+
+Folder of `takeout-*.zip` parts (or an extracted `Takeout/` tree). Large Photos/Drive/Mail members are inventoried but not copied into the warehouse.
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest ~/Documents/data_dumps_raw/google`
+3. Start the dashboard again (Google tab)
+
+Keep-list: Calendar ICS, Play Store (purchases scrub payment emails), Maps your-places (name + country only), Saved lists (no Addresses), photo supplemental metadata (no GPS), My Activity HTML, Tasks. Access logs, mail mbox, contacts, Pay/Wallet, and street/GPS fields are dropped. `google.dump_inventory` records the full on-disk footprint.
+
 ### MusicBrainz enrichment (genres / decades)
 
 `--artist-limit` and `--track-limit` default to **`0` (no cap)**. The CLI assumes you want the **full dataset** — every artist/track above the min lifetime hours — not a sample. MusicBrainz has no free-tier count quota; the only API constraint is **~1 request/second** per IP.

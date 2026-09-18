@@ -93,9 +93,16 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Profile/payments/saved locations/app GPS analytics dropped; trip coords + address strings + card numbers + Eats special instructions scrubbed (including `raw/uber/`)
 - Explorer Uber tab: scoreboard, streaks, cities/products, **trip/Eats city maps** (static gazetteer — trip GPS scrubbed), circadian+calendar, forgotten/comeback cities, city-rank bump, fare×distance, Eats
 
+### Google Takeout (multipart)
+
+- Folder of `takeout-*.zip` → `google.*` (calendar, Play, maps saves/reviews, saved lists, photo metadata, My Activity, tasks, dump inventory)
+- Access logs / mail mbox / contacts / Pay / GPS / street addresses / payment emails dropped; Photos+Drive media inventory-only
+- Explorer Google tab: scoreboard (+hours/purchases/countries), streaks, life-chapters stack, calendar hours/stack/scatter/summary bump, circadian+calendar, photos calendar, maps country+reviews+forgotten/comebacks+bump, Play forgotten apps+purchases, activity heatmap, tasks timeline, noise-calendar filter, footprint
+- Local TZ: `Europe/Paris`; habit ICS epoch placeholders (`1970`) skipped at ingest
+
 ### Compare tab (cross-source)
 
-- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, …)
+- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, Google calendar/photos/maps/Play + calendar entity, …)
 - Monthly multiviewer overlay with each series as **% of its own max**; Pearson correlation heatmap on aligned shapes; raw values table alongside
 - Series descriptors live in `contribution_series.py` (`make_compare_total` / `make_compare_entity` / `make_correlate_metric` helpers in `series_catalog.py`); catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
 

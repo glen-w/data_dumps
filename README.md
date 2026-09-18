@@ -245,9 +245,24 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Dropped at ingest: profile (name/email/phone/signup coords), payment methods, saved locations, rider/eats app analytics (IPs, device ids, GPS), trip lat/lng + address strings + card numbers, Eats special instructions (scrubbed in `raw/uber/` too)
 - Explorer: Uber tab (scoreboard, streaks, cities/products, **trip/Eats city maps**, circadian + calendar, forgotten/comeback cities, city-rank bump, fare×distance scatter, Eats)
 
+## Google Takeout (multipart)
+
+Stop the dashboard first ([WAREHOUSE.md](docs/WAREHOUSE.md)).
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/google
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+```
+
+- Folder of `takeout-*.zip` → `google.calendar_events|play_*|maps_*|saved_places|photos|activity|tasks|dump_inventory`
+- Grain: calendar = `(calendar_name, uid)`; photos = metadata row per sidecar JSON; maps saves = one saved place feature (name + country only)
+- Dropped at ingest: access logs (IPs/Gaia), mail mbox bodies, contacts, profile/account HTML, Pay/Wallet, street addresses, photo/maps GPS, payment emails on Play purchases; Photos/Drive media bytes stay in the zips (inventory only)
+- Explorer: Google tab (life chapters, calendar hours/stack/scatter/summary bump, photos calendar + circadian, maps reviews + forgotten/comebacks, Play forgotten apps + purchases, activity heatmap, tasks timeline, noise-calendar filter, footprint)
+- TZ: `Europe/Paris` wall-clock for local timestamps
+
 ### Compare (cross-source)
 
-Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Series merge from `contributions.CONTRIBUTIONS` (descriptors in `contribution_series.py` via `series_catalog.make_*` factories). Catalog includes secondary totals (Sleep snore/noise, Amazon Alexa/Kindle/searches/Audible/Video/Music, Browser search URLs, Ring flips/motion/app, Slack active people, Telegram reactions, LinkedIn connections/reactions/shares, Twitter DMs, Thunderbird signals, Spotify Account searches, Duolingo inventory/league tier + language entity, Uber trips/Eats + city entity) when those tables are ingested — still explicit registration, not warehouse column discovery.
+Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Series merge from `contributions.CONTRIBUTIONS` (descriptors in `contribution_series.py` via `series_catalog.make_*` factories). Catalog includes secondary totals (Sleep snore/noise, Amazon Alexa/Kindle/searches/Audible/Video/Music, Browser search URLs, Ring flips/motion/app, Slack active people, Telegram reactions, LinkedIn connections/reactions/shares, Twitter DMs, Thunderbird signals, Spotify Account searches, Duolingo inventory/league tier + language entity, Uber trips/Eats + city entity, Google calendar/photos/maps/Play + calendar entity) when those tables are ingested — still explicit registration, not warehouse column discovery.
 
 ### Correlations (cross-source)
 
@@ -303,6 +318,7 @@ sleep_as_android/     # sleep-export.zip + originals.zip
 miband_hr/            # heart_rate.csv + originals.zip
 ring/                 # All Data Categories.zip (Ring GDPR)
 uber/                 # Uber Data Request ….zip
+google/               # takeout-*.zip multipart Takeout
 raw/spotify/          # extracted Streaming_History JSON
 raw/spotify_account/  # Account Data JSON (library/playlists/searches only)
 raw/telegram/         # result.json copy only (not media)
@@ -314,6 +330,7 @@ raw/miband/           # heart_rate.csv copy
 raw/ring/             # keep-list CSVs + flattened app_events.csv
 raw/duolingo/         # keep-list CSVs only (PII/avatar files never copied)
 raw/uber/             # scrubbed trips/orders/ratings/support (no profile/payments/GPS)
+raw/google/           # source_path.txt pointer (zips stay under google/)
 warehouse/            # DuckDB catalog + llm_cache
 ```
 
