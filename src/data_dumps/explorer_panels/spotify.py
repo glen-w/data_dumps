@@ -520,7 +520,7 @@ def render_spotify_panel(
         library_block = mo.md(
             "_Library/playlists need the Spotify Account Data dump. "
             "Stop this notebook, then: "
-            "`uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_account_data_2026-09-06.zip`_"
+            "`uv run ingest /path/to/my_spotify_account_data.zip`_"
         )
 
     narrative_out = mo.md(

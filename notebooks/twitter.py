@@ -18,7 +18,7 @@ def _():
     if not db_path.exists():
         raise FileNotFoundError(
             f"No warehouse at {db_path}. Run: "
-            "uv run ingest ~/Documents/data_dumps_raw/twitter/twitter-archive-2023-07-20"
+            "uv run ingest /path/to/twitter-archive"
         )
     conn = duckdb.connect(str(db_path), read_only=True)
     has_tw = conn.execute("""
@@ -28,7 +28,7 @@ def _():
     if has_tw is None or has_tw[0] == 0:
         raise FileNotFoundError(
             "twitter.tweets is missing. Stop the dashboard, then: "
-            "uv run ingest ~/Documents/data_dumps_raw/twitter/twitter-archive-2023-07-20"
+            "uv run ingest /path/to/twitter-archive"
         )
     bounds = data_bounds(conn)
     dow_labels = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}

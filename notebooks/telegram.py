@@ -18,7 +18,7 @@ def _():
     if not db_path.exists():
         raise FileNotFoundError(
             f"No warehouse at {db_path}. Run: "
-            "uv run ingest ~/Documents/data_dumps_raw/telegram/Telegram_Export_2026-09-03"
+            "uv run ingest /path/to/Telegram_Export"
         )
     conn = duckdb.connect(str(db_path), read_only=True)
     has_tg = conn.execute("""
@@ -28,7 +28,7 @@ def _():
     if has_tg is None or has_tg[0] == 0:
         raise FileNotFoundError(
             "telegram.messages is missing. Stop the dashboard, then: "
-            "uv run ingest ~/Documents/data_dumps_raw/telegram/Telegram_Export_2026-09-03"
+            "uv run ingest /path/to/Telegram_Export"
         )
     bounds = data_bounds(conn)
     dow_labels = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}

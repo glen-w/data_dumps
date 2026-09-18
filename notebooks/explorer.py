@@ -89,6 +89,7 @@ def _():
         _by_slug[_c.slug] = {
             "present": _present,
             "bounds": _bounds,
+            "name": _c.tab_label,
             "tab_label": _tab_label(_c.tab_icon, _c.tab_label),
         }
 
@@ -222,6 +223,13 @@ def _():
 
 
 @app.cell(hide_code=True)
+def _(mo):
+    # Lives in its own cell so menu rebuilds don't reset the selection.
+    get_tab, set_tab = mo.state(None, allow_self_loops=True)
+    return get_tab, set_tab
+
+
+@app.cell(hide_code=True)
 def _(
     airbnb_bounds,
     amz_bounds,
@@ -252,8 +260,10 @@ def _(
     has_uber,
     li_bounds,
     mb_hr_bounds,
+    get_tab,
     mo,
     ring_bounds,
+    set_tab,
     sk_bounds,
     sl_bounds,
     sp_bounds,
@@ -356,15 +366,62 @@ def _(
         if has_correlate and corr_bounds
         else "Need ≥2 sources"
     )
-    # Cross-cutting tabs first; platform tabs from CONTRIBUTIONS order.
-    tab_items = {
-        tab_correlate: mo.md(f"_{corr_caption}_"),
-        tab_compare: mo.md(f"_{cmp_caption}_"),
-    }
-    for slug, meta in explorer_by_slug.items():
-        label = meta["tab_label"]
-        tab_items[label] = mo.md(f"_{captions.get(slug, 'Not ingested')}_")
-    source = mo.ui.tabs(tab_items, value=default_tab)
+    # Compare + Correlations on row 1; dumps A–Z on the next row (wraps if needed).
+    selected = get_tab() or default_tab
+
+    def _chip(label: str):
+        button = mo.ui.button(
+            label=label,
+            on_click=lambda _value, picked=label: set_tab(picked) or picked,
+        )
+        active = label == selected
+        return button.style(
+            {
+                "background": "var(--background)" if active else "var(--muted)",
+                "border-radius": "6px",
+                "box-shadow": (
+                    "inset 0 0 0 2px var(--foreground)" if active else "none"
+                ),
+            }
+        )
+
+    cross_row = mo.hstack(
+        [_chip(tab_compare), _chip(tab_correlate)],
+        justify="start",
+        gap=0.35,
+    )
+    dump_row = mo.hstack(
+        [
+            _chip(meta["tab_label"])
+            for _slug, meta in sorted(
+                explorer_by_slug.items(),
+                key=lambda item: item[1]["name"].casefold(),
+            )
+        ],
+        justify="start",
+        wrap=True,
+        gap=0.35,
+    )
+    if selected == tab_compare:
+        shown_caption = cmp_caption
+    elif selected == tab_correlate:
+        shown_caption = corr_caption
+    else:
+        shown_slug = next(
+            (
+                slug
+                for slug, meta in explorer_by_slug.items()
+                if meta["tab_label"] == selected
+            ),
+            None,
+        )
+        shown_caption = captions.get(shown_slug, "Not ingested")
+
+    class _Menu:
+        def __init__(self, value: str) -> None:
+            self.value = value
+
+    source = _Menu(selected)
     from pathlib import Path
 
     logo = Path(__file__).resolve().parent.parent / "assets" / "logo.png"
@@ -377,7 +434,10 @@ def _(
         align="center",
         gap=0.75,
     )
-    mo.vstack([header, source], gap=0.5)
+    mo.vstack(
+        [header, cross_row, dump_row, mo.md(f"_{shown_caption}_")],
+        gap=0.5,
+    )
     return (source,)
 
 
@@ -657,7 +717,7 @@ def _(
             True,
             mo.md(
                 "No `telegram.messages` in the warehouse. Stop this notebook, then:\n\n"
-                "`uv run ingest ~/Documents/data_dumps_raw/telegram/Telegram_Export_2026-09-03`"
+                "`uv run ingest /path/to/Telegram_Export`"
             ),
         )
     render_telegram_panel(
@@ -691,7 +751,7 @@ def _(
             True,
             mo.md(
                 "No `linkedin.connections` in the warehouse. Stop this notebook, then:\n\n"
-                "`uv run ingest ~/Documents/data_dumps_raw/linkedin/Complete_LinkedInDataExport_09-06-2026.zip.zip`"
+                "`uv run ingest /path/to/Complete_LinkedInDataExport.zip`"
             ),
         )
     render_linkedin_panel(
@@ -915,7 +975,7 @@ def _(
             True,
             mo.md(
                 "No `twitter.tweets` in the warehouse. Stop this notebook, then:\n\n"
-                "`uv run ingest ~/Documents/data_dumps_raw/twitter/twitter-archive-2023-07-20`"
+                "`uv run ingest /path/to/twitter-archive`"
             ),
         )
     render_twitter_panel(

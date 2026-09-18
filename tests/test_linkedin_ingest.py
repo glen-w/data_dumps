@@ -48,7 +48,7 @@ c1,Ada,Ada Lovelace,https://linkedin.com/in/ada,Glen Wright,https://linkedin.com
 
 POSITIONS_CSV = """Company Name,Title,Description,Location,Started On,Finished On
 Sciences Po,Adjunct Professor,,Paris,Jan 2015,
-REN21,Knowledge & Data,,Paris,Jul 2023,Feb 2026
+Acme Labs,Knowledge & Data,,Paris,Jul 2023,Feb 2026
 """
 
 INVITATIONS_CSV = """From,To,Sent At,Message,Direction,inviterProfileUrl,inviteeProfileUrl

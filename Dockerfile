@@ -21,5 +21,5 @@ ENV DATA_DUMPS_ROOT=/data
 ENV PYTHONUNBUFFERED=1
 
 # Default: notebook (override for one-shot ingest via compose).
-# --no-token: house Serve is Tailscale-only (same as Gossa Mac). No rotating access_token.
+# --no-token: no access token. Publish the port on loopback only (see docker-compose.yml).
 CMD ["marimo", "run", "notebooks/explorer.py", "--host", "0.0.0.0", "--port", "2718", "--headless", "--no-token"]

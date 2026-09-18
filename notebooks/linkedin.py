@@ -18,8 +18,7 @@ def _():
     if not db_path.exists():
         raise FileNotFoundError(
             f"No warehouse at {db_path}. Run: "
-            "uv run ingest ~/Documents/data_dumps_raw/linkedin/"
-            "Complete_LinkedInDataExport_09-06-2026.zip.zip"
+            "uv run ingest /path/to/Complete_LinkedInDataExport.zip"
         )
     conn = duckdb.connect(str(db_path), read_only=True)
     has_li = conn.execute("""
@@ -29,8 +28,7 @@ def _():
     if has_li is None or has_li[0] == 0:
         raise FileNotFoundError(
             "linkedin.connections is missing. Stop the dashboard, then: "
-            "uv run ingest ~/Documents/data_dumps_raw/linkedin/"
-            "Complete_LinkedInDataExport_09-06-2026.zip.zip"
+            "uv run ingest /path/to/Complete_LinkedInDataExport.zip"
         )
     bounds = data_bounds(conn)
     dow_labels = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}

@@ -27,7 +27,7 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 ### Ingest a new dump
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_data.zip`
+2. `uv run ingest /path/to/my_spotify_data.zip`
 3. Start the dashboard again
 
 ### Ingest Spotify Account Data (library / playlists)
@@ -35,25 +35,25 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 Does **not** replace Extended History `spotify.plays`.
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/spotify/my_spotify_account_data_2026-09-06.zip`
+2. `uv run ingest /path/to/my_spotify_account_data.zip`
 3. Start the dashboard again — Library & playlists appears on the Spotify tab
 
 ### Ingest a Telegram Desktop export
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/telegram/Telegram_Export_2026-09-03`
+2. `uv run ingest /path/to/Telegram_Export`
 3. `uv run marimo run notebooks/explorer.py` (Telegram tab)
 
 ### Ingest a LinkedIn Complete export
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/linkedin/Complete_LinkedInDataExport_09-06-2026.zip.zip`
+2. `uv run ingest /path/to/Complete_LinkedInDataExport.zip`
 3. Start the dashboard again (LinkedIn tab)
 
 ### Ingest a Twitter / X YTD archive
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/twitter/twitter-archive-2023-07-20`
+2. `uv run ingest /path/to/twitter-archive`
 3. Start the dashboard again (Twitter tab)
 
 Classic `window.YTD.*.part0` JS exports are supported; newer X dumps may need schema updates.
@@ -63,7 +63,7 @@ Classic `window.YTD.*.part0` JS exports are supported; newer X dumps may need sc
 Workspace export zip (or extracted folder) with `users.json`, `channels.json` and `<channel>/<YYYY-MM-DD>.json`.
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest "~/Documents/data_dumps_raw/slack/REN21 Slack export May 13 2018 - Sep 26 2025.zip"`
+2. `uv run ingest /path/to/slack-export.zip`
 3. Start the dashboard again (Slack tab)
 
 Tables and grains:
@@ -78,14 +78,14 @@ Tables and grains:
 | `slack.mentions` | (channel_id, ts, mentioned_user_id) | from `<@U…>` in text |
 | `slack.files` | (channel_id, ts, file_id) | metadata only |
 
-Full REN21 export (~34k daily files, 1 GB uncompressed) loads in under 10 s; nothing is extracted to disk except the two root JSONs.
+A large export (tens of thousands of daily files) loads in seconds; nothing is extracted to disk except the two root JSONs.
 
 ### Ingest Sleep as Android
 
 Canonical package: `sleep-export.zip` (`sleep-export.csv` + optional `prefs.xml` / `noise.json` / `alarms.json`).
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/sleep_as_android/sleep-export.zip`
+2. `uv run ingest /path/to/sleep-export.zip`
 3. Start the dashboard again (Sleep tab)
 
 Tables: `sleep.sessions`, `sleep.events`, `sleep.actigraphy`, `sleep.alarms` (from the `alarms.json` sidecar; empty when absent). Future app re-exports use the same zip layout.
@@ -95,7 +95,7 @@ Tables: `sleep.sessions`, `sleep.events`, `sleep.actigraphy`, `sleep.alarms` (fr
 Merged CSV with `dateTime,rate,rateZone`.
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/miband_hr/heart_rate.csv`
+2. `uv run ingest /path/to/heart_rate.csv`
 3. Start the dashboard again (Mi Band tab)
 
 ### Ingest Ring GDPR
@@ -103,7 +103,7 @@ Merged CSV with `dateTime,rate,rateZone`.
 `All Data Categories.zip` from a Ring data request (devices, online/offline, sparse motion retention, app telemetry, subscriptions).
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/ring/All\ Data\ Categories.zip`
+2. `uv run ingest "/path/to/All Data Categories.zip"`
 3. Start the dashboard again (Ring tab)
 
 Tables: `ring.devices`, `ring.setups`, `ring.locations`, `ring.device_events`, `ring.events`, `ring.app_events`, `ring.subscriptions`, `ring.accounting`, `ring.dump_inventory`. Address, coords, SSID, IPs, and hardware ids are dropped; city/country and device names are kept.
@@ -113,8 +113,8 @@ Tables: `ring.devices`, `ring.setups`, `ring.locations`, `ring.device_events`, `
 Sky History Export JSON (canonical dated file) plus optional Chrome-style `history.json` (may be two concatenated arrays).
 
 1. **Stop** Marimo or `docker compose stop app`
-2. Put files under `~/Documents/data_dumps_raw/firefox/` then:
-   `uv run ingest ~/Documents/data_dumps_raw/firefox/`
+2. Put the JSON files in one folder, then:
+   `uv run ingest /path/to/firefox/`
 3. Start the dashboard again (Browser tab)
 
 | Table | Grain | Notes |
@@ -129,7 +129,7 @@ Visit-level Firefox `places.sqlite` → `browser.visits` is deferred (needed for
 Folder of `All Data Categories*.zip` (+ `FileDescriptions.csv`), or a single curated zip / extracted `Your Amazon Orders/` tree.
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/amazon`
+2. `uv run ingest /path/to/amazon`
 3. Start the dashboard again (Amazon tab)
 
 Commerce, search, returns, Audible/Video/Music, Kindle, Rufus, and Alexa **structured** tables land in `amazon.*`. Voice WAVs and payment/address PII are skipped; `amazon.dump_inventory` records the full on-disk footprint.
@@ -139,7 +139,7 @@ Commerce, search, returns, Audible/Video/Music, Kindle, Rufus, and Alexa **struc
 Zip named like `Uber Data Request ….zip` (or extracted `Uber Data/` folder) with `Rider/rider_lifetime_trips-0.csv`.
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/uber/"Uber Data Request ….zip"`
+2. `uv run ingest "/path/to/Uber Data Request.zip"`
 3. Start the dashboard again (Uber tab)
 
 Tables: `uber.trips`, `uber.order_items`, `uber.ratings`, `uber.support_messages`. Profile, payment methods, saved locations, and app GPS analytics are not loaded; trip coords/address strings/card numbers and Eats special instructions are scrubbed.
@@ -149,7 +149,7 @@ Tables: `uber.trips`, `uber.order_items`, `uber.ratings`, `uber.support_messages
 Folder of `takeout-*.zip` parts (or an extracted `Takeout/` tree). Large Photos/Drive/Mail members are inventoried but not copied into the warehouse.
 
 1. **Stop** Marimo or `docker compose stop app`
-2. `uv run ingest ~/Documents/data_dumps_raw/google`
+2. `uv run ingest /path/to/google`
 3. Start the dashboard again (Google tab)
 
 Keep-list: Calendar ICS, Play Store (purchases scrub payment emails), Maps your-places (name + country only), Saved lists (no Addresses), photo supplemental metadata (no GPS), My Activity HTML, Tasks. Access logs, mail mbox, contacts, Pay/Wallet, and street/GPS fields are dropped. `google.dump_inventory` records the full on-disk footprint.
@@ -157,18 +157,16 @@ Keep-list: Calendar ICS, Play Store (purchases scrub payment emails), Maps your-
 ### Ingest Airbnb personal data
 
 1. **Stop** Marimo or `docker compose stop app`
-2. Place the zip under `~/Documents/data_dumps_raw/airbnb/` (e.g. `airbnb.zip`)
-3. `uv run ingest ~/Documents/data_dumps_raw/airbnb/airbnb.zip`
-4. Start the dashboard again — Airbnb tab (search map + reservations)
+2. `uv run ingest /path/to/airbnb.zip`
+3. Start the dashboard again — Airbnb tab (search map + reservations)
 
 Keep-list HTML: reservations, search_history, reviews, wishlists. Profile is read only for account id (not copied to `raw/airbnb/`). Activity log, payments, KYC, messages, and search telemetry are skipped.
 
 ### Ingest ChatGPT export
 
 1. **Stop** Marimo or `docker compose stop app`
-2. Place the zip under `~/Documents/data_dumps_raw/chatgpt/` (e.g. `chatgpt.zip`)
-3. `uv run ingest ~/Documents/data_dumps_raw/chatgpt/chatgpt.zip`
-4. Start the dashboard again — ChatGPT tab
+2. `uv run ingest /path/to/chatgpt.zip`
+3. Start the dashboard again — ChatGPT tab
 
 Keep-list: `conversations-*.json`, `shared_conversations.json`, `conversation_asset_file_names.json`, `library_files.json`, stripped `account.json`. Not copied: `.dat` media, `chat.html`, email/phone from `user.json`, `ads.json`.
 
@@ -199,20 +197,22 @@ Each artist/track takes two calls (search + lookup), so a full crawl of thousand
 
 ### Docker
 
+Paths below are inside the container (`/data` is the bind-mounted data root).
+
 ```bash
 docker compose stop app          # release warehouse lock
 docker compose run --rm --entrypoint ingest app /data/spotify/my_spotify_data.zip
-docker compose run --rm --entrypoint ingest app /data/spotify/my_spotify_account_data_2026-09-06.zip
-docker compose run --rm --entrypoint ingest app /data/telegram/Telegram_Export_2026-09-03
-docker compose run --rm --entrypoint ingest app /data/linkedin/Complete_LinkedInDataExport_09-06-2026.zip.zip
-docker compose run --rm --entrypoint ingest app /data/twitter/twitter-archive-2023-07-20
-docker compose run --rm --entrypoint ingest app "/data/slack/REN21 Slack export May 13 2018 - Sep 26 2025.zip"
+docker compose run --rm --entrypoint ingest app /data/spotify/my_spotify_account_data.zip
+docker compose run --rm --entrypoint ingest app /data/telegram/Telegram_Export
+docker compose run --rm --entrypoint ingest app /data/linkedin/Complete_LinkedInDataExport.zip
+docker compose run --rm --entrypoint ingest app /data/twitter/twitter-archive
+docker compose run --rm --entrypoint ingest app /data/slack/slack-export.zip
 docker compose run --rm --entrypoint ingest app /data/sleep_as_android/sleep-export.zip
 docker compose run --rm --entrypoint ingest app /data/miband_hr/heart_rate.csv
 docker compose run --rm --entrypoint ingest app "/data/ring/All Data Categories.zip"
 docker compose run --rm --entrypoint ingest app /data/firefox/
 docker compose run --rm --entrypoint ingest app /data/amazon
-docker compose run --rm --entrypoint ingest app "/data/uber/Uber Data Request 820F71B0.zip"
+docker compose run --rm --entrypoint ingest app "/data/uber/Uber Data Request.zip"
 docker compose run --rm --entrypoint ingest app /data/airbnb/airbnb.zip
 docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run
 docker compose up app
