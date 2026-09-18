@@ -267,18 +267,10 @@ def render_uber_panel(
             mo.md("### Rhythm"),
             mo.vstack([mo.ui.plotly(fig_cal), mo.ui.plotly(fig_circ)], gap=1),
             mo.md("### Forgotten & comeback cities"),
-            mo.hstack(
-                [
-                    mo.vstack(
-                        [mo.md("Silent ≥2y"), mo.ui.table(forgotten_df)], gap=0.25
-                    ),
-                    mo.vstack(
-                        [mo.md("Returned after gap"), mo.ui.table(comeback_df)],
-                        gap=0.25,
-                    ),
-                ],
-                gap=1,
-            ),
+            mo.md("Silent ≥2y"),
+            mo.ui.table(forgotten_df),
+            mo.md("Returned after gap"),
+            mo.ui.table(comeback_df),
             mo.md("### Rank movement & fare scatter"),
             mo.vstack([mo.ui.plotly(fig_bump), mo.ui.plotly(fig_scatter)], gap=1),
             mo.md("### Uber Eats"),

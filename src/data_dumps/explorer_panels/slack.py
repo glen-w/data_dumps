@@ -471,9 +471,8 @@ def render_slack_panel(
                 ),
                 mo.vstack([mo.ui.plotly(fig_pm), mo.ui.plotly(fig_share)], gap=1),
                 mo.ui.plotly(fig_pmix),
-                mo.hstack(
-                    [mo.ui.plotly(fig_pheat), mo.ui.plotly(fig_theat)], widths="equal"
-                ),
+                mo.ui.plotly(fig_pheat),
+                mo.ui.plotly(fig_theat),
                 mo.ui.plotly(fig_pcal),
                 mo.ui.plotly(fig_collab),
                 mo.ui.plotly(fig_pemoji),

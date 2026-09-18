@@ -85,6 +85,7 @@ def render_google_panel(
     cal_monthly = gq.calendar_monthly(conn, filters)
     cal_by_name = gq.calendar_by_name(conn, filters)
     cal_top = gq.calendar_top_summaries(conn, filters)
+    cal_kind = gq.calendar_kind_mix(conn, filters)
     scatter_df = gq.duration_vs_hour_scatter(conn, filters)
     summary_bump = gq.summary_rank_bump(conn, filters)
     circ_df = gq.weekday_heatmap(conn, filters)
@@ -96,6 +97,8 @@ def render_google_panel(
     maps_country = gq.maps_by_country(conn, filters)
     maps_m = gq.maps_monthly(conn, filters)
     maps_reviews = gq.maps_reviews_table(conn, filters)
+    maps_ratings = gq.maps_rating_mix(conn, filters)
+    maps_reviews_m = gq.maps_reviews_monthly(conn, filters)
     forgotten = gq.forgotten_places(conn, filters)
     comebacks = gq.comeback_places(conn, filters)
     bump_df = gq.country_rank_bump(conn, filters)
@@ -105,12 +108,20 @@ def render_google_panel(
     forgotten_apps = gq.forgotten_apps(conn, filters)
     play_purchases_m = gq.play_purchases_monthly(conn, filters)
     play_totals = gq.play_purchase_totals(conn, filters)
+    play_lib_m = gq.play_library_monthly(conn, filters)
+    play_lib_top = gq.play_library_top(conn, filters)
+    play_sub_states = gq.play_subscription_states(conn, filters)
+    play_subs = gq.play_subscriptions_table(conn, filters)
     act_prod = gq.activity_by_product(conn, filters)
     act_m = gq.activity_monthly(conn, filters)
+    act_action = gq.activity_by_action(conn, filters)
+    act_stack = gq.activity_product_monthly(conn, filters)
+    act_titles = gq.activity_top_titles(conn, filters)
     act_circ = gq.activity_weekday_heatmap(conn, filters)
     tasks_tl = gq.tasks_timeline(conn, filters)
     footprint = gq.footprint_by_category(conn)
     saved = gq.saved_lists_summary(conn)
+    saved_titles = gq.saved_place_titles(conn)
     tasks = gq.tasks_summary(conn)
 
     fig_surfaces = (
@@ -179,6 +190,11 @@ def render_google_panel(
     )
     if not cal_top.empty:
         fig_top.update_layout(yaxis={"categoryorder": "total ascending"})
+    fig_kind = (
+        px.pie(cal_kind, names="kind", values="events", title="Timed vs all-day")
+        if not cal_kind.empty
+        else px.pie(title="No calendar kinds")
+    )
 
     fig_scatter = (
         px.scatter(
@@ -269,6 +285,27 @@ def render_google_panel(
         yaxis_title="",
     )
 
+    fig_ratings = (
+        px.bar(
+            maps_ratings,
+            x="rating",
+            y="reviews",
+            title="Maps review ratings",
+        )
+        if not maps_ratings.empty
+        else px.bar(title="No ratings")
+    )
+    fig_reviews_m = (
+        px.bar(
+            maps_reviews_m,
+            x="year_month",
+            y="reviews",
+            title="Maps reviews by month",
+            hover_data=["avg_rating"],
+        )
+        if not maps_reviews_m.empty
+        else px.bar(title="No review months")
+    )
     fig_maps_m = (
         px.bar(maps_m, x="year_month", y="saves", title="Map saves by month")
         if not maps_m.empty
@@ -322,6 +359,41 @@ def render_google_panel(
         if not play_dev.empty
         else px.pie(title="No devices")
     )
+    fig_lib = (
+        px.area(
+            play_lib_m,
+            x="year_month",
+            y="items",
+            color="document_type",
+            title="Play library acquisitions",
+        )
+        if not play_lib_m.empty
+        else px.area(title="No library items")
+    )
+    fig_lib_top = (
+        px.bar(
+            play_lib_top.head(15),
+            x="items",
+            y="title",
+            color="document_type",
+            orientation="h",
+            title="Play library titles",
+        )
+        if not play_lib_top.empty
+        else px.bar(title="No library titles")
+    )
+    if not play_lib_top.empty:
+        fig_lib_top.update_layout(yaxis={"categoryorder": "total ascending"})
+    fig_subs = (
+        px.pie(
+            play_sub_states,
+            names="state",
+            values="subscriptions",
+            title="Play subscription states",
+        )
+        if not play_sub_states.empty
+        else px.pie(title="No subscriptions")
+    )
     fig_purchases = (
         px.bar(
             play_purchases_m,
@@ -351,6 +423,31 @@ def render_google_panel(
     )
     if not act_prod.empty:
         fig_act_prod.update_layout(yaxis={"categoryorder": "total ascending"})
+    fig_act_action = (
+        px.bar(
+            act_action.head(20),
+            x="events",
+            y="action",
+            color="product",
+            orientation="h",
+            title="My Activity by action",
+        )
+        if not act_action.empty
+        else px.bar(title="No actions")
+    )
+    if not act_action.empty:
+        fig_act_action.update_layout(yaxis={"categoryorder": "total ascending"})
+    fig_act_stack = (
+        px.area(
+            act_stack,
+            x="year_month",
+            y="events",
+            color="product",
+            title="My Activity stacked by product",
+        )
+        if not act_stack.empty
+        else px.area(title="No activity stack")
+    )
     fig_act_circ = panel_charts.circadian_heatmap(
         px,
         act_circ,
@@ -432,6 +529,7 @@ def render_google_panel(
         mo.ui.plotly(fig_stack),
         mo.vstack([mo.ui.plotly(fig_cal_m), mo.ui.plotly(fig_cal_name)], gap=1),
         mo.ui.plotly(fig_top),
+        mo.ui.plotly(fig_kind),
         mo.md("### Scatter"),
         mo.ui.plotly(fig_scatter),
         mo.ui.plotly(fig_summary_bump),
@@ -447,6 +545,8 @@ def render_google_panel(
             mo.md("## Maps & saved places"),
             mo.vstack([mo.ui.plotly(fig_maps_m), mo.ui.plotly(fig_country)], gap=1),
             mo.ui.plotly(fig_bump),
+            mo.md("### Ratings"),
+            mo.vstack([mo.ui.plotly(fig_ratings), mo.ui.plotly(fig_reviews_m)], gap=1),
             mo.md("### Reviews"),
             (
                 mo.ui.table(maps_reviews)
@@ -461,6 +561,15 @@ def render_google_panel(
             mo.vstack([mo.ui.plotly(fig_play), mo.ui.plotly(fig_dev)], gap=1),
             mo.ui.plotly(fig_apps),
             mo.ui.plotly(fig_purchases),
+            mo.md("### Play library"),
+            mo.vstack([mo.ui.plotly(fig_lib), mo.ui.plotly(fig_lib_top)], gap=1),
+            mo.md("### Subscriptions"),
+            mo.ui.plotly(fig_subs),
+            (
+                mo.ui.table(play_subs)
+                if not play_subs.empty
+                else mo.md("_No subscriptions_")
+            ),
             (
                 mo.ui.table(play_totals)
                 if not play_totals.empty
@@ -474,6 +583,10 @@ def render_google_panel(
             ),
             mo.md("## My Activity"),
             mo.vstack([mo.ui.plotly(fig_act), mo.ui.plotly(fig_act_prod)], gap=1),
+            mo.ui.plotly(fig_act_stack),
+            mo.ui.plotly(fig_act_action),
+            mo.md("### Titles"),
+            mo.ui.table(act_titles) if not act_titles.empty else mo.md("_No titles_"),
             mo.ui.plotly(fig_act_circ),
         ]
     )
@@ -487,17 +600,13 @@ def render_google_panel(
     sections.extend(
         [
             mo.md("## Saved lists & tasks"),
-            mo.hstack(
-                [
-                    (
-                        mo.ui.table(saved)
-                        if not saved.empty
-                        else mo.md("_No saved lists_")
-                    ),
-                    mo.ui.table(tasks) if not tasks.empty else mo.md("_No tasks_"),
-                ],
-                widths="equal",
+            (
+                mo.ui.table(saved_titles)
+                if not saved_titles.empty
+                else mo.md("_No saved titles_")
             ),
+            (mo.ui.table(saved) if not saved.empty else mo.md("_No saved lists_")),
+            mo.ui.table(tasks) if not tasks.empty else mo.md("_No tasks_"),
             mo.md("## Data footprint"),
             mo.ui.plotly(fig_foot),
             mo.ui.table(footprint) if not footprint.empty else mo.md("_No inventory_"),

@@ -490,7 +490,10 @@ def test_render_google_panel(google_conn):
         "Photos",
         "Maps",
         "Play Store",
+        "Play library",
+        "Subscriptions",
         "My Activity",
+        "Ratings",
         "Data footprint",
     ):
         assert needle in html, needle
@@ -545,6 +548,31 @@ def chatgpt_conn(tmp_path, monkeypatch):
     conn.close()
 
 
+def test_explorer_panels_stack_charts_in_one_column():
+    """Filter rows may sit side by side; charts, clouds, and tables must not."""
+    import ast
+    from pathlib import Path
+
+    root = (
+        Path(__file__).resolve().parents[1] / "src" / "data_dumps" / "explorer_panels"
+    )
+    banned = ("plotly", "ui.table", "_cloud_block")
+    offenders: list[str] = []
+    for path in sorted(root.glob("*.py")):
+        source = path.read_text()
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not (isinstance(func, ast.Attribute) and func.attr == "hstack"):
+                continue
+            segment = ast.get_source_segment(source, node) or ""
+            if any(token in segment for token in banned):
+                offenders.append(f"{path.name}: {segment.split(chr(10), 1)[0]}")
+    assert offenders == []
+
+
 def test_render_chatgpt_panel(chatgpt_conn):
     from data_dumps import chatgpt_queries as cgq
 
@@ -567,6 +595,8 @@ def test_render_chatgpt_panel(chatgpt_conn):
         "Forgotten",
         "Latency",
         "Language",
+        "Thinking",
+        "Conversation flags",
         "Assets",
     ):
         assert needle in html, needle

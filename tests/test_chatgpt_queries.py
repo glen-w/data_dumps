@@ -199,6 +199,25 @@ def test_message_language_queries(tmp_path, monkeypatch):
     assert not pooled.empty
     assert set(pooled["role"]) == {"all"}
 
+    modality = cgq.modality_monthly(conn, f)
+    assert not modality.empty
+    assert int(modality["assistant_chars"].sum()) > 0
+    assert not cgq.content_type_monthly(conn, f).empty
+    lengths = cgq.message_length_buckets(conn, f)
+    assert "<40" in set(lengths["bucket"])
+    depth = cgq.conversation_depth(conn, f)
+    assert not depth.empty
+    flags = cgq.conversation_flags(conn, f)
+    assert set(flags["flag"]) == {
+        "archived",
+        "starred",
+        "study_mode",
+        "do_not_remember",
+    }
+    assets = cgq.assets_monthly(conn, f)
+    assert not assets.empty
+    assert int(assets["files"].sum()) >= 1
+
     bigrams = cgq.user_bigrams(conn, f)
     assert list(bigrams.columns) == ["term", "n"]
     distinctive = cgq.distinctive_terms(conn, f, min_count=1)

@@ -355,31 +355,19 @@ def render_thunderbird_panel(
             mo.md("### Circadian · calendar"),
             mo.vstack([mo.ui.plotly(fig_heat), mo.ui.plotly(fig_cal)], gap=1),
             mo.md("### People — select a sender to lock"),
-            mo.hstack(
-                [
-                    mo.vstack([mo.md("**Top senders (received)**"), senders_table]),
-                    mo.vstack(
-                        [mo.md("**Top recipients (sent)**"), mo.ui.table(recipients_df)]
-                    ),
-                ],
-                gap=1,
-            ),
+            mo.md("**Top senders (received)**"),
+            senders_table,
+            mo.md("**Top recipients (sent)**"),
+            mo.ui.table(recipients_df),
             mo.md("### Relationships · arcs"),
             mo.vstack(
                 [
                     mo.ui.plotly(fig_scatter),
                     mo.ui.plotly(fig_bump),
-                    mo.hstack(
-                        [
-                            mo.vstack(
-                                [mo.md("**Forgotten**"), mo.ui.table(forgotten_df)]
-                            ),
-                            mo.vstack(
-                                [mo.md("**Comebacks**"), mo.ui.table(comeback_df)]
-                            ),
-                        ],
-                        gap=1,
-                    ),
+                    mo.md("**Forgotten**"),
+                    mo.ui.table(forgotten_df),
+                    mo.md("**Comebacks**"),
+                    mo.ui.table(comeback_df),
                 ],
                 gap=1,
             ),

@@ -339,17 +339,10 @@ def render_linkedin_panel(
                 [
                     scatter_plot,
                     mo.ui.plotly(fig_bump),
-                    mo.hstack(
-                        [
-                            mo.vstack(
-                                [mo.md("**Forgotten**"), mo.ui.table(forgotten_df)]
-                            ),
-                            mo.vstack(
-                                [mo.md("**Comebacks**"), mo.ui.table(comeback_df)]
-                            ),
-                        ],
-                        gap=1,
-                    ),
+                    mo.md("**Forgotten**"),
+                    mo.ui.table(forgotten_df),
+                    mo.md("**Comebacks**"),
+                    mo.ui.table(comeback_df),
                 ],
                 gap=1,
             ),

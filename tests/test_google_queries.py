@@ -93,13 +93,36 @@ def test_noise_filter_reduces_calendar_count(google_conn):
 
 
 def test_forbidden_columns_absent(google_conn):
-    cols = {
-        r[0].lower()
-        for r in google_conn.execute(
-            """
+    cols = {r[0].lower() for r in google_conn.execute("""
             SELECT column_name FROM information_schema.columns
             WHERE table_schema = 'google'
-            """
-        ).fetchall()
-    }
+            """).fetchall()}
     assert not (cols & FORBIDDEN_COLUMNS)
+
+
+def test_unused_surfaces(google_conn, google_filters):
+    library = gq.play_library_top(google_conn, google_filters)
+    assert "Maps" in set(library["title"])
+    assert not gq.play_library_monthly(google_conn, google_filters).empty
+    subs = gq.play_subscriptions_table(google_conn, google_filters)
+    assert "Premium" in set(subs["title"])
+    assert not gq.play_subscription_states(google_conn, google_filters).empty
+
+    titles = gq.activity_top_titles(google_conn, google_filters)
+    assert "url" not in titles.columns
+    blob = " ".join(titles.astype(str).to_numpy().ravel())
+    assert "youtube.com" not in blob
+    assert not gq.activity_by_action(google_conn, google_filters).empty
+    assert not gq.activity_product_monthly(google_conn, google_filters).empty
+
+    ratings = gq.maps_rating_mix(google_conn, google_filters)
+    assert 5 in set(ratings["rating"])
+    assert not gq.maps_reviews_monthly(google_conn, google_filters).empty
+    assert not gq.calendar_kind_mix(google_conn, google_filters).empty
+
+    places = gq.saved_place_titles(google_conn)
+    assert {"list_name", "title"} == set(places.columns)
+    assert "Mont-Valérien" in set(places["title"])
+    place_blob = " ".join(places.astype(str).to_numpy().ravel())
+    assert "secret street" not in place_blob
+    assert "maps.google.com" not in place_blob

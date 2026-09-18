@@ -1027,6 +1027,221 @@ def tasks_summary(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     )
 
 
+def calendar_kind_mix(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _cal_where("e", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            CASE WHEN e.all_day = 1 THEN 'all-day' ELSE 'timed' END AS kind,
+            count(*)::BIGINT AS events
+        FROM google.calendar_events e
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY events DESC
+        """,
+        params,
+    )
+
+
+def play_library_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_where("p", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', p.year, p.month) AS year_month,
+            coalesce(p.document_type, '(unknown)') AS document_type,
+            count(*)::BIGINT AS items
+        FROM google.play_library p
+        WHERE {where} AND p.year IS NOT NULL AND p.month IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY 1, items DESC
+        """,
+        params,
+    )
+
+
+def play_library_top(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 20
+) -> pd.DataFrame:
+    where, params = _year_where("p", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            coalesce(p.title, '(untitled)') AS title,
+            coalesce(p.document_type, '(unknown)') AS document_type,
+            count(*)::BIGINT AS items,
+            min(p.day) AS first_day
+        FROM google.play_library p
+        WHERE {where}
+        GROUP BY 1, 2
+        ORDER BY items DESC, title
+        LIMIT ?
+        """,
+        [*params, limit],
+    )
+
+
+def play_subscription_states(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_where("p", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            coalesce(p.state, '(unknown)') AS state,
+            count(*)::BIGINT AS subscriptions
+        FROM google.play_subscriptions p
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY subscriptions DESC
+        """,
+        params,
+    )
+
+
+def play_subscriptions_table(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 40
+) -> pd.DataFrame:
+    where, params = _year_where("p", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            coalesce(p.title, '(untitled)') AS title,
+            coalesce(p.document_type, '(unknown)') AS document_type,
+            coalesce(p.state, '(unknown)') AS state,
+            p.expiration_utc::DATE AS expires
+        FROM google.play_subscriptions p
+        WHERE {where}
+        ORDER BY p.expiration_utc DESC NULLS LAST, title
+        LIMIT ?
+        """,
+        [*params, limit],
+    )
+
+
+def activity_by_action(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_where("a", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            coalesce(a.product, '(unknown)') AS product,
+            coalesce(a.action, '(unknown)') AS action,
+            count(*)::BIGINT AS events
+        FROM google.activity a
+        WHERE {where}
+        GROUP BY 1, 2
+        ORDER BY events DESC
+        """,
+        params,
+    )
+
+
+def activity_product_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_where("a", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', a.year, a.month) AS year_month,
+            coalesce(a.product, '(unknown)') AS product,
+            count(*)::BIGINT AS events
+        FROM google.activity a
+        WHERE {where} AND a.year IS NOT NULL AND a.month IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY 1, events DESC
+        """,
+        params,
+    )
+
+
+def activity_top_titles(
+    conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 25
+) -> pd.DataFrame:
+    """Title + product + action only. Activity URLs stay out of the panel."""
+    where, params = _year_where("a", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            coalesce(a.title, '(untitled)') AS title,
+            coalesce(a.product, '(unknown)') AS product,
+            coalesce(a.action, '(unknown)') AS action,
+            count(*)::BIGINT AS events
+        FROM google.activity a
+        WHERE {where} AND a.title IS NOT NULL
+        GROUP BY 1, 2, 3
+        ORDER BY events DESC, title
+        LIMIT ?
+        """,
+        [*params, limit],
+    )
+
+
+def maps_rating_mix(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _year_where("m", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            m.rating,
+            count(*)::BIGINT AS reviews
+        FROM google.maps_reviews m
+        WHERE {where} AND m.rating IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def maps_reviews_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _year_where("m", f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', m.year, m.month) AS year_month,
+            count(*)::BIGINT AS reviews,
+            round(avg(m.rating), 2) AS avg_rating
+        FROM google.maps_reviews m
+        WHERE {where} AND m.year IS NOT NULL AND m.month IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def saved_place_titles(
+    conn: duckdb.DuckDBPyConnection, *, limit: int = 200
+) -> pd.DataFrame:
+    """List name + title only. URLs and notes can carry street addresses."""
+    return _query_df(
+        conn,
+        """
+        SELECT
+            coalesce(list_name, '(unknown)') AS list_name,
+            coalesce(title, '(untitled)') AS title
+        FROM google.saved_places
+        ORDER BY list_name, title
+        LIMIT ?
+        """,
+        [limit],
+    )
+
+
 def tasks_timeline(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
     """Monthly completed vs open counts from created/completed timestamps."""
     where, params = _year_where("t", f)

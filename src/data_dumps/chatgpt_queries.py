@@ -869,6 +869,168 @@ def gizmo_usage(
     )
 
 
+def modality_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _msg_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', year, month) AS year_month,
+            count(*) FILTER (WHERE content_type = 'thoughts')::BIGINT AS thoughts,
+            coalesce(sum(image_count), 0)::BIGINT AS images,
+            coalesce(sum(char_count) FILTER (WHERE role = 'assistant'), 0)::BIGINT
+                AS assistant_chars,
+            coalesce(sum(char_count) FILTER (WHERE role = 'user'), 0)::BIGINT
+                AS user_chars
+        FROM chatgpt.messages m
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
+def content_type_monthly(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _msg_where(f)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', year, month) AS year_month,
+            coalesce(content_type, 'unknown') AS content_type,
+            count(*)::BIGINT AS messages
+        FROM chatgpt.messages m
+        WHERE {where} AND year IS NOT NULL AND month IS NOT NULL
+        GROUP BY 1, 2
+        ORDER BY 1, messages DESC
+        """,
+        params,
+    )
+
+
+def message_length_buckets(
+    conn: duckdb.DuckDBPyConnection, f: FilterState
+) -> pd.DataFrame:
+    where, params = _msg_where(f)
+    return _query_df(
+        conn,
+        f"""
+        WITH tagged AS (
+            SELECT
+                CASE
+                    WHEN coalesce(char_count, 0) < 40 THEN 1
+                    WHEN char_count < 200 THEN 2
+                    WHEN char_count < 1000 THEN 3
+                    ELSE 4
+                END AS ord,
+                CASE
+                    WHEN coalesce(char_count, 0) < 40 THEN '<40'
+                    WHEN char_count < 200 THEN '40–199'
+                    WHEN char_count < 1000 THEN '200–999'
+                    ELSE '1000+'
+                END AS bucket
+            FROM chatgpt.messages m
+            WHERE {where} AND role = 'user'
+        )
+        SELECT bucket, count(*)::BIGINT AS messages
+        FROM tagged
+        GROUP BY bucket, ord
+        ORDER BY ord
+        """,
+        params,
+    )
+
+
+def conversation_depth(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _conv_where(f)
+    return _query_df(
+        conn,
+        f"""
+        WITH tagged AS (
+            SELECT
+                CASE
+                    WHEN coalesce(n_messages, 0) <= 2 THEN 1
+                    WHEN n_messages <= 10 THEN 2
+                    WHEN n_messages <= 40 THEN 3
+                    ELSE 4
+                END AS ord,
+                CASE
+                    WHEN coalesce(n_messages, 0) <= 2 THEN '1–2'
+                    WHEN n_messages <= 10 THEN '3–10'
+                    WHEN n_messages <= 40 THEN '11–40'
+                    ELSE '41+'
+                END AS bucket
+            FROM chatgpt.conversations c
+            WHERE {where}
+        )
+        SELECT bucket, count(*)::BIGINT AS conversations
+        FROM tagged
+        GROUP BY bucket, ord
+        ORDER BY ord
+        """,
+        params,
+    )
+
+
+def conversation_flags(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    where, params = _conv_where(f)
+    return _query_df(
+        conn,
+        f"""
+        WITH base AS (
+            SELECT
+                count(*) FILTER (WHERE coalesce(is_archived, false))::BIGINT AS archived,
+                count(*) FILTER (WHERE coalesce(is_starred, false))::BIGINT AS starred,
+                count(*) FILTER (WHERE coalesce(is_study_mode, false))::BIGINT
+                    AS study_mode,
+                count(*) FILTER (WHERE coalesce(is_do_not_remember, false))::BIGINT
+                    AS do_not_remember
+            FROM chatgpt.conversations c
+            WHERE {where}
+        )
+        SELECT 'archived' AS flag, archived AS conversations FROM base
+        UNION ALL
+        SELECT 'starred', starred FROM base
+        UNION ALL
+        SELECT 'study_mode', study_mode FROM base
+        UNION ALL
+        SELECT 'do_not_remember', do_not_remember FROM base
+        """,
+        params,
+    )
+
+
+def assets_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
+    if not has_table(conn, "assets"):
+        return pd.DataFrame()
+    clauses = ["year IS NOT NULL", "month IS NOT NULL"]
+    params: list[Any] = []
+    if f.year_start is not None:
+        clauses.append("year >= ?")
+        params.append(f.year_start)
+    if f.year_end is not None:
+        clauses.append("year <= ?")
+        params.append(f.year_end)
+    where = " AND ".join(clauses)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            printf('%04d-%02d', year::INT, month::INT) AS year_month,
+            count(*)::BIGINT AS files,
+            coalesce(sum(file_size_bytes), 0)::BIGINT AS bytes
+        FROM chatgpt.assets
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
+
+
 def asset_extension_mix(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     if not has_table(conn, "assets"):
         return pd.DataFrame()

@@ -257,7 +257,7 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Folder of `takeout-*.zip` → `google.calendar_events|play_*|maps_*|saved_places|photos|activity|tasks|dump_inventory`
 - Grain: calendar = `(calendar_name, uid)`; photos = metadata row per sidecar JSON; maps saves = one saved place feature (name + country only)
 - Dropped at ingest: access logs (IPs/Gaia), mail mbox bodies, contacts, profile/account HTML, Pay/Wallet, street addresses, photo/maps GPS, payment emails on Play purchases; Photos/Drive media bytes stay in the zips (inventory only)
-- Explorer: Google tab (life chapters, calendar hours/stack/scatter/summary bump, photos calendar + circadian, maps reviews + forgotten/comebacks, Play forgotten apps + purchases, activity heatmap, tasks timeline, noise-calendar filter, footprint)
+- Explorer: Google tab (life chapters, calendar hours/stack/scatter/summary bump + timed vs all-day, photos calendar + circadian, maps reviews/ratings + forgotten/comebacks, Play library + subscriptions + forgotten apps + purchases, activity action/product stack + titles, tasks timeline, noise-calendar filter, footprint)
 - TZ: `Europe/Paris` wall-clock for local timestamps
 
 ## Airbnb personal data export
@@ -289,7 +289,7 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Grain: `messages` = `(conversation_id, message_id)`; conversations roll up counts/chars/models
 - Dropped at ingest: email/phone from `user.json`, `ads.json`; `.dat` media bytes and `chat.html` not copied into `raw/chatgpt/` (asset metadata only)
 - Kept: conversation titles + message text (chat product), model slugs, thinking/multimodal content types, shared links, library file metadata
-- Explorer: ChatGPT tab (period-compare scoreboard, streaks, model eras + rank bump, circadian + calendar, conversation scatter + lock, forgotten/comebacks, reply latency, projects/GPTs, word clouds (user / assistant / bigrams / distinctive terms), shared + title tokens, assets, optional narrative)
+- Explorer: ChatGPT tab (period-compare scoreboard, streaks, model eras + rank bump, circadian + calendar, conversation scatter + lock, depth/length, flags, thinking/images, content-type stack, forgotten/comebacks, reply latency, projects/GPTs, word clouds (user / assistant / bigrams / distinctive terms), shared + title tokens, assets + monthly, optional narrative)
 - Compare / Correlations: messages + conversations; Compare entity = conversation
 - TZ: `Europe/Paris` wall-clock
 

@@ -97,7 +97,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 - Folder of `takeout-*.zip` → `google.*` (calendar, Play, maps saves/reviews, saved lists, photo metadata, My Activity, tasks, dump inventory)
 - Access logs / mail mbox / contacts / Pay / GPS / street addresses / payment emails dropped; Photos+Drive media inventory-only
-- Explorer Google tab: scoreboard (+hours/purchases/countries), streaks, life-chapters stack, calendar hours/stack/scatter/summary bump, circadian+calendar, photos calendar, maps country+reviews+forgotten/comebacks+bump, Play forgotten apps+purchases, activity heatmap, tasks timeline, noise-calendar filter, footprint
+- Explorer Google tab: scoreboard (+hours/purchases/countries), streaks, life-chapters stack, calendar hours/stack/scatter/summary bump + timed vs all-day, circadian+calendar, photos calendar, maps country+reviews/ratings+forgotten/comebacks+bump, Play library/subscriptions + forgotten apps+purchases, activity action/product stack + title table (no URLs), tasks timeline, noise-calendar filter, footprint
 - Local TZ: `Europe/Paris`; habit ICS epoch placeholders (`1970`) skipped at ingest
 
 ### Airbnb personal data
@@ -112,7 +112,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 - Zip with `conversations-NNN.json` shards (+ shared / library / asset name map) → `chatgpt.account|conversations|messages|shared|assets`
 - Message text kept; email/phone dropped; `.dat` / `chat.html` not copied into raw
-- Explorer ChatGPT tab: period-compare scoreboard, streaks, model stack + rank bump, circadian + calendar, conversation scatter + click-lock, forgotten/comebacks, reply latency, projects/GPTs, word clouds (user / assistant / bigrams / distinctive terms), shared + title tokens, assets metadata, optional narrative
+- Explorer ChatGPT tab: period-compare scoreboard, streaks, model stack + rank bump, circadian + calendar, conversation scatter + click-lock, depth/length buckets, conversation flags, thinking/images + character series, content-type stack, forgotten/comebacks, reply latency, projects/GPTs, word clouds (user / assistant / bigrams / distinctive terms), shared + title tokens, assets metadata + monthly, optional narrative
 - Compare / Correlations: messages + conversations; Compare entity = conversation
 - Local TZ: `Europe/Paris`
 

@@ -261,10 +261,8 @@ def render_airbnb_panel(
             mo.md("### Reservations over time"),
             mo.vstack([mo.ui.plotly(fig_monthly), mo.ui.plotly(fig_nights)], gap=1),
             mo.md("### Role & status"),
-            mo.hstack(
-                [mo.ui.plotly(fig_role), mo.ui.plotly(fig_status)],
-                gap=1,
-            ),
+            mo.ui.plotly(fig_role),
+            mo.ui.plotly(fig_status),
             mo.md("### Maps"),
             mo.md(map_note),
             mo.ui.plotly(fig_search_map),
@@ -277,18 +275,10 @@ def render_airbnb_panel(
                 gap=1,
             ),
             mo.md("### Forgotten & comeback search places"),
-            mo.hstack(
-                [
-                    mo.vstack(
-                        [mo.md("Silent ≥2y"), mo.ui.table(forgotten_df)], gap=0.25
-                    ),
-                    mo.vstack(
-                        [mo.md("Returned after gap"), mo.ui.table(comeback_df)],
-                        gap=0.25,
-                    ),
-                ],
-                gap=1,
-            ),
+            mo.md("Silent ≥2y"),
+            mo.ui.table(forgotten_df),
+            mo.md("Returned after gap"),
+            mo.ui.table(comeback_df),
             mo.md("### Search-place rank movement"),
             mo.ui.plotly(fig_bump),
             mo.md("### Recent stays"),

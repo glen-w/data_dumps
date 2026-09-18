@@ -117,6 +117,12 @@ def render_chatgpt_panel(
     bump_df = cgq.model_rank_bump(conn, filters)
     latency_df = cgq.reply_latency(conn, filters)
     latency_monthly_df = cgq.reply_latency_monthly(conn, filters)
+    modality_df = cgq.modality_monthly(conn, filters)
+    content_monthly_df = cgq.content_type_monthly(conn, filters)
+    length_df = cgq.message_length_buckets(conn, filters)
+    depth_df = cgq.conversation_depth(conn, filters)
+    flags_df = cgq.conversation_flags(conn, filters)
+    assets_m = cgq.assets_monthly(conn, filters)
     gizmo_df = cgq.gizmo_usage(conn, filters)
     assets_df = cgq.asset_extension_mix(conn)
     shared_df = cgq.shared_list(conn, filters)
@@ -242,6 +248,93 @@ def render_chatgpt_panel(
     )
     if not bump_df.empty:
         fig_bump.update_yaxes(autorange="reversed", dtick=1)
+
+    modality_long = (
+        modality_df.melt(
+            id_vars=["year_month"],
+            value_vars=["thoughts", "images"],
+            var_name="kind",
+            value_name="count",
+        )
+        if not modality_df.empty
+        else modality_df
+    )
+    fig_modality = (
+        px.bar(
+            modality_long,
+            x="year_month",
+            y="count",
+            color="kind",
+            barmode="group",
+            title="Thinking messages and images by month",
+        )
+        if not modality_long.empty
+        else px.bar(title="No thinking or images")
+    )
+    fig_chars = (
+        px.line(
+            modality_df,
+            x="year_month",
+            y=["user_chars", "assistant_chars"],
+            markers=True,
+            title="Characters by month (you vs assistant)",
+        )
+        if not modality_df.empty
+        else px.line(title="No character series")
+    )
+    fig_content_m = (
+        px.area(
+            content_monthly_df,
+            x="year_month",
+            y="messages",
+            color="content_type",
+            title="Content type stack",
+        )
+        if not content_monthly_df.empty
+        else px.area(title="No content timeline")
+    )
+    fig_length = (
+        px.bar(
+            length_df,
+            x="bucket",
+            y="messages",
+            title="Your message length",
+        )
+        if not length_df.empty
+        else px.bar(title="No user messages")
+    )
+    fig_depth = (
+        px.bar(
+            depth_df,
+            x="bucket",
+            y="conversations",
+            title="Conversation depth (message count)",
+        )
+        if not depth_df.empty
+        else px.bar(title="No conversations")
+    )
+    fig_flags = (
+        px.bar(
+            flags_df,
+            x="conversations",
+            y="flag",
+            orientation="h",
+            title="Conversation flags",
+        )
+        if not flags_df.empty
+        else px.bar(title="No flags")
+    )
+    fig_assets_m = (
+        px.bar(
+            assets_m,
+            x="year_month",
+            y="files",
+            title="Assets by month",
+            hover_data=["bytes"],
+        )
+        if not assets_m.empty
+        else px.bar(title="No dated assets")
+    )
 
     fig_latency = (
         px.line(
@@ -381,31 +474,31 @@ def render_chatgpt_panel(
         mo.ui.table(streak_df),
         mo.md("### Volume over time"),
         mo.vstack([mo.ui.plotly(fig_monthly), mo.ui.plotly(fig_user_chars)], gap=1),
+        mo.md("### Thinking & images"),
+        mo.vstack([mo.ui.plotly(fig_modality), mo.ui.plotly(fig_chars)], gap=1),
         mo.md("### Models"),
-        mo.hstack([mo.ui.plotly(fig_models), mo.ui.plotly(fig_model_stack)], gap=1),
+        mo.ui.plotly(fig_models),
+        mo.ui.plotly(fig_model_stack),
         mo.ui.plotly(fig_bump),
         mo.md("### Roles & content"),
-        mo.hstack([mo.ui.plotly(fig_roles), mo.ui.plotly(fig_content)], gap=1),
+        mo.ui.plotly(fig_roles),
+        mo.ui.plotly(fig_content),
+        mo.ui.plotly(fig_content_m),
+        mo.ui.plotly(fig_length),
+        mo.ui.plotly(fig_depth),
         mo.md("### Rhythm"),
         mo.vstack([mo.ui.plotly(fig_circ), mo.ui.plotly(fig_cal)], gap=1),
         mo.md("### Conversation observatory"),
         mo.md(lock_note),
         top_table,
         mo.ui.plotly(fig_scatter),
+        mo.md("### Conversation flags"),
+        mo.ui.plotly(fig_flags),
         mo.md("### Forgotten & comebacks"),
-        mo.hstack(
-            [
-                mo.vstack(
-                    [mo.md("**Silent ≥2y (deep threads)**"), mo.ui.table(forgotten_df)],
-                    gap=0.5,
-                ),
-                mo.vstack(
-                    [mo.md("**Comebacks (≥90d gap)**"), mo.ui.table(comeback_df)],
-                    gap=0.5,
-                ),
-            ],
-            gap=1,
-        ),
+        mo.md("**Silent ≥2y (deep threads)**"),
+        mo.ui.table(forgotten_df),
+        mo.md("**Comebacks (≥90d gap)**"),
+        mo.ui.table(comeback_df),
         mo.md("### Latency"),
         mo.ui.table(latency_df),
         mo.ui.plotly(fig_latency),
@@ -417,27 +510,16 @@ def render_chatgpt_panel(
             "They follow the filters above."
         ),
         _cloud_block(wordcloud_png(frequencies_from_frame(token_all)), "All messages"),
-        mo.hstack(
-            [
-                _cloud_block(wordcloud_png(frequencies_from_frame(token_user)), "You"),
-                _cloud_block(
-                    wordcloud_png(frequencies_from_frame(token_asst)), "Assistant"
-                ),
-            ],
-            gap=1,
-        ),
+        _cloud_block(wordcloud_png(frequencies_from_frame(token_user)), "You"),
+        _cloud_block(wordcloud_png(frequencies_from_frame(token_asst)), "Assistant"),
         _cloud_block(wordcloud_png(frequencies_from_frame(bigram_df)), "Your bigrams"),
         mo.ui.plotly(fig_distinctive),
         mo.md("### Shared + title tokens"),
-        mo.hstack(
-            [
-                mo.vstack([mo.md("**Shared**"), mo.ui.table(shared_df)], gap=0.5),
-                mo.ui.plotly(fig_tokens),
-            ],
-            gap=1,
-        ),
+        mo.md("**Shared**"),
+        mo.ui.table(shared_df),
+        mo.ui.plotly(fig_tokens),
         mo.md("### Assets (metadata only)"),
-        mo.ui.plotly(fig_assets),
+        mo.vstack([mo.ui.plotly(fig_assets), mo.ui.plotly(fig_assets_m)], gap=1),
     ]
 
     if filters.conversation_id:
