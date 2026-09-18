@@ -639,7 +639,9 @@ def forgotten_conversations(
 ) -> pd.DataFrame:
     """Deep threads silent for ≥2 years relative to the filter end."""
     max_row = conn.execute("SELECT max(year) FROM chatgpt.messages").fetchone()
-    end_year = f.year_end or (max_row[0] if max_row else None)
+    end_year: int | None = f.year_end
+    if end_year is None and max_row is not None:
+        end_year = max_row[0]
     if end_year is None:
         return pd.DataFrame()
     cutoff_year = int(end_year) - 2
@@ -888,7 +890,7 @@ def asset_extension_mix(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 def shared_list(
     conn: duckdb.DuckDBPyConnection, f: FilterState, *, limit: int = 40
 ) -> pd.DataFrame:
-    cw, cp = _conv_where(f)
+    cw, cp = _conv_where(f, alias="c2")
     return _query_df(
         conn,
         f"""
