@@ -44,6 +44,8 @@ _PRESET_IDS: dict[str, tuple[str, ...]] = {
         "telegram_events",
         "slack_messages",
         "twitter_tweets",
+        "airbnb_searches",
+        "uber_trips",
     ),
     PRESET_COMMS: (
         "telegram_events",

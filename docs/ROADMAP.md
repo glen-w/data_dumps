@@ -100,9 +100,25 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Explorer Google tab: scoreboard (+hours/purchases/countries), streaks, life-chapters stack, calendar hours/stack/scatter/summary bump, circadian+calendar, photos calendar, maps country+reviews+forgotten/comebacks+bump, Play forgotten apps+purchases, activity heatmap, tasks timeline, noise-calendar filter, footprint
 - Local TZ: `Europe/Paris`; habit ICS epoch placeholders (`1970`) skipped at ingest
 
+### Airbnb personal data
+
+- HTML export zip (`Airbnb_data_request_*`) → `airbnb.account|reservations|searches|reviews|wishlists`
+- Guest/host role from profile `id`; search-pin lat/lon kept for maps; street/Raw Location/Message/IPs/phones/KYC/payments dropped
+- Explorer Airbnb tab: scoreboard, streaks, role/status/**place selectors**, **search pin map** + VAT-country choropleth, circadian + calendar, forgotten/comeback search places, place-rank bump, recent stays, reviews, wishlists
+- Compare: reservations / accepted nights / searches totals + **search-place entity**; Correlations: same totals; Life rhythm preset includes `airbnb_searches` (+ `uber_trips`)
+- Local TZ: `Europe/Paris`
+
+### ChatGPT export
+
+- Zip with `conversations-NNN.json` shards (+ shared / library / asset name map) → `chatgpt.account|conversations|messages|shared|assets`
+- Message text kept; email/phone dropped; `.dat` / `chat.html` not copied into raw
+- Explorer ChatGPT tab: period-compare scoreboard, streaks, model stack + rank bump, circadian + calendar, conversation scatter + click-lock, forgotten/comebacks, reply latency, projects/GPTs, shared + title tokens, assets metadata, optional narrative
+- Compare / Correlations: messages + conversations; Compare entity = conversation
+- Local TZ: `Europe/Paris`
+
 ### Compare tab (cross-source)
 
-- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, Google calendar/photos/maps/Play + calendar entity, …)
+- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, Google calendar/photos/maps/Play + calendar entity, Airbnb reservations/searches + place, ChatGPT messages/conversations + conversation, …)
 - Monthly multiviewer overlay with each series as **% of its own max**; Pearson correlation heatmap on aligned shapes; raw values table alongside
 - Series descriptors live in `contribution_series.py` (`make_compare_total` / `make_compare_entity` / `make_correlate_metric` helpers in `series_catalog.py`); catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
 
@@ -125,7 +141,7 @@ Query + chart + panel additions only (no new deps, no ingest restructuring). Ref
 - **Sleep:** compare-vs-previous scoreboard, regularity KPIs (bedtime/wake stddev, social jet lag, ≥7 h %), weekday × bedtime heatmap, monthly snore/noise, N-night actigraphy small multiples, Mi Band HR overlay + nightly avg HR vs hours, alarm-vs-wake histogram, late-evening Spotify × sleep (scatter + buckets)
 - **Spotify:** milestones table, offline vs online, album depth score, longest listening sessions (30-min gap), top-artist rank movement vs previous window, artist monthly timeline (locked artist or top 3), "searched but barely played" (Account Data), **connection-country choropleth**
 - **Telegram:** text KPIs, top words (en/it/es stopwords), emoji-in-text, message length you vs them, per-sender breakdown, reply Sankey (topic service parents excluded), aggregate-only "Narrate this view" (`telegram_queries.narrative_context`, never message text)
-- **Geo maps (shared):** static city gazetteer + ISO country choropleths in `geo.py` / `explorer_panels.charts` — Uber trip/Eats cities, LinkedIn career locations, Ring device cities, Spotify conn_country, Amazon video/impressions country_code (no trip GPS / street coords)
+- **Geo maps (shared):** static city gazetteer + ISO country choropleths in `geo.py` / `explorer_panels.charts` — Uber trip/Eats cities, LinkedIn career locations, Ring device cities, Spotify conn_country, Amazon video/impressions country_code, Airbnb search pins (export lat/lon) + guest VAT country (no street addresses)
 
 ## Wave 2 — Wrapped explorer, open enrichment, local LLM
 

@@ -21,8 +21,10 @@ from data_dumps import slack_queries as skq
 from data_dumps import spotify_queries as spq
 from data_dumps import telegram_queries as tgq
 from data_dumps.explorer_panels import (
+    make_airbnb_controls,
     make_amazon_controls,
     make_browser_controls,
+    make_chatgpt_controls,
     make_compare_controls,
     make_correlate_controls,
     make_duolingo_controls,
@@ -35,8 +37,10 @@ from data_dumps.explorer_panels import (
     make_spotify_controls,
     make_telegram_controls,
     make_uber_controls,
+    render_airbnb_panel,
     render_amazon_panel,
     render_browser_panel,
+    render_chatgpt_panel,
     render_compare_panel,
     render_correlate_panel,
     render_duolingo_panel,
@@ -51,8 +55,10 @@ from data_dumps.explorer_panels import (
     render_uber_panel,
 )
 from data_dumps.sleep_queries import data_bounds as sl_bounds
+from data_dumps.sources.airbnb import AirbnbSource
 from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.browser import BrowserSource
+from data_dumps.sources.chatgpt import ChatGPTSource
 from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.google import GoogleSource
 from data_dumps.sources.linkedin import LinkedInSource
@@ -63,7 +69,9 @@ from data_dumps.sources.telegram import TelegramSource
 from data_dumps.sources.uber import UberSource
 
 from .conftest import make_plays_conn
+from .test_airbnb_ingest import make_mini_airbnb_zip
 from .test_amazon_ingest import make_mini_amazon_dir
+from .test_chatgpt_ingest import make_mini_chatgpt_zip
 from .test_duolingo_ingest import make_mini_duolingo_zip
 from .test_google_ingest import make_mini_google_dir
 from .test_linkedin_ingest import make_mini_linkedin_zip
@@ -484,6 +492,81 @@ def test_render_google_panel(google_conn):
         "Play Store",
         "My Activity",
         "Data footprint",
+    ):
+        assert needle in html, needle
+
+
+@pytest.fixture
+def airbnb_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    conn = duckdb.connect(str(tmp_path / "airbnb_wh.duckdb"))
+    AirbnbSource().load(make_mini_airbnb_zip(tmp_path), conn)
+    yield conn
+    conn.close()
+
+
+def test_render_airbnb_panel(airbnb_conn):
+    from data_dumps import airbnb_queries as abq
+
+    bounds = abq.data_bounds(airbnb_conn)
+    controls = make_airbnb_controls(mo, bounds)
+    html = render_airbnb_panel(
+        mo=mo,
+        px=px,
+        conn=airbnb_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in (
+        "Airbnb",
+        "Scoreboard",
+        "Streaks",
+        "Maps",
+        "Search pins",
+        "Rhythm",
+        "Forgotten",
+        "Reviews",
+        "Recent stays",
+        "Compare/Correlations",
+    ):
+        assert needle in html, needle
+    assert bounds.get("places")
+    assert bounds.get("roles")
+    assert bounds.get("statuses")
+
+
+@pytest.fixture
+def chatgpt_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data"))
+    conn = duckdb.connect(str(tmp_path / "chatgpt_wh.duckdb"))
+    ChatGPTSource().load(make_mini_chatgpt_zip(tmp_path), conn)
+    yield conn
+    conn.close()
+
+
+def test_render_chatgpt_panel(chatgpt_conn):
+    from data_dumps import chatgpt_queries as cgq
+
+    bounds = cgq.data_bounds(chatgpt_conn)
+    controls = make_chatgpt_controls(mo, bounds)
+    html = render_chatgpt_panel(
+        mo=mo,
+        px=px,
+        conn=chatgpt_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in (
+        "ChatGPT",
+        "Scoreboard",
+        "Streaks",
+        "Models",
+        "Rhythm",
+        "Forgotten",
+        "Latency",
+        "Assets",
     ):
         assert needle in html, needle
 

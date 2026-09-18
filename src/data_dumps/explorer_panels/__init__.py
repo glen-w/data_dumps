@@ -6,6 +6,11 @@ render_*_panel``.
 
 from __future__ import annotations
 
+from data_dumps.explorer_panels.airbnb import (
+    AirbnbControls,
+    make_airbnb_controls,
+    render_airbnb_panel,
+)
 from data_dumps.explorer_panels.amazon import (
     AmazonControls,
     make_amazon_controls,
@@ -15,6 +20,11 @@ from data_dumps.explorer_panels.browser import (
     BrowserControls,
     make_browser_controls,
     render_browser_panel,
+)
+from data_dumps.explorer_panels.chatgpt import (
+    ChatGPTControls,
+    make_chatgpt_controls,
+    render_chatgpt_panel,
 )
 from data_dumps.explorer_panels.compare import (
     CompareControls,
@@ -88,8 +98,10 @@ from data_dumps.explorer_panels.uber import (
 )
 
 __all__ = [
+    "AirbnbControls",
     "AmazonControls",
     "BrowserControls",
+    "ChatGPTControls",
     "CompareControls",
     "CorrelateControls",
     "DuolingoControls",
@@ -104,8 +116,10 @@ __all__ = [
     "ThunderbirdControls",
     "TwitterControls",
     "UberControls",
+    "make_airbnb_controls",
     "make_amazon_controls",
     "make_browser_controls",
+    "make_chatgpt_controls",
     "make_compare_controls",
     "make_correlate_controls",
     "make_duolingo_controls",
@@ -120,8 +134,10 @@ __all__ = [
     "make_thunderbird_controls",
     "make_twitter_controls",
     "make_uber_controls",
+    "render_airbnb_panel",
     "render_amazon_panel",
     "render_browser_panel",
+    "render_chatgpt_panel",
     "render_compare_panel",
     "render_correlate_panel",
     "render_duolingo_panel",

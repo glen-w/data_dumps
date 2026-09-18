@@ -16,8 +16,10 @@ from typing import Any
 
 import duckdb
 
+from data_dumps import airbnb_queries as abq
 from data_dumps import amazon_queries as amzq
 from data_dumps import browser_queries as brq
+from data_dumps import chatgpt_queries as cgq
 from data_dumps import duolingo_queries as duoq
 from data_dumps import google_queries as gq
 from data_dumps import linkedin_queries as liq
@@ -31,10 +33,14 @@ from data_dumps import thunderbird_queries as tbq
 from data_dumps import twitter_queries as twq
 from data_dumps import uber_queries as ubq
 from data_dumps.contribution_series import (
+    AIRBNB_COMPARE,
+    AIRBNB_CORRELATE,
     AMAZON_COMPARE,
     AMAZON_CORRELATE,
     BROWSER_COMPARE,
     BROWSER_CORRELATE,
+    CHATGPT_COMPARE,
+    CHATGPT_CORRELATE,
     DUOLINGO_COMPARE,
     DUOLINGO_CORRELATE,
     GOOGLE_COMPARE,
@@ -61,9 +67,11 @@ from data_dumps.contribution_series import (
     UBER_CORRELATE,
 )
 from data_dumps.series_catalog import MetricSpec, SeriesSpec
+from data_dumps.sources.airbnb import AirbnbSource
 from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.base import Source
 from data_dumps.sources.browser import BrowserSource
+from data_dumps.sources.chatgpt import ChatGPTSource
 from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.google import GoogleSource
 from data_dumps.sources.linkedin import LinkedInSource
@@ -249,6 +257,26 @@ CONTRIBUTIONS: tuple[Contribution, ...] = (
         data_bounds=gq.data_bounds,
         compare_series=GOOGLE_COMPARE,
         correlate_metrics=GOOGLE_CORRELATE,
+    ),
+    Contribution(
+        slug="airbnb",
+        source=AirbnbSource(),
+        tab_label="Airbnb",
+        tab_icon="lucide:home",
+        gate_table=("airbnb", "reservations"),
+        data_bounds=abq.data_bounds,
+        compare_series=AIRBNB_COMPARE,
+        correlate_metrics=AIRBNB_CORRELATE,
+    ),
+    Contribution(
+        slug="chatgpt",
+        source=ChatGPTSource(),
+        tab_label="ChatGPT",
+        tab_icon="lucide:bot",
+        gate_table=("chatgpt", "messages"),
+        data_bounds=cgq.data_bounds,
+        compare_series=CHATGPT_COMPARE,
+        correlate_metrics=CHATGPT_CORRELATE,
     ),
 )
 

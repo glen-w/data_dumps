@@ -11,8 +11,10 @@ def _():
     import plotly.express as px
 
     from data_dumps.explorer_panels import (
+        make_airbnb_controls,
         make_amazon_controls,
         make_browser_controls,
+        make_chatgpt_controls,
         make_compare_controls,
         make_correlate_controls,
         make_duolingo_controls,
@@ -27,8 +29,10 @@ def _():
         make_thunderbird_controls,
         make_twitter_controls,
         make_uber_controls,
+        render_airbnb_panel,
         render_amazon_panel,
         render_browser_panel,
+        render_chatgpt_panel,
         render_compare_panel,
         render_correlate_panel,
         render_duolingo_panel,
@@ -102,6 +106,8 @@ def _():
     has_duolingo = _by_slug["duolingo"]["present"]
     has_uber = _by_slug["uber"]["present"]
     has_google = _by_slug["google"]["present"]
+    has_airbnb = _by_slug["airbnb"]["present"]
+    has_chatgpt = _by_slug["chatgpt"]["present"]
     sp_bounds = _by_slug["spotify"]["bounds"]
     tg_bounds = _by_slug["telegram"]["bounds"]
     li_bounds = _by_slug["linkedin"]["bounds"]
@@ -116,6 +122,8 @@ def _():
     duo_bounds = _by_slug["duolingo"]["bounds"]
     uber_bounds = _by_slug["uber"]["bounds"]
     google_bounds = _by_slug["google"]["bounds"]
+    airbnb_bounds = _by_slug["airbnb"]["bounds"]
+    chatgpt_bounds = _by_slug["chatgpt"]["bounds"]
     cmp_bounds = cmp_data_bounds(conn)
     cmp_series = cmp_list_series(conn)
     has_compare = len(cmp_series) > 0
@@ -127,8 +135,10 @@ def _():
     iso_dow = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
     explorer_by_slug = _by_slug
     return (
+        airbnb_bounds,
         amz_bounds,
         br_bounds,
+        chatgpt_bounds,
         cmp_bounds,
         cmp_series,
         conn,
@@ -137,8 +147,10 @@ def _():
         duo_bounds,
         explorer_by_slug,
         google_bounds,
+        has_airbnb,
         has_amazon,
         has_browser,
+        has_chatgpt,
         has_compare,
         has_correlate,
         has_duolingo,
@@ -155,8 +167,10 @@ def _():
         has_uber,
         iso_dow,
         li_bounds,
+        make_airbnb_controls,
         make_amazon_controls,
         make_browser_controls,
+        make_chatgpt_controls,
         make_compare_controls,
         make_correlate_controls,
         make_duolingo_controls,
@@ -175,8 +189,10 @@ def _():
         mb_ready,
         mo,
         px,
+        render_airbnb_panel,
         render_amazon_panel,
         render_browser_panel,
+        render_chatgpt_panel,
         render_compare_panel,
         render_correlate_panel,
         render_duolingo_panel,
@@ -207,15 +223,19 @@ def _():
 
 @app.cell(hide_code=True)
 def _(
+    airbnb_bounds,
     amz_bounds,
     br_bounds,
+    chatgpt_bounds,
     cmp_bounds,
     corr_bounds,
     duo_bounds,
     explorer_by_slug,
     google_bounds,
+    has_airbnb,
     has_amazon,
     has_browser,
+    has_chatgpt,
     has_compare,
     has_correlate,
     has_duolingo,
@@ -271,6 +291,10 @@ def _(
         if has_uber
         else explorer_by_slug["google"]["tab_label"]
         if has_google
+        else explorer_by_slug["airbnb"]["tab_label"]
+        if has_airbnb
+        else explorer_by_slug["chatgpt"]["tab_label"]
+        if has_chatgpt
         else explorer_by_slug["linkedin"]["tab_label"]
         if has_linkedin
         else tab_compare
@@ -317,6 +341,8 @@ def _(
         "duolingo": _span_caption(duo_bounds),
         "uber": _span_caption(uber_bounds),
         "google": _span_caption(google_bounds),
+        "airbnb": _span_caption(airbnb_bounds),
+        "chatgpt": _span_caption(chatgpt_bounds),
     }
     cmp_caption = (
         f"{cmp_bounds['n_series']} series · "
@@ -410,6 +436,26 @@ def _(google_bounds, has_google, make_google_controls, mo):
         else None
     )
     return (google_controls,)
+
+
+@app.cell(hide_code=True)
+def _(airbnb_bounds, has_airbnb, make_airbnb_controls, mo):
+    airbnb_controls = (
+        make_airbnb_controls(mo, airbnb_bounds)
+        if has_airbnb and airbnb_bounds
+        else None
+    )
+    return (airbnb_controls,)
+
+
+@app.cell(hide_code=True)
+def _(chatgpt_bounds, has_chatgpt, make_chatgpt_controls, mo):
+    chatgpt_controls = (
+        make_chatgpt_controls(mo, chatgpt_bounds)
+        if has_chatgpt and chatgpt_bounds
+        else None
+    )
+    return (chatgpt_controls,)
 
 
 @app.cell(hide_code=True)
@@ -782,6 +828,70 @@ def _(
         conn=conn,
         bounds=google_bounds,
         controls=google_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    airbnb_bounds,
+    airbnb_controls,
+    conn,
+    explorer_by_slug,
+    has_airbnb,
+    iso_dow,
+    mo,
+    px,
+    render_airbnb_panel,
+    source,
+):
+    mo.stop(source.value != explorer_by_slug["airbnb"]["tab_label"], output=None)
+    if not has_airbnb or airbnb_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `airbnb.reservations` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Documents/data_dumps_raw/airbnb/airbnb.zip`"
+            ),
+        )
+    render_airbnb_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=airbnb_bounds,
+        controls=airbnb_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    chatgpt_bounds,
+    chatgpt_controls,
+    conn,
+    explorer_by_slug,
+    has_chatgpt,
+    iso_dow,
+    mo,
+    px,
+    render_chatgpt_panel,
+    source,
+):
+    mo.stop(source.value != explorer_by_slug["chatgpt"]["tab_label"], output=None)
+    if not has_chatgpt or chatgpt_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `chatgpt.messages` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Documents/data_dumps_raw/chatgpt/chatgpt.zip`"
+            ),
+        )
+    render_chatgpt_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=chatgpt_bounds,
+        controls=chatgpt_controls,
         dow_labels=iso_dow,
     )
 

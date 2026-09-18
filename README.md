@@ -260,9 +260,42 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Explorer: Google tab (life chapters, calendar hours/stack/scatter/summary bump, photos calendar + circadian, maps reviews + forgotten/comebacks, Play forgotten apps + purchases, activity heatmap, tasks timeline, noise-calendar filter, footprint)
 - TZ: `Europe/Paris` wall-clock for local timestamps
 
+## Airbnb personal data export
+
+Stop the dashboard first ([WAREHOUSE.md](docs/WAREHOUSE.md)).
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/airbnb/airbnb.zip
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+```
+
+- Tables: `airbnb.account|reservations|searches|reviews|wishlists`
+- Grain: `reservations` = confirmation code; `searches` = one search event; guest/host role derived from profile `id`
+- Dropped at ingest: profile email/name/phone/IPs/birthdate/street addresses, activity log, payments/KYC, messages, search telemetry, reservation `Message`, search `Raw Location` (keep city/country + search-pin lat/lon)
+- Explorer: Airbnb tab (scoreboard, streaks, guest/host, place lock, **search pin map** + VAT-country choropleth, circadian + calendar, forgotten/comeback search places, place-rank bump, recent stays, reviews, wishlists)
+- Compare / Correlations: reservations, accepted nights, searches; Compare entity = search place; Life rhythm preset includes searches
+- TZ: `Europe/Paris` wall-clock
+
+## ChatGPT export
+
+Stop the dashboard first ([WAREHOUSE.md](docs/WAREHOUSE.md)).
+
+```bash
+uv run ingest ~/Documents/data_dumps_raw/chatgpt/chatgpt.zip
+uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+```
+
+- Tables: `chatgpt.account|conversations|messages|shared|assets`
+- Grain: `messages` = `(conversation_id, message_id)`; conversations roll up counts/chars/models
+- Dropped at ingest: email/phone from `user.json`, `ads.json`; `.dat` media bytes and `chat.html` not copied into `raw/chatgpt/` (asset metadata only)
+- Kept: conversation titles + message text (chat product), model slugs, thinking/multimodal content types, shared links, library file metadata
+- Explorer: ChatGPT tab (period-compare scoreboard, streaks, model eras + rank bump, circadian + calendar, conversation scatter + lock, forgotten/comebacks, reply latency, projects/GPTs, shared + title tokens, assets, optional narrative)
+- Compare / Correlations: messages + conversations; Compare entity = conversation
+- TZ: `Europe/Paris` wall-clock
+
 ### Compare (cross-source)
 
-Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Series merge from `contributions.CONTRIBUTIONS` (descriptors in `contribution_series.py` via `series_catalog.make_*` factories). Catalog includes secondary totals (Sleep snore/noise, Amazon Alexa/Kindle/searches/Audible/Video/Music, Browser search URLs, Ring flips/motion/app, Slack active people, Telegram reactions, LinkedIn connections/reactions/shares, Twitter DMs, Thunderbird signals, Spotify Account searches, Duolingo inventory/league tier + language entity, Uber trips/Eats + city entity, Google calendar/photos/maps/Play + calendar entity) when those tables are ingested — still explicit registration, not warehouse column discovery.
+Explorer **Compare** tab: overlay monthly source totals and entity/thread series as % of each series’ max, with a Pearson correlation heatmap of those shapes. Series merge from `contributions.CONTRIBUTIONS` (descriptors in `contribution_series.py` via `series_catalog.make_*` factories). Catalog includes secondary totals (Sleep snore/noise, Amazon Alexa/Kindle/searches/Audible/Video/Music, Browser search URLs, Ring flips/motion/app, Slack active people, Telegram reactions, LinkedIn connections/reactions/shares, Twitter DMs, Thunderbird signals, Spotify Account searches, Duolingo inventory/league tier + language entity, Uber trips/Eats + city entity, Google calendar/photos/maps/Play + calendar entity, Airbnb reservations/nights/searches + place entity, ChatGPT messages/conversations + conversation entity) when those tables are ingested — still explicit registration, not warehouse column discovery.
 
 ### Correlations (cross-source)
 
@@ -319,6 +352,7 @@ miband_hr/            # heart_rate.csv + originals.zip
 ring/                 # All Data Categories.zip (Ring GDPR)
 uber/                 # Uber Data Request ….zip
 google/               # takeout-*.zip multipart Takeout
+airbnb/               # Airbnb_data_request_*.zip
 raw/spotify/          # extracted Streaming_History JSON
 raw/spotify_account/  # Account Data JSON (library/playlists/searches only)
 raw/telegram/         # result.json copy only (not media)
@@ -331,6 +365,8 @@ raw/ring/             # keep-list CSVs + flattened app_events.csv
 raw/duolingo/         # keep-list CSVs only (PII/avatar files never copied)
 raw/uber/             # scrubbed trips/orders/ratings/support (no profile/payments/GPS)
 raw/google/           # source_path.txt pointer (zips stay under google/)
+raw/airbnb/           # keep-list HTML (reservations/searches/reviews/wishlists; no profile)
+raw/chatgpt/          # conversation shards + shared/assets metadata (no .dat / chat.html)
 warehouse/            # DuckDB catalog + llm_cache
 ```
 

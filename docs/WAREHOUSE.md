@@ -154,6 +154,24 @@ Folder of `takeout-*.zip` parts (or an extracted `Takeout/` tree). Large Photos/
 
 Keep-list: Calendar ICS, Play Store (purchases scrub payment emails), Maps your-places (name + country only), Saved lists (no Addresses), photo supplemental metadata (no GPS), My Activity HTML, Tasks. Access logs, mail mbox, contacts, Pay/Wallet, and street/GPS fields are dropped. `google.dump_inventory` records the full on-disk footprint.
 
+### Ingest Airbnb personal data
+
+1. **Stop** Marimo or `docker compose stop app`
+2. Place the zip under `~/Documents/data_dumps_raw/airbnb/` (e.g. `airbnb.zip`)
+3. `uv run ingest ~/Documents/data_dumps_raw/airbnb/airbnb.zip`
+4. Start the dashboard again — Airbnb tab (search map + reservations)
+
+Keep-list HTML: reservations, search_history, reviews, wishlists. Profile is read only for account id (not copied to `raw/airbnb/`). Activity log, payments, KYC, messages, and search telemetry are skipped.
+
+### Ingest ChatGPT export
+
+1. **Stop** Marimo or `docker compose stop app`
+2. Place the zip under `~/Documents/data_dumps_raw/chatgpt/` (e.g. `chatgpt.zip`)
+3. `uv run ingest ~/Documents/data_dumps_raw/chatgpt/chatgpt.zip`
+4. Start the dashboard again — ChatGPT tab
+
+Keep-list: `conversations-*.json`, `shared_conversations.json`, `conversation_asset_file_names.json`, `library_files.json`, stripped `account.json`. Not copied: `.dat` media, `chat.html`, email/phone from `user.json`, `ads.json`.
+
 ### MusicBrainz enrichment (genres / decades)
 
 `--artist-limit` and `--track-limit` default to **`0` (no cap)**. The CLI assumes you want the **full dataset** — every artist/track above the min lifetime hours — not a sample. MusicBrainz has no free-tier count quota; the only API constraint is **~1 request/second** per IP.
@@ -195,6 +213,7 @@ docker compose run --rm --entrypoint ingest app "/data/ring/All Data Categories.
 docker compose run --rm --entrypoint ingest app /data/firefox/
 docker compose run --rm --entrypoint ingest app /data/amazon
 docker compose run --rm --entrypoint ingest app "/data/uber/Uber Data Request 820F71B0.zip"
+docker compose run --rm --entrypoint ingest app /data/airbnb/airbnb.zip
 docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run
 docker compose up app
 ```
