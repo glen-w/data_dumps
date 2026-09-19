@@ -15,6 +15,7 @@ from data_dumps.explorer_panels.tools import render_tools_panel
 from data_dumps.ip_inventory import (
     IpHit,
     IpLocation,
+    _location_from_records,
     extract_amazon,
     extract_fallback,
     extract_google,
@@ -306,3 +307,91 @@ def test_cli_prints_counts_only(tmp_path: Path, monkeypatch, capsys) -> None:
     assert "203.0.113.9" not in out
     assert "1 rows" in out
     assert "LinkedIn" in out
+
+
+def test_account_creation_and_ring_fallback(tmp_path: Path) -> None:
+    twitter = tmp_path / "twitter"
+    (twitter / "data").mkdir(parents=True)
+    (twitter / "data" / "account-creation-ip.js").write_text(
+        "window.YTD.account_creation_ip.part0 = ["
+        '{"accountCreationIp": {"userCreationIp": "8.8.4.4"}}]',
+        encoding="utf-8",
+    )
+    created = extract_twitter(twitter)
+    assert len(created) == 1
+    assert created[0].use == "account creation"
+    assert created[0].ip == "8.8.4.4"
+
+    ring = tmp_path / "ring.zip"
+    with zipfile.ZipFile(ring, "w") as archive:
+        archive.writestr(
+            "datarequest/RingDeviceRegistry/Device.csv",
+            "device_name,ip_address\nCam,203.0.113.7\n",
+        )
+    hits = extract_fallback(ring, "Ring")
+    assert hits[0].ip == "203.0.113.7"
+    assert hits[0].use == "Device.csv"
+    assert hits[0].service == "Ring"
+
+
+def test_location_record_shape() -> None:
+    loc = _location_from_records(
+        {
+            "city": {"names": {"en": "London"}},
+            "subdivisions": [{"names": {"en": "England"}}],
+            "country": {"names": {"en": "United Kingdom"}},
+            "location": {"latitude": 51.5, "longitude": -0.1},
+        },
+        {
+            "autonomous_system_number": 15169,
+            "autonomous_system_organization": "Example ISP",
+        },
+    )
+    assert loc.city == "London"
+    assert loc.region == "England"
+    assert loc.country == "United Kingdom"
+    assert loc.isp == "Example ISP"
+    assert loc.asn == "AS15169"
+    assert loc.lat == 51.5
+    assert loc.lon == -0.1
+    assert _location_from_records(None, None) == IpLocation()
+
+
+def test_cache_busts_when_geoip_file_appears(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path))
+    monkeypatch.setenv("DATA_DUMPS_SKIP_GLODA", "1")
+    linkedin = tmp_path / "linkedin" / "Complete_export.zip"
+    linkedin.parent.mkdir()
+    with zipfile.ZipFile(linkedin, "w") as archive:
+        archive.writestr(
+            "Logins.csv",
+            "Login Date,IP Address,User Agent,Login Type\n"
+            "2024-01-01,8.8.8.8,Mozilla,PASSWORD\n",
+        )
+    conn = duckdb.connect()
+    inventory_frame(conn, force=True)
+
+    from data_dumps import ip_inventory
+
+    calls = {"n": 0}
+    real_scan = ip_inventory.scan_exports
+
+    def wrapped(root: Path | None = None):
+        calls["n"] += 1
+        return real_scan(root)
+
+    monkeypatch.setattr(ip_inventory, "scan_exports", wrapped)
+    inventory_frame(conn)
+    assert calls["n"] == 0
+    geo = tmp_path / "warehouse" / "geoip"
+    geo.mkdir(parents=True)
+    (geo / "GeoLite2-City.mmdb").write_bytes(b"not-a-database")
+    inventory_frame(conn)
+    assert calls["n"] == 1
+
+
+def test_cli_missing_warehouse(tmp_path: Path, capsys) -> None:
+    assert main(["--db", str(tmp_path / "missing.duckdb")]) == 1
+    err = capsys.readouterr().err
+    assert "no warehouse" in err
+    assert "8.8.8.8" not in err
