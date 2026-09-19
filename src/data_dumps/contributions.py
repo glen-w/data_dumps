@@ -105,6 +105,8 @@ class Contribution:
 
 
 # Cross-cutting explorer tabs (not tied to a Contribution).
+HOME_TAB_LABEL = "Home"
+HOME_TAB_ICON = "lucide:house"
 COMPARE_TAB_LABEL = "Compare"
 COMPARE_TAB_ICON = "lucide:columns-2"
 CORRELATE_TAB_LABEL = "Correlations"

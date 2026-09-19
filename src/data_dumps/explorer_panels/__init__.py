@@ -46,6 +46,7 @@ from data_dumps.explorer_panels.google import (
     make_google_controls,
     render_google_panel,
 )
+from data_dumps.explorer_panels.home import render_home_hero, render_home_panel
 from data_dumps.explorer_panels.linkedin import (
     LinkedInControls,
     make_linkedin_controls,
@@ -142,6 +143,8 @@ __all__ = [
     "render_correlate_panel",
     "render_duolingo_panel",
     "render_google_panel",
+    "render_home_hero",
+    "render_home_panel",
     "render_linkedin_panel",
     "render_miband_panel",
     "render_ring_panel",

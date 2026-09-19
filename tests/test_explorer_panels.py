@@ -45,6 +45,8 @@ from data_dumps.explorer_panels import (
     render_correlate_panel,
     render_duolingo_panel,
     render_google_panel,
+    render_home_hero,
+    render_home_panel,
     render_linkedin_panel,
     render_miband_panel,
     render_ring_panel,
@@ -54,6 +56,7 @@ from data_dumps.explorer_panels import (
     render_telegram_panel,
     render_uber_panel,
 )
+from data_dumps.overview_queries import warehouse_overview
 from data_dumps.sleep_queries import data_bounds as sl_bounds
 from data_dumps.sources.airbnb import AirbnbSource
 from data_dumps.sources.amazon import AmazonSource
@@ -721,3 +724,34 @@ def test_render_correlate_panel(combo_conn):
     assert "Correlations" in html
     assert "Correlation matrix" in html
     assert "Lag scan" in html
+
+
+def test_render_home_panel(combo_conn):
+    overview = warehouse_overview(combo_conn)
+    hero = render_home_hero(mo, overview)
+    body = render_home_panel(mo=mo, px=px, overview=overview)
+    assert _is_marimo_element(hero)
+    assert _is_marimo_element(body)
+    hero_html = hero._repr_html_()
+    assert "Warehouse" in hero_html
+    assert "Sources" in hero_html
+    assert "Rows" in hero_html
+    assert "Years" in hero_html
+    assert "Dates" in hero_html
+    body_html = body._repr_html_()
+    assert "By source" in body_html
+    assert "Rows by source" in body_html
+    assert "Years covered" in body_html
+    assert "Spotify" in body_html
+
+
+def test_render_home_panel_empty():
+    conn = duckdb.connect()
+    try:
+        overview = warehouse_overview(conn)
+    finally:
+        conn.close()
+    hero = render_home_hero(mo, overview)
+    body = render_home_panel(mo=mo, px=px, overview=overview)
+    assert "Nothing is loaded yet" in hero._repr_html_()
+    assert "No source tables" in body._repr_html_()

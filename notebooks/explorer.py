@@ -37,6 +37,8 @@ def _():
         render_correlate_panel,
         render_duolingo_panel,
         render_google_panel,
+        render_home_hero,
+        render_home_panel,
         render_linkedin_panel,
         render_miband_panel,
         render_ring_panel,
@@ -59,8 +61,11 @@ def _():
         COMPARE_TAB_LABEL,
         CORRELATE_TAB_ICON,
         CORRELATE_TAB_LABEL,
+        HOME_TAB_ICON,
+        HOME_TAB_LABEL,
         explorer_contributions,
     )
+    from data_dumps.overview_queries import warehouse_overview
     from data_dumps.query_util import has_table as _qu_has_table
 
     db_path = warehouse_db()
@@ -73,6 +78,7 @@ def _():
     def _tab_label(icon: str, label: str) -> str:
         return f"{mo.icon(icon, size=16)} {label}"
 
+    tab_home = _tab_label(HOME_TAB_ICON, HOME_TAB_LABEL)
     tab_compare = _tab_label(COMPARE_TAB_ICON, COMPARE_TAB_LABEL)
     tab_correlate = _tab_label(CORRELATE_TAB_ICON, CORRELATE_TAB_LABEL)
 
@@ -132,6 +138,10 @@ def _():
     corr_metrics = corr_list_metrics(conn)
     has_correlate = len(corr_metrics) >= 2
     mb_ready = has_mb_data(conn) if has_spotify else False
+    overview = warehouse_overview(
+        conn,
+        bounds_by_slug={slug: meta["bounds"] for slug, meta in _by_slug.items()},
+    )
     tg_dow = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
     iso_dow = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
     explorer_by_slug = _by_slug
@@ -189,6 +199,7 @@ def _():
         mb_hr_bounds,
         mb_ready,
         mo,
+        overview,
         px,
         render_airbnb_panel,
         render_amazon_panel,
@@ -198,6 +209,8 @@ def _():
         render_correlate_panel,
         render_duolingo_panel,
         render_google_panel,
+        render_home_hero,
+        render_home_panel,
         render_linkedin_panel,
         render_miband_panel,
         render_ring_panel,
@@ -214,6 +227,7 @@ def _():
         sp_bounds,
         tab_compare,
         tab_correlate,
+        tab_home,
         tb_bounds,
         tg_bounds,
         tg_dow,
@@ -240,28 +254,14 @@ def _(
     duo_bounds,
     explorer_by_slug,
     google_bounds,
-    has_airbnb,
-    has_amazon,
-    has_browser,
-    has_chatgpt,
     has_compare,
     has_correlate,
-    has_duolingo,
-    has_google,
-    has_linkedin,
-    has_miband,
-    has_ring,
-    has_slack,
-    has_sleep,
-    has_spotify,
-    has_telegram,
-    has_thunderbird,
-    has_twitter,
-    has_uber,
     li_bounds,
     mb_hr_bounds,
     get_tab,
     mo,
+    overview,
+    render_home_hero,
     ring_bounds,
     set_tab,
     sk_bounds,
@@ -269,48 +269,13 @@ def _(
     sp_bounds,
     tab_compare,
     tab_correlate,
+    tab_home,
     tb_bounds,
     tg_bounds,
     tw_bounds,
     uber_bounds,
 ):
-    default_tab = (
-        explorer_by_slug["spotify"]["tab_label"]
-        if has_spotify
-        else explorer_by_slug["telegram"]["tab_label"]
-        if has_telegram
-        else explorer_by_slug["twitter"]["tab_label"]
-        if has_twitter
-        else explorer_by_slug["slack"]["tab_label"]
-        if has_slack
-        else explorer_by_slug["browser"]["tab_label"]
-        if has_browser
-        else explorer_by_slug["sleep"]["tab_label"]
-        if has_sleep
-        else explorer_by_slug["miband"]["tab_label"]
-        if has_miband
-        else explorer_by_slug["ring"]["tab_label"]
-        if has_ring
-        else explorer_by_slug["thunderbird"]["tab_label"]
-        if has_thunderbird
-        else explorer_by_slug["amazon"]["tab_label"]
-        if has_amazon
-        else explorer_by_slug["duolingo"]["tab_label"]
-        if has_duolingo
-        else explorer_by_slug["uber"]["tab_label"]
-        if has_uber
-        else explorer_by_slug["google"]["tab_label"]
-        if has_google
-        else explorer_by_slug["airbnb"]["tab_label"]
-        if has_airbnb
-        else explorer_by_slug["chatgpt"]["tab_label"]
-        if has_chatgpt
-        else explorer_by_slug["linkedin"]["tab_label"]
-        if has_linkedin
-        else tab_compare
-        if has_compare
-        else tab_correlate
-    )
+    default_tab = tab_home
 
     def _span_caption(bounds):
         if not bounds:
@@ -366,7 +331,7 @@ def _(
         if has_correlate and corr_bounds
         else "Need ≥2 sources"
     )
-    # Compare + Correlations on row 1; dumps A–Z on the next row (wraps if needed).
+    # Home + Compare + Correlations on row 1; dumps A–Z on the next row.
     selected = get_tab() or default_tab
 
     def _chip(label: str):
@@ -386,7 +351,7 @@ def _(
         )
 
     cross_row = mo.hstack(
-        [_chip(tab_compare), _chip(tab_correlate)],
+        [_chip(tab_home), _chip(tab_compare), _chip(tab_correlate)],
         justify="start",
         gap=0.35,
     )
@@ -402,7 +367,9 @@ def _(
         wrap=True,
         gap=0.35,
     )
-    if selected == tab_compare:
+    if selected == tab_home:
+        shown_caption = None
+    elif selected == tab_compare:
         shown_caption = cmp_caption
     elif selected == tab_correlate:
         shown_caption = corr_caption
@@ -434,10 +401,13 @@ def _(
         align="center",
         gap=0.75,
     )
-    mo.vstack(
-        [header, cross_row, dump_row, mo.md(f"_{shown_caption}_")],
-        gap=0.5,
-    )
+    chrome = [header]
+    if selected == tab_home:
+        chrome.append(render_home_hero(mo, overview))
+    chrome.extend([cross_row, dump_row])
+    if shown_caption:
+        chrome.append(mo.md(f"_{shown_caption}_"))
+    mo.vstack(chrome, gap=0.5)
     return (source,)
 
 
@@ -603,6 +573,12 @@ def _(
         else None
     )
     return (corr_controls,)
+
+
+@app.cell(hide_code=True)
+def _(mo, overview, px, render_home_panel, source, tab_home):
+    mo.stop(source.value != tab_home, output=None)
+    render_home_panel(mo=mo, px=px, overview=overview)
 
 
 @app.cell(hide_code=True)
