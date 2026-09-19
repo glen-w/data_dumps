@@ -591,9 +591,9 @@ def _(mo, overview, px, render_home_panel, source, tab_home):
 
 
 @app.cell(hide_code=True)
-def _(conn, mo, render_tools_panel, source, tab_tools):
+def _(conn, mo, px, render_tools_panel, source, tab_tools):
     mo.stop(source.value != tab_tools, output=None)
-    render_tools_panel(mo=mo, conn=conn)
+    render_tools_panel(mo=mo, px=px, conn=conn)
 
 
 @app.cell(hide_code=True)

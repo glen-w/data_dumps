@@ -16,6 +16,7 @@ dependencies = [
     "openpyxl>=3.1.5",
     "tldextract>=5.3.2",
     "wordcloud>=1.9.3",
+    "maxminddb>=2.5.0",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +34,7 @@ dev = [
 [project.scripts]
 ingest = "data_dumps.ingest:main"
 email-inventory = "data_dumps.email_inventory:main"
+ip-inventory = "data_dumps.ip_inventory:main"
 enrich-musicbrainz = "data_dumps.enrich.musicbrainz:main"
 
 [build-system]
@@ -77,7 +79,7 @@ warn_unused_ignores = true
 no_implicit_optional = true
 
 [[tool.mypy.overrides]]
-module = ["duckdb", "duckdb.*", "plotly", "plotly.*", "litellm", "litellm.*", "marimo", "marimo.*", "tldextract", "tldextract.*", "wordcloud", "wordcloud.*"]
+module = ["duckdb", "duckdb.*", "plotly", "plotly.*", "litellm", "litellm.*", "marimo", "marimo.*", "tldextract", "tldextract.*", "wordcloud", "wordcloud.*", "maxminddb", "maxminddb.*"]
 ignore_missing_imports = true
 
 [tool.uv]

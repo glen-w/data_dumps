@@ -8,7 +8,9 @@ Index: [Getting your data](../getting-your-data.md).
 
 ## Request
 
-Amazon account → Request Your Data. The bundle is usually several `All Data Categories*.zip` files plus `FileDescriptions.csv`. Point ingest at the **folder**. A single curated zip, or an extracted `Your Amazon Orders/` tree, also works.
+Use the marketplace that holds the orders. UK: [Privacy Central](https://www.amazon.co.uk/hz/privacy-central/data-requests/preview.html) → request your data ([help](https://www.amazon.co.uk/gp/help/customer/display.html?nodeId=TP1zlemejtTn6pwYKS)). Select categories or all, submit, then click the **validation** link in the email. Without that click the request is abandoned. The download is often ready in days; about a month is reported as the long end.
+
+The bundle is usually several `All Data Categories*.zip` files plus `FileDescriptions.csv`. Point ingest at the **folder**. A single curated zip, `Your Orders.zip`, or an extracted `Your Amazon Orders/` tree also works. Some regions ship JSON plus a schema file beside each export. Alexa audio is inventoried only when those files are present; do not assume WAVs. Ring is a separate Control Centre flow, not this request.
 
 ## Ingest
 

@@ -12,7 +12,7 @@ Two dumps, one explorer tab. Extended streaming history fills `spotify.plays`. A
 
 ## Extended streaming history
 
-**Request.** Spotify account → Privacy → Download your data. Ask for **Extended streaming history**. It is a separate request from account data and can take weeks. The zip contains a folder named `Spotify Extended Streaming History` with `Streaming_History_Audio_*.json` and optionally `Streaming_History_Video_*.json`. An already-extracted folder with those files also works.
+**Request.** [Account Privacy](https://www.spotify.com/account/privacy/) → Download your data → **Extended streaming history**. It is a separate package from Account data and the Technical log; you can request them separately or together. Confirm the email Spotify sends. The UI often cites up to 30 days; many people get the zip in a few days. What each package contains is in [Understanding your data](https://support.spotify.com/us/article/understanding-your-data/). The zip contains a folder named `Spotify Extended Streaming History` with `Streaming_History_Audio_*.json`, optionally `Streaming_History_Video_*.json`, and a Read Me First PDF. An already-extracted folder with those JSON files also works. Account-package streaming history covers about the past year and does not fill `spotify.plays`.
 
 ```bash
 uv run ingest /path/to/my_spotify_data.zip
@@ -26,7 +26,7 @@ uv run ingest /path/to/my_spotify_data.zip
 
 ## Account data
 
-**Request.** The ordinary “Download your data” zip, not Extended streaming history. It contains a `Spotify Account Data` folder (`YourLibrary.json`, playlist JSON, `SearchQueries.json`).
+**Request.** The same [Account Privacy](https://www.spotify.com/account/privacy/) page, **Account data** package, not Extended streaming history. Expect JSON such as `YourLibrary.json`, playlist files, `SearchQueries.json`, `Userdata.json`, and about one year of `StreamingHistory_*`. The folder inside the zip is `Spotify Account Data`.
 
 This ingest does **not** replace `spotify.plays`.
 

@@ -8,7 +8,13 @@ Index: [Getting your data](../getting-your-data.md).
 
 ## Request
 
-This is a **workspace admin** export, not something every member can download. In the workspace admin tools: Import/Export Data → Export. You get a zip (or an extracted folder) with `users.json`, `channels.json`, and one folder per channel of daily `YYYY-MM-DD.json` files. File-conversation folders named `FC:<id>:<title>` become channels of kind `file_conversation`.
+This is a **workspace admin** export, not something every member can download. Desktop → Admin → Workspace settings → Security → [Import & export data → Export](https://slack.com/help/articles/201658943-Export-your-workspace-data) → Start Export. How the zip is laid out: [How to read Slack data exports](https://slack.com/help/articles/220556107-How-to-read-Slack-data-exports).
+
+Public channels: Owners and Admins on every plan. Private channels and DMs: Business+ or Enterprise, and they need approval. Free and Pro include those only in limited legal or consent cases.
+
+A member in the UK or EU who is not an admin cannot self-serve message and file “Customer Data”. Ask the workspace Primary Owner (Slack is the processor). For account and usage data Slack holds itself (“Other Information”), email privacy@slack.com. See [Slack data management](https://slack.com/trust/data-management).
+
+The export is a zip (or an extracted folder) with `users.json`, `channels.json`, and one folder per channel of daily `YYYY-MM-DD.json` files. File-conversation folders named `FC:<id>:<title>` become channels of kind `file_conversation`.
 
 ## Ingest
 

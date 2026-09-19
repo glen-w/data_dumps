@@ -8,9 +8,9 @@ Index: [Getting your data](../getting-your-data.md).
 
 ## Request
 
-Settings → Your account → Download an archive of your data. This loader targets the classic HTML-viewer layout: `data/*.js` files that assign `window.YTD.*.part0` (at least `tweets.js`). A zip or the extracted archive folder both work.
+Settings and privacy → Your account → Download an archive of your data → verify → Request archive ([how to download your X archive](https://help.x.com/en/managing-your-account/how-to-download-your-x-archive)). Wait for the email or in-app notice (often about a day; it can be longer), then download the zip from the same settings page.
 
-Newer X dumps can use a different layout. v1 fails clearly instead of guessing.
+This loader targets the classic layout still reported in 2026: `data/*.js` files whose first line looks like `window.YTD.<name>.partN = [` (at least `tweets.js`) plus `Your archive.html`. A zip or the extracted archive folder both work. If the archive is not that YTD-wrapped JS, ingest fails clearly instead of guessing. Bookmarks are often absent.
 
 ## Ingest
 

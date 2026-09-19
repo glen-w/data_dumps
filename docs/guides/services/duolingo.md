@@ -8,7 +8,9 @@ Index: [Getting your data](../getting-your-data.md).
 
 ## Request
 
-Duolingo privacy / download-your-data export. The zip (or an extracted folder) must include `languages.csv`, `leaderboards.csv`, and `profile.csv`.
+Prefer the website over the app. Log in at duolingo.com → Settings → Export my data (Data Vault is the same request). Overview: [duolingo.com/privacy](https://www.duolingo.com/privacy). The page may say up to 30 days; people often get the email within hours.
+
+The zip (or an extracted folder) must include `languages.csv`, `leaderboards.csv`, and `profile.csv`. Confirm those names on the file you receive; the vault is CSV-oriented and may omit full lesson history.
 
 ## Ingest
 

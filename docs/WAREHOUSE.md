@@ -174,6 +174,17 @@ Keep-list: `conversations-*.json`, `shared_conversations.json`, `conversation_as
 
 The Tools tab does not ingest a new dump. It reads the open warehouse (message text, Thunderbird from/to) plus original export files the loaders skip (account emails, Slack profiles, Google contacts, Amazon mail files) and, when it can see the profile, Thunderbird message bodies. Addresses are not written back into source tables. Docker needs the profile mounted read-only (`DATA_DUMPS_TB_PROFILE`); the repo compose and the laptop compose both do that. A cache file `warehouse/email_inventory.json` sits next to `catalog.duckdb` (outside git). Opening Tools rebuilds it when inputs change; that does not need the warehouse write lock. `uv run email-inventory` prints counts and does need a free warehouse, because it opens `catalog.duckdb`.
 
+### Tools IP index
+
+Same tab, under the email list. It reads login, session, device, and access-log files the loaders already drop (LinkedIn `Logins.csv`, Twitter `ip-audit.js`, Google access logs, Amazon device registration, Uber app analytics, Telegram session `last_ip`, and the same kind of column in Ring, Duolingo, Airbnb, and ChatGPT). Addresses are not written into source tables. Uber device GPS in the analytics file is not used.
+
+City, region, country, and network operator come from two local databases you download yourself (free MaxMind account; not committed):
+
+- `$DATA_DUMPS_ROOT/warehouse/geoip/GeoLite2-City.mmdb`
+- `$DATA_DUMPS_ROOT/warehouse/geoip/GeoLite2-ASN.mmdb`
+
+The ASN organization is the ISP label. Private and documentation addresses are listed and not plotted. The map is city centroids from that lookup. Cache: `warehouse/ip_inventory.json` (outside git), rebuilt when an export or either database file changes. `uv run ip-inventory` prints counts only.
+
 ### MusicBrainz enrichment (genres / decades)
 
 `--artist-limit` and `--track-limit` default to **`0` (no cap)**. The CLI assumes you want the **full dataset** — every artist/track above the min lifetime hours — not a sample. MusicBrainz has no free-tier count quota; the only API constraint is **~1 request/second** per IP.

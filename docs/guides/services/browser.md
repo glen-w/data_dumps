@@ -8,7 +8,9 @@ Index: [Getting your data](../getting-your-data.md).
 
 ## Request
 
-Export history as JSON with the Firefox **Sky History Export** extension (objects with `url`, `title`, `lastVisitTime`, `visitCount`). A one-time Chrome-style `history.json` in the same folder is merged. Grain is one row per URL (last visit and visit count), not individual visits.
+Use the Firefox add-on [History Export (Skyweb)](https://addons.mozilla.org/en-US/firefox/addon/sky-history-export/) from AMO. Install it, open Options, and export history as JSON (the file is often named `data.json`). Objects have `url`, `title`, `lastVisitTime`, and `visitCount`. A one-time Chrome-style `history.json` in the same folder is merged; Chrome’s local history is about 90 days. Grain is one row per URL (last visit and visit count), not individual visits.
+
+Do not use Mozilla’s account “download your data” export, and do not point ingest at `places.sqlite`.
 
 ## Ingest
 

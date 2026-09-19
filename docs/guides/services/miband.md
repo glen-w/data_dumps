@@ -2,7 +2,7 @@
 
 Index: [Getting your data](../getting-your-data.md).
 
-Frozen one-off. There is no multi-format wearable pipeline, and this loader should not be extended.
+Frozen one-off. There is no export portal and no request-path research for this file. There is no multi-format wearable pipeline, and this loader should not be extended.
 
 | Slug | Timezone | Explorer |
 |------|----------|----------|

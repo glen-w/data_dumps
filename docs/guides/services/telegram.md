@@ -8,7 +8,9 @@ Index: [Getting your data](../getting-your-data.md).
 
 ## Request
 
-Telegram Desktop → Settings → Advanced → Export Telegram data. You get a folder (or a zip of that folder) whose `result.json` is the export. Media files can stay beside it; they are not copied into the warehouse.
+Telegram Desktop → Settings → Advanced → Export Telegram data. Choose **JSON**. That writes `result.json` plus optional media folders ([export schema](https://core.telegram.org/import-export)). HTML (`export_results.html`) is for browsing in a browser and is not what this loader reads. Media is optional; a large media export can take hours and a lot of disk. Files can stay beside `result.json`; they are not copied into the warehouse.
+
+This is not an EEA DSAR filed through [EDPO](https://edpo.com/telegram-gdpr-data-request/). That form is a legal request, not the Desktop export.
 
 ## Ingest
 

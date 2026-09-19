@@ -2,7 +2,9 @@
 
 Index: [Getting your data](../getting-your-data.md).
 
-This is not a download. Point ingest at a Thunderbird profile folder that contains `global-messages-db.sqlite` (on macOS, often `~/Library/Thunderbird/Profiles/<id>.default-release`). The loader snapshots that index read-only. It does not copy or move mail directories.
+This is not a download. In Thunderbird: Help → Troubleshooting Information → Profile Folder → Open Folder (Show in Finder / Open Directory). Point ingest at that folder. It must contain `global-messages-db.sqlite`. The loader snapshots that index read-only. It does not copy or move mail directories.
+
+Fallbacks if Open Folder is unavailable: macOS `~/Library/Thunderbird/Profiles/`, Windows `%APPDATA%\Thunderbird\Profiles\`, Linux `~/.thunderbird/`. Prefer the button over guessing the path.
 
 | Slug | Timezone | Explorer |
 |------|----------|----------|

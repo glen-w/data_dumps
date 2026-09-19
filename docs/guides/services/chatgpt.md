@@ -8,7 +8,9 @@ Index: [Getting your data](../getting-your-data.md).
 
 ## Request
 
-ChatGPT → Settings → Data controls → Export data. The zip contains `conversations-NNN.json` shards, plus shared-link and library metadata.
+On chatgpt.com (chat.openai.com redirects there): Settings → Data controls → Export data ([export help](https://help.openai.com/en/articles/7260999-export-your-data-from-chatgpt)). Fallback: [privacy.openai.com](https://privacy.openai.com/) → consumer ChatGPT → Download my data. This is not platform.openai.com (the API). Confirm the export, wait up to seven days for the email or SMS, then download within **24 hours** while signed in.
+
+OpenAI may ship one `conversations.json` or numbered `conversations-NNN.json` shards, plus shared-link and library metadata. This loader matches the numbered shards, together with `user.json`, `export_manifest.json`, or `chat.html`. A zip that only contains `conversations.json` does not detect yet.
 
 ## Ingest
 

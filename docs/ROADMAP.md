@@ -123,6 +123,14 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Source tables still have no email columns. Mail bodies are read from the Thunderbird index when it is on this machine and are not stored
 - Cache: `$DATA_DUMPS_ROOT/warehouse/email_inventory.json` (outside git). Rebuilt when Tools opens after an export or the warehouse changes. `uv run email-inventory` prints counts only
 
+### Tools — IP index
+
+- Same **Tools** tab, under the email list. Login, session, device, and access-log addresses from the original exports the loaders skip. Not addresses mentioned in chats
+- One row per place (`account login · PASSWORD`, `login audit`, `access log`, `session · Telegram macOS`)
+- Source tables still have no IP columns. Uber analytics GPS is not plotted
+- City, country, and ISP (GeoLite2 ASN organization) come from `$DATA_DUMPS_ROOT/warehouse/geoip/GeoLite2-City.mmdb` and `GeoLite2-ASN.mmdb` when you put them there. Private and documentation ranges are listed and left off the map
+- Cache: `$DATA_DUMPS_ROOT/warehouse/ip_inventory.json` (outside git). Rebuilt when Tools opens after an export or either database changes. `uv run ip-inventory` prints counts only
+
 ### Compare tab (cross-source)
 
 - Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, Google calendar/photos/maps/Play + calendar entity, Airbnb reservations/searches + place, ChatGPT messages/conversations + conversation, …)
@@ -180,6 +188,8 @@ Four phases, shippable independently after A:
 
 ## Later
 
+- **Have I Been Pwned (potential)** — optional **Pwned** column on the Tools email table. Email breach search is not a free or open API: it needs a user-supplied subscription key (cheapest is Core, direct search, about $4.39/month billed annually, 10 requests per minute). Cache results next to `email_inventory.json` (outside git); never write them into source tables or commit the key. Off by default — the list includes other people's addresses, and a direct search sends the full address to HIBP. Hash-prefix email search (the address never leaves the machine) is Pro-only. The free test key only works on HIBP's published test accounts.
+- **Password extractor (potential)** — Tools listing of passwords found in export credential files and account fields the loaders skip (browser saved logins, similar dumps), with where each one came from. Same boundary as the email index: not a source-table column, cache under the data root outside git, bodies and credential files not copied into `raw/`. Not a regex over chats. Optional check against the free [Pwned Passwords](https://haveibeenpwned.com/Passwords) API (k-anonymity, no key) — that answers “has this password appeared?”, not “has this address?”. Off by default.
 - **Correlations tab configurability** — method picker (Pearson / Spearman / Kendall); rolling-window r; partial correlation; entity-level pairs; circadian/hour-bin correlations; zero-fill vs inner-join toggle; configurable min-n and lag range; optional aggregate-only LLM “Narrate top correlations”; share z-score/min-max helpers with Compare’s planned norm modes
 - **Compare tab normalization modes** — min–max [0,1], z-score, absolute small-multiples; make the mode selectable in the UI (today: % of series max only)
 - **GUI-driven operations** — eventually all warehouse actions from the Marimo dashboard: ingest, MusicBrainz enrich, re-ingest, and LLM setup — not only explore/filter/narrate. Today ingest and enrich are CLI-only because DuckDB is single-writer; a GUI path needs an orchestration layer (stop dashboard → run job → reopen, or a dedicated writer service) without asking the user to juggle terminals. See [WAREHOUSE.md](WAREHOUSE.md) for current constraints.

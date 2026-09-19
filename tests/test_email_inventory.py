@@ -9,6 +9,7 @@ from pathlib import Path
 
 import duckdb
 import marimo as mo
+import plotly.express as px
 
 from data_dumps.email_inventory import (
     discover_gloda,
@@ -199,7 +200,7 @@ def test_extractors_and_panel(tmp_path: Path, monkeypatch) -> None:
             """).fetchall()}
     assert "email" not in cols
 
-    panel = render_tools_panel(mo=mo, conn=conn)
+    panel = render_tools_panel(mo=mo, px=px, conn=conn)
     assert panel is not None
 
 
@@ -207,7 +208,7 @@ def test_empty_panel(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("DATA_DUMPS_SKIP_GLODA", "1")
     monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path))
     conn = duckdb.connect()
-    panel = render_tools_panel(mo=mo, conn=conn)
+    panel = render_tools_panel(mo=mo, px=px, conn=conn)
     assert panel is not None
 
 
