@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../assets/logo.png" alt="" width="120">
+</p>
+
 # Guides
 
 | Guide | For |

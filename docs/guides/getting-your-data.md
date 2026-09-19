@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../assets/logo.png" alt="" width="120">
+</p>
+
 # Getting your data
 
 Request an export from the service, put the zip or folder anywhere you like, then ingest it. The default data root is `~/Documents/data_dumps_raw` (`DATA_DUMPS_ROOT`). Nothing in that tree belongs in git.

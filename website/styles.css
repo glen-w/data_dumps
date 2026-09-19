@@ -110,6 +110,13 @@ a {
   }
 }
 
+.hero-logo {
+  display: block;
+  width: 140px;
+  height: auto;
+  margin: 0 0 1.25rem;
+}
+
 .brand-mark {
   font-family: var(--font-display);
   font-size: clamp(2.6rem, 7vw, 4.4rem);

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="" width="160">
+</p>
+
 # data_dumps
 
 Local tools to ingest your own GDPR and app exports into DuckDB, then explore them in a [Marimo](https://marimo.io) dashboard. This is not a hosted service. Dumps and the warehouse stay on your machine, outside the git tree.
