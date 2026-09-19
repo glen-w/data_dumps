@@ -2,6 +2,8 @@
 
 Local tools to ingest your own GDPR and app exports into DuckDB, then explore them in a [Marimo](https://marimo.io) dashboard. This is not a hosted service. Dumps and the warehouse stay on your machine, outside the git tree.
 
+Hosted landing: [glenwright.earth/data_dumps](https://glenwright.earth/data_dumps/) ([`website/`](website/)).
+
 ## Privacy
 
 The dashboard has no password. Bind it to `127.0.0.1` (Docker Compose already publishes `127.0.0.1:2718`). Do not put it on a shared network.

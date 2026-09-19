@@ -1,0 +1,92 @@
+/* Sticky header for the marketing landing. */
+.dd-site-chrome {
+  --dd-ink: #101820;
+  --dd-ink-soft: #3d4a55;
+  --dd-paper: #f4f1ea;
+  --dd-accent: #3d5a80;
+  --dd-line: rgba(16, 24, 32, 0.12);
+  --dd-font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --dd-font-body: "Source Sans 3", "Segoe UI", sans-serif;
+  --dd-header-height: 3.5rem;
+
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  backdrop-filter: blur(10px);
+  background: rgba(244, 241, 234, 0.92);
+  border-bottom: 1px solid var(--dd-line);
+  font-family: var(--dd-font-body);
+  color: var(--dd-ink);
+}
+
+.dd-site-chrome .wrap {
+  width: min(1080px, calc(100% - 2.5rem));
+  margin-inline: auto;
+}
+
+.dd-site-chrome .header-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: var(--dd-header-height);
+}
+
+.dd-site-chrome .brand {
+  font-family: var(--dd-font-display);
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-decoration: none;
+  color: var(--dd-ink);
+  letter-spacing: -0.02em;
+}
+
+.dd-site-chrome .nav-toggle {
+  display: none;
+  border: 1px solid var(--dd-line);
+  background: transparent;
+  color: var(--dd-ink);
+  padding: 0.4rem 0.7rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dd-site-chrome .site-nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.dd-site-chrome .site-nav a {
+  text-decoration: none;
+  color: var(--dd-ink-soft);
+  font-weight: 600;
+}
+
+.dd-site-chrome .site-nav a:hover,
+.dd-site-chrome .site-nav a:focus-visible {
+  color: var(--dd-accent);
+}
+
+@media (max-width: 720px) {
+  .dd-site-chrome .nav-toggle {
+    display: inline-flex;
+  }
+
+  .dd-site-chrome .site-nav {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(var(--dd-header-height) - 0.1rem);
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    background: var(--dd-paper);
+    border: 1px solid var(--dd-line);
+    border-radius: 0.4rem;
+  }
+
+  .dd-site-chrome .site-nav.open {
+    display: flex;
+  }
+}
