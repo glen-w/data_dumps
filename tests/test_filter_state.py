@@ -98,6 +98,15 @@ def test_linkedin_year_clause():
     assert params == [2019, 2021]
 
 
+def test_year_chip():
+    from data_dumps import query_util
+
+    assert query_util.year_chip(None, None) is None
+    assert query_util.year_chip(2018, None) == ("year_range", "years 2018–…")
+    assert query_util.year_chip(None, 2020) == ("year_range", "years …–2020")
+    assert query_util.year_chip(2018, 2020) == ("year_range", "years 2018–2020")
+
+
 def test_query_util_year_clause_and_previous_bounds():
     from data_dumps import query_util
 

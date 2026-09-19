@@ -24,14 +24,8 @@ from typing import Any
 import duckdb
 import pandas as pd
 
-from data_dumps.email_inventory import (
-    _basename,
-    _newest,
-    _parse_ytd,
-    _zip_hits,
-    discover_exports,
-    iter_members,
-)
+from data_dumps.email_inventory import discover_exports
+from data_dumps.export_walk import basename, iter_members, newest, parse_ytd, zip_hits
 from data_dumps.paths import data_root, warehouse_db
 
 COLUMNS = (
@@ -281,7 +275,7 @@ def extract_linkedin(path: Path) -> list[IpHit]:
             label = f"{label} · {short}"
         return label
 
-    for _name, data in iter_members(path, lambda name: _basename(name) == "logins.csv"):
+    for _name, data in iter_members(path, lambda name: basename(name) == "logins.csv"):
         hits.extend(
             _hits_from_rows(
                 "LinkedIn", _ip_csv_rows(data), use="account login", use_of=use_of
@@ -294,7 +288,7 @@ def extract_twitter(path: Path) -> list[IpHit]:
     hits: list[IpHit] = []
 
     def ok(name: str) -> bool:
-        base = _basename(name)
+        base = basename(name)
         return base.startswith("ip-audit") or base.startswith("account-creation-ip")
 
     globs = (
@@ -304,12 +298,12 @@ def extract_twitter(path: Path) -> list[IpHit]:
         "*/data/account-creation-ip*.js",
     )
     for name, data in iter_members(path, ok, globs):
-        base = _basename(name)
+        base = basename(name)
         use = (
             "account creation" if base.startswith("account-creation") else "login audit"
         )
         try:
-            payload = _parse_ytd(data)
+            payload = parse_ytd(data)
         except json.JSONDecodeError:
             continue
         items = payload if isinstance(payload, list) else [payload]
@@ -338,7 +332,7 @@ def extract_amazon(path: Path) -> list[IpHit]:
     hits: list[IpHit] = []
 
     def ok(name: str) -> bool:
-        return _basename(name) == "device registration.csv"
+        return basename(name) == "device registration.csv"
 
     def use_of(row: Mapping[str, Any]) -> str:
         model = _csv_get(row, "amazon device model name", "device model") or ""
@@ -361,7 +355,7 @@ def extract_uber(path: Path) -> list[IpHit]:
     hits: list[IpHit] = []
 
     def ok(name: str) -> bool:
-        base = _basename(name)
+        base = basename(name)
         return "app_analytics" in base and base.endswith(".csv")
 
     for _name, data in iter_members(path, ok):
@@ -373,7 +367,7 @@ def extract_telegram(path: Path) -> list[IpHit]:
     hits: list[IpHit] = []
 
     def ok(name: str) -> bool:
-        return _basename(name) == "result.json"
+        return basename(name) == "result.json"
 
     for _name, data in iter_members(path, ok, ("result.json", "*/result.json")):
         try:
@@ -406,7 +400,7 @@ def extract_telegram(path: Path) -> list[IpHit]:
 
 
 def _skip_fallback(name: str) -> bool:
-    base = _basename(name)
+    base = basename(name)
     if base.startswith("conversations-") or base == "chat.html":
         return True
     return "message" in base
@@ -418,10 +412,10 @@ def extract_fallback(path: Path, service: str) -> list[IpHit]:
     def ok(name: str) -> bool:
         if _skip_fallback(name):
             return False
-        return _basename(name).endswith((".csv", ".json", ".js", ".html"))
+        return basename(name).endswith((".csv", ".json", ".js", ".html"))
 
     for name, data in iter_members(path, ok, _LOOSE_GLOBS):
-        base = _basename(name)
+        base = basename(name)
         if base.endswith(".csv"):
             hits.extend(
                 _hits_from_rows(service, _ip_csv_rows(data), use=Path(name).name)
@@ -439,7 +433,7 @@ def _json_hits(service: str, name: str, data: bytes) -> list[IpHit]:
         payload = json.loads(data.decode("utf-8-sig"))
     except json.JSONDecodeError:
         try:
-            payload = _parse_ytd(data)
+            payload = parse_ytd(data)
         except json.JSONDecodeError:
             return []
     stem = Path(name).name
@@ -484,9 +478,9 @@ def discover_telegram(root: Path | None = None) -> Path | None:
     folder = root / "telegram"
     if (folder / "result.json").is_file():
         return folder
-    zips = _zip_hits(folder)
+    zips = zip_hits(folder)
     if zips:
-        return _newest(zips)
+        return newest(zips)
     if not folder.is_dir():
         return None
     for child in sorted(folder.iterdir()):
@@ -731,7 +725,7 @@ def _stamp_targets(path: Path) -> list[Path]:
         return [path]
     if not path.is_dir():
         return []
-    zips = _zip_hits(path)
+    zips = zip_hits(path)
     if zips:
         return zips
     extra: list[Path] = []

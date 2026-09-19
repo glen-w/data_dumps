@@ -315,3 +315,10 @@ def test_cache_skips_rescan(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr("data_dumps.email_inventory.collect_hits", _boom)
     again, _note = inventory_frame(conn)
     assert "cache@example.com" in set(again["Email address"])
+
+
+def test_parse_ytd_strips_assignment():
+    from data_dumps.export_walk import parse_ytd
+
+    payload = parse_ytd(b'window.YTD.account.part0 = [{"ip": "1.2.3.4"}];\n')
+    assert payload == [{"ip": "1.2.3.4"}]

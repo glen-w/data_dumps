@@ -10,6 +10,8 @@ from typing import Any
 import duckdb
 import pandas as pd
 
+from data_dumps import query_util
+
 NARRATIVE_CONTEXT_KEYS = frozenset(
     {
         "filter_digest",
@@ -83,10 +85,9 @@ class FilterState:
 
     def chip_labels(self) -> list[tuple[str, str]]:
         chips: list[tuple[str, str]] = []
-        if self.year_start is not None or self.year_end is not None:
-            ys = self.year_start if self.year_start is not None else "…"
-            ye = self.year_end if self.year_end is not None else "…"
-            chips.append(("year_range", f"years {ys}–{ye}"))
+        chip = query_util.year_chip(self.year_start, self.year_end)
+        if chip is not None:
+            chips.append(chip)
         for t in self.chat_types:
             chips.append(("chat_type", f"type={t}"))
         if self.chat_name:
@@ -149,13 +150,9 @@ def _where_and_params(
     prefix = f"{table_alias}." if table_alias else ""
     clauses: list[str] = []
     params: list[Any] = []
-
-    if f.year_start is not None:
-        clauses.append(f"{prefix}year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append(f"{prefix}year <= ?")
-        params.append(f.year_end)
+    query_util.append_year_clause(
+        clauses, params, table_alias, f.year_start, f.year_end
+    )
     if f.chat_types:
         placeholders = ", ".join("?" for _ in f.chat_types)
         clauses.append(f"c.type IN ({placeholders})")

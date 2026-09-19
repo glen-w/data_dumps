@@ -18,14 +18,14 @@ import sqlite3
 import sys
 import zipfile
 from collections import defaultdict
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import duckdb
 import pandas as pd
 
+from data_dumps.export_walk import basename, iter_members, newest, parse_ytd, zip_hits
 from data_dumps.paths import data_root, warehouse_db
 from data_dumps.query_util import has_table
 from data_dumps.sources.thunderbird_gloda import (
@@ -57,9 +57,7 @@ _BAD_TLD = frozenset(
     }
 )
 _SKIP_VALUES = frozenset({"", "n/a", "na", "none", "null", "not available"})
-_MAX_MEMBER = 20 * 1024 * 1024
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-_YTD_RE = re.compile(r"^window\.YTD\.[^=]+=\s*", re.MULTILINE)
 _GOOGLE_LABELS = (
     ("alternate e-mails", "alternate email"),
     ("alternate e-mail", "alternate email"),
@@ -338,62 +336,6 @@ def scan_gloda_bodies(path: Path) -> list[EmailHit]:
             snap.unlink(missing_ok=True)
 
 
-def _is_zip(path: Path) -> bool:
-    name = path.name.lower()
-    return name.endswith(".zip") or name.endswith(".zip.zip")
-
-
-def iter_members(
-    path: Path,
-    member_ok: Callable[[str], bool],
-    loose_globs: tuple[str, ...] = (),
-) -> Iterator[tuple[str, bytes]]:
-    """Yield ``(relative name, bytes)`` from a zip, a folder of zips, or loose files."""
-    path = path.resolve()
-    if not path.exists():
-        return
-    if path.is_file():
-        if _is_zip(path):
-            yield from _iter_zip(path, member_ok)
-            return
-        rel = path.name
-        if member_ok(rel) and path.stat().st_size <= _MAX_MEMBER:
-            yield rel, path.read_bytes()
-        return
-    zips = sorted(
-        child for child in path.iterdir() if child.is_file() and _is_zip(child)
-    )
-    if zips:
-        for archive in zips:
-            yield from _iter_zip(archive, member_ok)
-        return
-    for pattern in loose_globs:
-        for child in path.glob(pattern):
-            if not child.is_file():
-                continue
-            rel = child.relative_to(path).as_posix()
-            if not member_ok(rel) or child.stat().st_size > _MAX_MEMBER:
-                continue
-            yield rel, child.read_bytes()
-
-
-def _iter_zip(
-    path: Path, member_ok: Callable[[str], bool]
-) -> Iterator[tuple[str, bytes]]:
-    try:
-        archive = zipfile.ZipFile(path)
-    except (OSError, zipfile.BadZipFile):
-        return
-    with archive:
-        for info in archive.infolist():
-            if info.is_dir():
-                continue
-            name = info.filename.replace("\\", "/")
-            if not member_ok(name) or info.file_size > _MAX_MEMBER:
-                continue
-            yield name, archive.read(info)
-
-
 def _csv_rows(data: bytes) -> list[dict[str, str]]:
     text = data.decode("utf-8-sig", errors="replace")
     lines = text.splitlines()
@@ -429,14 +371,6 @@ def _keep(service: str, use: str, raw: str | None, into: list[EmailHit]) -> None
         into.append(EmailHit(service, use, email))
 
 
-def _parse_ytd(data: bytes) -> Any:
-    text = data.decode("utf-8", errors="replace")
-    body = _YTD_RE.sub("", text, count=1).strip()
-    if body.endswith(";"):
-        body = body[:-1].strip()
-    return json.loads(body)
-
-
 def _google_label_hits(html: str) -> list[tuple[str, str]]:
     text = re.sub(r"<[^>]+>", "\n", html)
     lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
@@ -468,14 +402,10 @@ def _vcf_cards(text: str) -> list[tuple[str, list[str]]]:
     return parsed
 
 
-def _basename(name: str) -> str:
-    return Path(name).name.lower()
-
-
 def extract_linkedin(path: Path) -> list[EmailHit]:
     hits: list[EmailHit] = []
     for _name, data in iter_members(
-        path, lambda name: _basename(name) == "email addresses.csv"
+        path, lambda name: basename(name) == "email addresses.csv"
     ):
         for row in _csv_rows(data):
             raw = _csv_get(row, "email address", "email")
@@ -497,7 +427,7 @@ def extract_spotify(path: Path) -> list[EmailHit]:
     hits: list[EmailHit] = []
 
     def ok(name: str) -> bool:
-        base = _basename(name)
+        base = basename(name)
         return base in {"userattributes.json", "identifiers.json"}
 
     for name, data in iter_members(path, ok):
@@ -505,7 +435,7 @@ def extract_spotify(path: Path) -> list[EmailHit]:
             obj = json.loads(data.decode("utf-8-sig"))
         except json.JSONDecodeError:
             continue
-        base = _basename(name)
+        base = basename(name)
         if base == "userattributes.json" and isinstance(obj, dict):
             _keep("Spotify", "account email", obj.get("email"), hits)
         elif base == "identifiers.json":
@@ -526,7 +456,7 @@ def extract_spotify(path: Path) -> list[EmailHit]:
 
 def extract_chatgpt_account(path: Path) -> list[EmailHit]:
     hits: list[EmailHit] = []
-    for _name, data in iter_members(path, lambda name: _basename(name) == "user.json"):
+    for _name, data in iter_members(path, lambda name: basename(name) == "user.json"):
         try:
             obj = json.loads(data.decode("utf-8-sig"))
         except json.JSONDecodeError:
@@ -540,7 +470,7 @@ def extract_uber(path: Path) -> list[EmailHit]:
     hits: list[EmailHit] = []
 
     def ok(name: str) -> bool:
-        base = _basename(name)
+        base = basename(name)
         return base.startswith("user_profile") and base.endswith(".csv")
 
     for _name, data in iter_members(path, ok):
@@ -559,14 +489,14 @@ def extract_twitter(path: Path) -> list[EmailHit]:
     )
 
     def ok(name: str) -> bool:
-        base = _basename(name)
+        base = basename(name)
         return base in {"account.js", "email-address-change.js"} or base.startswith(
             "account.part"
         )
 
     for _name, data in iter_members(path, ok, globs):
         try:
-            payload = _parse_ytd(data)
+            payload = parse_ytd(data)
         except json.JSONDecodeError:
             continue
         items = payload if isinstance(payload, list) else [payload]
@@ -596,7 +526,7 @@ def extract_airbnb(path: Path) -> list[EmailHit]:
     )
 
     def ok(name: str) -> bool:
-        return _basename(name) == "profile_information.html"
+        return basename(name) == "profile_information.html"
 
     for _name, data in iter_members(path, ok, globs):
         tables = _parse_html_tables(data.decode("utf-8", errors="replace"))
@@ -615,13 +545,13 @@ def extract_ring(path: Path) -> list[EmailHit]:
 
     def ok(name: str) -> bool:
         low = name.lower()
-        base = _basename(low)
+        base = basename(low)
         if base == "users.json" and "useraccount" in low:
             return True
         return base == "users.csv" and "ring_users" in low
 
     for name, data in iter_members(path, ok):
-        if _basename(name) == "users.csv":
+        if basename(name) == "users.csv":
             for row in _csv_rows(data):
                 _keep(
                     "Ring",
@@ -650,7 +580,7 @@ def extract_duolingo(path: Path) -> list[EmailHit]:
     hits: list[EmailHit] = []
     for _name, data in iter_members(
         path,
-        lambda name: _basename(name) == "profile.csv",
+        lambda name: basename(name) == "profile.csv",
         ("profile.csv", "*/profile.csv"),
     ):
         rows = _csv_rows(data)
@@ -671,7 +601,7 @@ def extract_duolingo(path: Path) -> list[EmailHit]:
 def extract_slack_profiles(path: Path) -> list[EmailHit]:
     """Workspace member addresses. These stay off the Slack dashboard."""
     hits: list[EmailHit] = []
-    for _name, data in iter_members(path, lambda name: _basename(name) == "users.json"):
+    for _name, data in iter_members(path, lambda name: basename(name) == "users.json"):
         try:
             payload = json.loads(data.decode("utf-8-sig"))
         except json.JSONDecodeError:
@@ -705,7 +635,7 @@ def extract_google(path: Path) -> list[EmailHit]:
 
     def ok(name: str) -> bool:
         low = name.lower()
-        base = _basename(low)
+        base = basename(low)
         return (
             low.endswith("profile/profile.json")
             or base.endswith("subscriberinfo.html")
@@ -744,7 +674,7 @@ def extract_amazon(path: Path) -> list[EmailHit]:
 
     def ok(name: str) -> bool:
         low = name.lower()
-        base = _basename(low)
+        base = basename(low)
         if base.endswith(".eml"):
             return True
         if base in {"retail.customercontacts.json", "amazon pay account.csv"}:
@@ -757,7 +687,7 @@ def extract_amazon(path: Path) -> list[EmailHit]:
 
     for name, data in iter_members(path, ok):
         low = name.lower()
-        base = _basename(low)
+        base = basename(low)
         if base.endswith(".eml"):
             for email in find_emails(data.decode("utf-8", errors="replace")):
                 eml_counts[email] += 1
@@ -826,23 +756,6 @@ _EXTRACTORS: dict[str, Callable[[Path], list[EmailHit]]] = {
 }
 
 
-def _newest(paths: list[Path], prefer: str | None = None) -> Path | None:
-    existing = [path for path in paths if path.exists()]
-    if prefer:
-        preferred = [path for path in existing if prefer in path.name.lower()]
-        if preferred:
-            existing = preferred
-    if not existing:
-        return None
-    return max(existing, key=lambda path: path.stat().st_mtime)
-
-
-def _zip_hits(folder: Path) -> list[Path]:
-    if not folder.is_dir():
-        return []
-    return sorted([*folder.glob("*.zip"), *folder.glob("*.zip.zip")])
-
-
 def discover_exports(root: Path | None = None) -> list[tuple[str, Path]]:
     """Original dumps (not the scrubbed ``raw/`` copies, except Slack users)."""
     root = root or data_root()
@@ -852,15 +765,15 @@ def discover_exports(root: Path | None = None) -> list[tuple[str, Path]]:
         if path is not None and path.exists():
             found.append((slug, path))
 
-    add("linkedin", _newest(_zip_hits(root / "linkedin"), prefer="complete"))
-    add("spotify_account", _newest(_zip_hits(root / "spotify"), prefer="account"))
-    add("chatgpt", _newest(_zip_hits(root / "chatgpt")))
-    add("uber", _newest(_zip_hits(root / "uber")))
-    add("airbnb", _newest(_zip_hits(root / "airbnb")))
-    add("ring", _newest(_zip_hits(root / "ring")))
-    add("duolingo", _newest(_zip_hits(root / "duolingo")))
+    add("linkedin", newest(zip_hits(root / "linkedin"), prefer="complete"))
+    add("spotify_account", newest(zip_hits(root / "spotify"), prefer="account"))
+    add("chatgpt", newest(zip_hits(root / "chatgpt")))
+    add("uber", newest(zip_hits(root / "uber")))
+    add("airbnb", newest(zip_hits(root / "airbnb")))
+    add("ring", newest(zip_hits(root / "ring")))
+    add("duolingo", newest(zip_hits(root / "duolingo")))
     users = root / "raw" / "slack" / "users.json"
-    add("slack", users if users.is_file() else _newest(_zip_hits(root / "slack")))
+    add("slack", users if users.is_file() else newest(zip_hits(root / "slack")))
     twitter = root / "twitter"
     if (twitter / "data" / "account.js").is_file():
         add("twitter", twitter)
@@ -873,7 +786,7 @@ def discover_exports(root: Path | None = None) -> list[tuple[str, Path]]:
     if any(google.glob("takeout-*.zip")):
         add("google", google)
     amazon = root / "amazon"
-    if _zip_hits(amazon):
+    if zip_hits(amazon):
         add("amazon", amazon)
     return found
 
@@ -948,7 +861,7 @@ def _stamps(exports: list[tuple[str, Path]], gloda: Path | None) -> list[list[ob
         if path.is_file():
             paths.append(path)
         elif path.is_dir():
-            zips = _zip_hits(path)
+            zips = zip_hits(path)
             paths.extend(zips or [path])
     stamps: list[list[object]] = []
     for path in paths:

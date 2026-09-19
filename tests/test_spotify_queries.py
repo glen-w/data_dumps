@@ -20,6 +20,7 @@ from data_dumps.spotify_queries import (
     hours_by_kind,
     hours_by_platform,
     kind_platform_sunburst,
+    late_hours_daily,
     listening_sessions,
     milestones,
     monthly_hours,
@@ -258,3 +259,11 @@ def test_narrative_context_keys(plays_conn):
     assert "filter_digest" in ctx
     assert "scoreboard" in ctx
     assert "top_artists" in ctx
+
+
+def test_late_hours_daily_keeps_hour_22_and_year_bound(plays_conn):
+    conn, _ = plays_conn
+    late = late_hours_daily(conn, None, None)
+    assert list(late["day"].astype(str)) == ["2019-08-01"]
+    assert float(late.iloc[0]["hours"]) == 1.0
+    assert late_hours_daily(conn, 2020, 2020).empty

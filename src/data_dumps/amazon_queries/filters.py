@@ -22,10 +22,9 @@ class FilterState:
 
     def chip_labels(self) -> list[tuple[str, str]]:
         chips: list[tuple[str, str]] = []
-        if self.year_start is not None or self.year_end is not None:
-            ys = self.year_start if self.year_start is not None else "…"
-            ye = self.year_end if self.year_end is not None else "…"
-            chips.append(("year_range", f"years {ys}–{ye}"))
+        chip = query_util.year_chip(self.year_start, self.year_end)
+        if chip is not None:
+            chips.append(chip)
         if self.marketplaces:
             chips.append(("marketplaces", "mkts " + ",".join(self.marketplaces)))
         if self.currencies:

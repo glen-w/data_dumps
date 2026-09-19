@@ -20,10 +20,9 @@ class FilterState:
 
     def chip_labels(self) -> list[tuple[str, str]]:
         chips: list[tuple[str, str]] = []
-        if self.year_start is not None or self.year_end is not None:
-            ys = self.year_start if self.year_start is not None else "…"
-            ye = self.year_end if self.year_end is not None else "…"
-            chips.append(("year_range", f"years {ys}–{ye}"))
+        chip = query_util.year_chip(self.year_start, self.year_end)
+        if chip is not None:
+            chips.append(chip)
         if self.tags:
             chips.append(("tags", "tags " + ", ".join(self.tags)))
         if self.min_rating is not None:
@@ -35,12 +34,7 @@ def _where(alias: str, f: FilterState) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
     p = f"{alias}." if alias else ""
-    if f.year_start is not None:
-        clauses.append(f"{p}year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append(f"{p}year <= ?")
-        params.append(f.year_end)
+    query_util.append_year_clause(clauses, params, alias, f.year_start, f.year_end)
     if f.min_rating is not None:
         clauses.append(f"{p}rating >= ?")
         params.append(f.min_rating)

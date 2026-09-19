@@ -37,6 +37,33 @@ def year_clause(
     return where, params
 
 
+def year_chip(
+    year_start: int | None,
+    year_end: int | None,
+) -> tuple[str, str] | None:
+    """``("year_range", "years {start}–{end}")``, or None when both ends are open."""
+    if year_start is None and year_end is None:
+        return None
+    ys = year_start if year_start is not None else "…"
+    ye = year_end if year_end is not None else "…"
+    return ("year_range", f"years {ys}–{ye}")
+
+
+def append_year_clause(
+    clauses: list[str],
+    params: list[Any],
+    alias: str,
+    year_start: int | None,
+    year_end: int | None,
+) -> None:
+    """Append :func:`year_clause` when a bound is set. Skips the open ``1=1``."""
+    where, year_params = year_clause(alias, year_start, year_end)
+    if where == "1=1":
+        return
+    clauses.append(where)
+    params.extend(year_params)
+
+
 def previous_year_bounds(
     year_start: int | None, year_end: int | None
 ) -> tuple[int, int] | None:

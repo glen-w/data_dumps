@@ -11,7 +11,13 @@ import data_dumps
 
 def test_query_packages_are_packages_not_shadowed_modules():
     root = Path(data_dumps.__file__).resolve().parent
-    for name in ("slack_queries", "amazon_queries", "spotify_queries"):
+    for name in (
+        "slack_queries",
+        "amazon_queries",
+        "spotify_queries",
+        "google_queries",
+        "chatgpt_queries",
+    ):
         assert (root / name / "__init__.py").is_file()
         assert not (root / f"{name}.py").exists()
         mod = importlib.import_module(f"data_dumps.{name}")
@@ -20,6 +26,8 @@ def test_query_packages_are_packages_not_shadowed_modules():
 
 def test_stable_public_reexports():
     from data_dumps import amazon_queries as amzq
+    from data_dumps import chatgpt_queries as cgq
+    from data_dumps import google_queries as gq
     from data_dumps import slack_queries as skq
     from data_dumps import spotify_queries as spq
 
@@ -51,8 +59,31 @@ def test_stable_public_reexports():
         "narrative_context",
         "_where_and_params",
         "circadian_heatmap",
+        "late_hours_daily",
     ):
         assert hasattr(spq, attr)
+
+    for attr in (
+        "FilterState",
+        "data_bounds",
+        "filter_from_widgets",
+        "scoreboard",
+        "surfaces_monthly",
+        "duration_vs_hour_scatter",
+        "maps_saves_monthly_total",
+        "play_installs_monthly_total",
+    ):
+        assert hasattr(gq, attr)
+
+    for attr in (
+        "FilterState",
+        "data_bounds",
+        "scoreboard",
+        "narrative_context",
+        "NARRATIVE_CONTEXT_KEYS",
+        "message_tokens",
+    ):
+        assert hasattr(cgq, attr)
 
 
 def test_no_three_arg_has_table_passthroughs():

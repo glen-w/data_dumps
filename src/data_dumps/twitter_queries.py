@@ -45,10 +45,9 @@ class FilterState:
 
     def chip_labels(self) -> list[tuple[str, str]]:
         chips: list[tuple[str, str]] = []
-        if self.year_start is not None or self.year_end is not None:
-            ys = self.year_start if self.year_start is not None else "…"
-            ye = self.year_end if self.year_end is not None else "…"
-            chips.append(("year_range", f"years {ys}–{ye}"))
+        chip = query_util.year_chip(self.year_start, self.year_end)
+        if chip is not None:
+            chips.append(chip)
         for t in self.tweet_types:
             chips.append(("tweet_type", f"type={t}"))
         for m in self.media_kinds:
@@ -118,13 +117,7 @@ def _tweet_where(f: FilterState, alias: str = "t") -> tuple[str, list[Any]]:
     prefix = f"{alias}."
     clauses: list[str] = []
     params: list[Any] = []
-
-    if f.year_start is not None:
-        clauses.append(f"{prefix}year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append(f"{prefix}year <= ?")
-        params.append(f.year_end)
+    query_util.append_year_clause(clauses, params, alias, f.year_start, f.year_end)
     if f.tweet_types:
         placeholders = ", ".join("?" for _ in f.tweet_types)
         clauses.append(f"{prefix}tweet_type IN ({placeholders})")
@@ -306,29 +299,11 @@ def _scoreboard_row(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataF
 
 
 def _likes_where(f: FilterState) -> tuple[str, list[Any]]:
-    if f.year_start is None and f.year_end is None:
-        return "1=1", []
-    clauses: list[str] = []
-    params: list[Any] = []
-    if f.year_start is not None:
-        clauses.append("year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append("year <= ?")
-        params.append(f.year_end)
-    return " AND ".join(clauses) if clauses else "1=1", params
+    return query_util.year_clause("", f.year_start, f.year_end)
 
 
 def _dm_where(f: FilterState) -> tuple[str, list[Any]]:
-    clauses: list[str] = []
-    params: list[Any] = []
-    if f.year_start is not None:
-        clauses.append("year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append("year <= ?")
-        params.append(f.year_end)
-    return " AND ".join(clauses) if clauses else "1=1", params
+    return query_util.year_clause("", f.year_start, f.year_end)
 
 
 def streak_stats(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:

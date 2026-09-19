@@ -8,6 +8,8 @@ from typing import Any
 import duckdb
 import pandas as pd
 
+from data_dumps import query_util
+
 
 @dataclass
 class FilterState:
@@ -19,10 +21,9 @@ class FilterState:
 
     def chip_labels(self) -> list[tuple[str, str]]:
         chips: list[tuple[str, str]] = []
-        if self.year_start is not None or self.year_end is not None:
-            ys = self.year_start if self.year_start is not None else "…"
-            ye = self.year_end if self.year_end is not None else "…"
-            chips.append(("year_range", f"years {ys}–{ye}"))
+        chip = query_util.year_chip(self.year_start, self.year_end)
+        if chip is not None:
+            chips.append(chip)
         if self.role:
             chips.append(("role", f"role: {self.role}"))
         if self.status:
@@ -41,12 +42,7 @@ def _res_where(alias: str, f: FilterState) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
     p = f"{alias}." if alias else ""
-    if f.year_start is not None:
-        clauses.append(f"{p}year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append(f"{p}year <= ?")
-        params.append(f.year_end)
+    query_util.append_year_clause(clauses, params, alias, f.year_start, f.year_end)
     if f.role:
         clauses.append(f"{p}role = ?")
         params.append(f.role)
@@ -60,13 +56,7 @@ def _res_where(alias: str, f: FilterState) -> tuple[str, list[Any]]:
 def _search_where(alias: str, f: FilterState) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
-    p = f"{alias}." if alias else ""
-    if f.year_start is not None:
-        clauses.append(f"{p}year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append(f"{p}year <= ?")
-        params.append(f.year_end)
+    query_util.append_year_clause(clauses, params, alias, f.year_start, f.year_end)
     if f.place:
         clauses.append(f"{_place_expr(alias)} = ?")
         params.append(f.place)
@@ -530,15 +520,7 @@ def place_rank_bump(
 
 
 def reviews_summary(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    clauses: list[str] = []
-    params: list[Any] = []
-    if f.year_start is not None:
-        clauses.append("year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append("year <= ?")
-        params.append(f.year_end)
-    where = " AND ".join(clauses) if clauses else "1=1"
+    where, params = query_util.year_clause("", f.year_start, f.year_end)
     return _query_df(
         conn,
         f"""
@@ -557,15 +539,7 @@ def reviews_summary(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataF
 
 
 def reviews_monthly(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFrame:
-    clauses: list[str] = []
-    params: list[Any] = []
-    if f.year_start is not None:
-        clauses.append("year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append("year <= ?")
-        params.append(f.year_end)
-    where = " AND ".join(clauses) if clauses else "1=1"
+    where, params = query_util.year_clause("", f.year_start, f.year_end)
     return _query_df(
         conn,
         f"""

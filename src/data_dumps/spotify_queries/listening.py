@@ -5,6 +5,7 @@ from __future__ import annotations
 import duckdb
 import pandas as pd
 
+from data_dumps import query_util
 from data_dumps.spotify_queries.filters import FilterState, _query_df, _where_and_params
 
 
@@ -470,6 +471,31 @@ def calendar_daily(conn: duckdb.DuckDBPyConnection, f: FilterState) -> pd.DataFr
         ORDER BY 1
     """
     return _query_df(conn, sql, params)
+
+
+def late_hours_daily(
+    conn: duckdb.DuckDBPyConnection,
+    year_start: int | None,
+    year_end: int | None,
+) -> pd.DataFrame:
+    """Hours played at local hour 22 or later."""
+    clauses = ["hour(played_at_local) >= 22", "played_at_local IS NOT NULL"]
+    params: list[object] = []
+    query_util.append_year_clause(clauses, params, "", year_start, year_end)
+    where = " AND ".join(clauses)
+    return _query_df(
+        conn,
+        f"""
+        SELECT
+            played_at_local::DATE AS day,
+            round(sum(hours), 2) AS hours
+        FROM spotify.plays
+        WHERE {where}
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        params,
+    )
 
 
 def bump_chart_artists(

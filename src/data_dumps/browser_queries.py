@@ -43,10 +43,9 @@ class FilterState:
 
     def chip_labels(self) -> list[tuple[str, str]]:
         chips: list[tuple[str, str]] = []
-        if self.year_start is not None or self.year_end is not None:
-            ys = self.year_start if self.year_start is not None else "…"
-            ye = self.year_end if self.year_end is not None else "…"
-            chips.append(("year_range", f"years {ys}–{ye}"))
+        chip = query_util.year_chip(self.year_start, self.year_end)
+        if chip is not None:
+            chips.append(chip)
         for c in self.categories:
             chips.append(("category", f"cat={c}"))
         for s in self.schemes:
@@ -156,12 +155,7 @@ def filter_from_widgets(
 def _pages_where(f: FilterState, alias: str = "p") -> tuple[str, list[Any]]:
     clauses: list[str] = ["1=1"]
     params: list[Any] = []
-    if f.year_start is not None:
-        clauses.append(f"{alias}.year >= ?")
-        params.append(f.year_start)
-    if f.year_end is not None:
-        clauses.append(f"{alias}.year <= ?")
-        params.append(f.year_end)
+    query_util.append_year_clause(clauses, params, alias, f.year_start, f.year_end)
     if f.categories:
         placeholders = ",".join("?" for _ in f.categories)
         clauses.append(f"{alias}.category IN ({placeholders})")

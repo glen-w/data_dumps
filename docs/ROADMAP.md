@@ -135,7 +135,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 - Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, Google calendar/photos/maps/Play + calendar entity, Airbnb reservations/searches + place, ChatGPT messages/conversations + conversation, …)
 - Monthly multiviewer overlay with each series as **% of its own max**; Pearson correlation heatmap on aligned shapes; raw values table alongside
-- Series descriptors live in `contribution_series.py` (`make_compare_total` / `make_compare_entity` / `make_correlate_metric` helpers in `series_catalog.py`); catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
+- Series descriptors live in `contribution_series/` (one module per source; `make_compare_total` / `make_compare_entity` / `make_correlate_metric` helpers in `series_catalog.py`); catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
 
 ### Correlations tab (cross-source)
 

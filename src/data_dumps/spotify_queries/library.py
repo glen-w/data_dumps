@@ -155,12 +155,7 @@ def search_volume_filtered(
         return pd.DataFrame(columns=["year_month", "searches"])
     clauses = ["year IS NOT NULL", "month IS NOT NULL"]
     params: list[Any] = []
-    if year_start is not None:
-        clauses.append("year >= ?")
-        params.append(year_start)
-    if year_end is not None:
-        clauses.append("year <= ?")
-        params.append(year_end)
+    query_util.append_year_clause(clauses, params, "", year_start, year_end)
     where = " AND ".join(clauses)
     df = _query_df(
         conn,
@@ -190,12 +185,7 @@ def calendar_daily_searches(
         return pd.DataFrame(columns=["day", "searches"])
     clauses = ["searched_at_local IS NOT NULL"]
     params: list[Any] = []
-    if year_start is not None:
-        clauses.append("year >= ?")
-        params.append(year_start)
-    if year_end is not None:
-        clauses.append("year <= ?")
-        params.append(year_end)
+    query_util.append_year_clause(clauses, params, "", year_start, year_end)
     where = " AND ".join(clauses)
     return _query_df(
         conn,
