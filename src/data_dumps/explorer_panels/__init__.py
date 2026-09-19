@@ -87,6 +87,7 @@ from data_dumps.explorer_panels.thunderbird import (
     make_thunderbird_controls,
     render_thunderbird_panel,
 )
+from data_dumps.explorer_panels.tools import render_tools_panel
 from data_dumps.explorer_panels.twitter import (
     TwitterControls,
     make_twitter_controls,
@@ -153,6 +154,7 @@ __all__ = [
     "render_spotify_panel",
     "render_telegram_panel",
     "render_thunderbird_panel",
+    "render_tools_panel",
     "render_twitter_panel",
     "render_uber_panel",
 ]

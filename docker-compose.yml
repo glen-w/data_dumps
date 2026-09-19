@@ -9,8 +9,11 @@ services:
       - "127.0.0.1:2718:2718"
     volumes:
       - ${HOME}/Documents/data_dumps_raw:/data:rw
+      # Read-only. Tools reads message bodies for addresses only; source tables still omit them.
+      - ${HOME}/Library/Thunderbird/Profiles:/thunderbird:ro
     environment:
       DATA_DUMPS_ROOT: /data
+      DATA_DUMPS_TB_PROFILE: /thunderbird
       DATA_DUMPS_LLM_BASE_URL: http://host.docker.internal:11434
     extra_hosts:
       - "host.docker.internal:host-gateway"

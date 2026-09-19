@@ -126,7 +126,7 @@ def make_mini_uber_zip(tmp_path: Path) -> Path:
     )
     # Forbidden files — must not be copied to raw/
     (acct / "user_profile-0.csv").write_text(
-        "First Name,Last Name,E-Mail,Mobile\nGlen,Wright,secret@example.com,123\n",
+        "First Name,Last Name,E-Mail,Mobile\nJane,Doe,secret@example.com,123\n",
         encoding="utf-8",
     )
     (acct / "payment_methods-0.csv").write_text(

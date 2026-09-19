@@ -3,6 +3,8 @@ name = "data-dumps"
 version = "0.1.1"
 description = "Ingest and explore personal GDPR data exports"
 readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Glen" }]
 requires-python = ">=3.11"
 dependencies = [
     "duckdb>=1.1.0",
@@ -30,6 +32,7 @@ dev = [
 
 [project.scripts]
 ingest = "data_dumps.ingest:main"
+email-inventory = "data_dumps.email_inventory:main"
 enrich-musicbrainz = "data_dumps.enrich.musicbrainz:main"
 
 [build-system]

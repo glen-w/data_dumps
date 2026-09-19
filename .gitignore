@@ -3,9 +3,14 @@
 raw/
 warehouse/
 warehouse/llm_cache/
+data/
+inbox/
 *.duckdb
 *.parquet
 *.csv
+*.sqlite
+*.sqlite3
+*.db
 Telegram_Export_*/
 
 # python

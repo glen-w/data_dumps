@@ -23,7 +23,7 @@ Standing ops: [WAREHOUSE.md](../WAREHOUSE.md) (single-writer). Direction: [ROADM
 
 - Commit dumps, extracted JSON/CSV, DuckDB files, `.env`, or media bytes. Data lives under `~/Documents/data_dumps_raw` (`DATA_DUMPS_ROOT`), outside git.
 - Run `ingest` / enrich while Marimo (or `docker compose up app`) holds the warehouse. Stop the dashboard first — [WAREHOUSE.md](../WAREHOUSE.md).
-- Load IPs, emails, phones, payment instruments, KYC / ads / inference blobs, precise home addresses, or Wi‑Fi SSIDs **by default**. Drop at ingest; keep a forbidden-column test. Message text is OK when the product is messaging (Telegram, Slack, LinkedIn, Twitter) — document it.
+- Load IPs, phones, payment instruments, KYC / ads / inference blobs, precise home addresses, or Wi‑Fi SSIDs **by default**. Drop those at ingest; keep a forbidden-column test. Do **not** add email columns to source tables. The Tools tab (`email_inventory.py`) is the only listing of addresses — yours, other people's, and ones only mentioned in text. When a new text column can contain an address, append a `TextScan` there. Message text is OK when the product is messaging (Telegram, Slack, LinkedIn, Twitter) — document it.
 - Invent a **dynamic** plugin registry (entry points, auto-import of every module). Use the thin explicit [`CONTRIBUTIONS`](../../src/data_dumps/contributions.py) list instead — one append per dump.
 - Ship an explorer tab with only a raw table and call it done. Aim for the Wrapped checklist (below) unless the dump is ingest-only for now.
 - Expand **Mi Band** — frozen one-off; Sleep may keep using `miband.heart_rate` when present.
@@ -101,7 +101,9 @@ Marimo rule: **do not** read `widget.value` in the cell that created the widget.
 
 ### 6. Document (same session)
 
-- [ ] README section: how to ingest (stop dashboard → `uv run ingest …` → reopen), tables, privacy drops, explorer blurb
+- [ ] [getting-your-data.md](getting-your-data.md) index row (request, detect, tab, notes)
+- [ ] [services/<slug>.md](services/) page: Request / Ingest / Kept / Dropped / Explorer (add quirks as they turn up)
+- [ ] README ingest blurb only if this is the first-run example; otherwise the index is enough
 - [ ] [WAREHOUSE.md](../WAREHOUSE.md) ingest subsection if the path is non-obvious (Thunderbird profile, multipart Amazon, …)
 - [ ] [ROADMAP.md](../ROADMAP.md) **Shipped** bullet (format match peers)
 - [ ] Layout tree under README if a new `raw/<slug>/` appears
@@ -152,7 +154,7 @@ Do not match Amazon’s multi-surface breadth on day one. Prefer pattern complet
 | Combined dashboard | `notebooks/explorer.py` |
 | Ingest tests | `tests/test_<slug>_ingest.py` |
 | Query / panel tests | `tests/test_<slug>_queries.py`, `tests/test_explorer_panels.py` |
-| Human docs | `README.md`, `docs/WAREHOUSE.md`, `docs/ROADMAP.md` |
+| Human docs | `README.md`, `docs/WAREHOUSE.md`, `docs/ROADMAP.md`, `docs/guides/getting-your-data.md` + `docs/guides/services/<slug>.md` |
 
 ---
 
@@ -166,22 +168,35 @@ Do not match Amazon’s multi-surface breadth on day one. Prefer pattern complet
 
 ---
 
-## README source blurb shape
+## Service page shape
 
-```markdown
-## <Product> export
+New dump → `docs/guides/services/<slug>.md` plus one row in [getting-your-data.md](getting-your-data.md). Copy from a peer under `services/`.
 
-Stop the dashboard first ([WAREHOUSE.md](docs/WAREHOUSE.md)).
+~~~~markdown
+# <Product>
+
+Index: [Getting your data](../getting-your-data.md).
+
+| Slug | Timezone | Explorer |
+|------|----------|----------|
+| `<slug>` | `Europe/Rome` | … tab |
+
+## Request
+
+…
+
+## Ingest
 
 ```bash
-uv run ingest ~/Documents/data_dumps_raw/<slug>/<file-or-folder>
-uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
+uv run ingest /path/to/export
 ```
 
-- Tables: `slug.…` (grain in one clause)
-- Dropped at ingest: …
-- Explorer: … tab (scoreboard, …)   # omit if ingest-only
-```
+**Kept.** … (grain in one clause)
+
+**Dropped.** …
+
+**Explorer.** … tab (scoreboard, …)   # omit if ingest-only
+~~~~
 
 ---
 
@@ -190,5 +205,5 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 - Read **this** guide before writing a new `sources/*.py` or explorer tab. Companion rule: [`.cursor/rules/add-dump.mdc`](../../.cursor/rules/add-dump.mdc).
 - Do not invent dump layouts. If the export is not on disk, stop and ask.
 - Prefer extending the closest existing source over novel frameworks.
-- Session is incomplete until tests + README/ROADMAP (and explorer wiring if that was the lane) are done.
+- Session is incomplete until tests + index row + `services/<slug>.md` + ROADMAP (and explorer wiring if that was the lane) are done.
 - Never commit warehouse or `data_dumps_raw` contents.

@@ -28,7 +28,8 @@ def render_home_hero(mo: Any, overview: WarehouseOverview) -> Any:
     intro = (
         "Personal GDPR and app exports, kept in one local DuckDB file. "
         "Source tabs are the dumps already ingested. "
-        "**Compare** and **Correlations** look across them."
+        "**Compare** and **Correlations** look across them. "
+        "**Tools** lists every email address in those exports, with where it came from."
     )
     if overview.n_sources == 0:
         intro += (

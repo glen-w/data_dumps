@@ -32,7 +32,6 @@ CITY_COORDS: dict[str, tuple[float, float]] = {
     "singapore": (1.3521, 103.8198),
     "sydney": (-33.8688, 151.2093),
     "washington": (38.9072, -77.0369),
-    "brierley hill": (52.4810, -2.1210),
     "rome": (41.9028, 12.4964),
     "milan": (45.4642, 9.1900),
     "madrid": (40.4168, -3.7038),

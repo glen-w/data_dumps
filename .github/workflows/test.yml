@@ -3,7 +3,10 @@ on:
   push:
   pull_request:
 
-# Keep in sync with .github/workflows/test.yml
+# Keep in sync with .gitea/workflows/test.yml
+
+permissions:
+  contents: read
 
 jobs:
   pytest:

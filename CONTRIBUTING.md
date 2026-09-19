@@ -1,5 +1,7 @@
 # Contributing
 
+Do not attach real GDPR dumps, extracted files, or DuckDB warehouses to issues or pull requests. Use the synthetic fixtures under `tests/` (see [SECURITY.md](SECURITY.md) for private reports).
+
 New dumps follow [docs/guides/add-a-dump.md](docs/guides/add-a-dump.md). The short version:
 
 - Implement `Source` in `src/data_dumps/sources/<slug>.py` (`detect`, `load`, `tables`, `inventory`).

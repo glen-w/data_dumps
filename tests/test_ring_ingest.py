@@ -39,15 +39,15 @@ def make_mini_ring_zip(tmp_path: Path) -> Path:
         "rich_notifications_eligible,people_detection_eligible,"
         "ai_automated_warnings_enabled,automated_siren_enabled,"
         "continuous_video_recording_subscribed,offline_motion_recording_subscribed\n"
-        "Front Door,dev1,2024-09-14T19:00:08Z,Europe/London,52.4,-2.1,"
+        "Front Door,dev1,2024-09-14T19:00:08Z,Europe/London,51.5,-0.1,"
         "yes,yes,yes,yes,yes,yes,yes,yes,yes\n",
         encoding="utf-8",
     )
     (registry / "Device_location.csv").write_text(
         "location_name,address,city,state,zip_code,country,timezone,"
         "latitude,longitude,location_type,location_subtype\n"
-        "Wilson Road,6 Wilson Road,Brierley Hill,England,DY5,GB,Europe/London,"
-        "52.4,-2.1,residential,Not Applicable\n",
+        "Example Street,1 Example Street,London,England,SW1A,GB,Europe/London,"
+        "51.5,-0.1,residential,Not Applicable\n",
         encoding="utf-8",
     )
     events_dir = root / "RequestAllYourData.Events.2" / "datasets" / "DeviceEvents"
@@ -82,7 +82,7 @@ def make_mini_ring_zip(tmp_path: Path) -> Path:
     (root / "datarequest").mkdir(exist_ok=True)
     (root / "datarequest" / "setups.csv").write_text(
         "Status,Description,Created At,Updated At,Device Id,Latitude,Longitude,Ssid\n"
-        "valid,Front Door,2024-09-14 18:59:47,2024-09-14 18:59:57,dev1,52.4,-2.1,SECRETSSID\n",
+        "valid,Front Door,2024-09-14 18:59:47,2024-09-14 18:59:57,dev1,51.5,-0.1,SECRETSSID\n",
         encoding="utf-8",
     )
     (root / "datarequest" / "subscriptions.csv").write_text(

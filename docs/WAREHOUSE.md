@@ -170,6 +170,10 @@ Keep-list HTML: reservations, search_history, reviews, wishlists. Profile is rea
 
 Keep-list: `conversations-*.json`, `shared_conversations.json`, `conversation_asset_file_names.json`, `library_files.json`, stripped `account.json`. Not copied: `.dat` media, `chat.html`, email/phone from `user.json`, `ads.json`.
 
+### Tools email index
+
+The Tools tab does not ingest a new dump. It reads the open warehouse (message text, Thunderbird from/to) plus original export files the loaders skip (account emails, Slack profiles, Google contacts, Amazon mail files) and, when it can see the profile, Thunderbird message bodies. Addresses are not written back into source tables. Docker needs the profile mounted read-only (`DATA_DUMPS_TB_PROFILE`); the repo compose and the laptop compose both do that. A cache file `warehouse/email_inventory.json` sits next to `catalog.duckdb` (outside git). Opening Tools rebuilds it when inputs change; that does not need the warehouse write lock. `uv run email-inventory` prints counts and does need a free warehouse, because it opens `catalog.duckdb`.
+
 ### MusicBrainz enrichment (genres / decades)
 
 `--artist-limit` and `--track-limit` default to **`0` (no cap)**. The CLI assumes you want the **full dataset** — every artist/track above the min lifetime hours — not a sample. MusicBrainz has no free-tier count quota; the only API constraint is **~1 request/second** per IP.
@@ -232,3 +236,4 @@ docker compose stop app
 
 - [README.md](../README.md) — setup
 - [ROADMAP.md](ROADMAP.md) — features and constraints
+- [guides/getting-your-data.md](guides/getting-your-data.md) — export index; per-service pages under [guides/services/](guides/services/)

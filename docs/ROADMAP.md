@@ -116,6 +116,13 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Compare / Correlations: messages + conversations; Compare entity = conversation
 - Local TZ: `Europe/Paris`
 
+### Tools — email index
+
+- Explorer **Tools** tab lists every email address found in the exports: account fields the source tabs skip, other people's profiles and contacts, and addresses only mentioned in chats, tweets, subjects, or mail bodies
+- One row per place (`mentioned in chat (4 mentions)`, `user profile · Ada`, `correspondent, from · Ada (12 messages)`)
+- Source tables still have no email columns. Mail bodies are read from the Thunderbird index when it is on this machine and are not stored
+- Cache: `$DATA_DUMPS_ROOT/warehouse/email_inventory.json` (outside git). Rebuilt when Tools opens after an export or the warehouse changes. `uv run email-inventory` prints counts only
+
 ### Compare tab (cross-source)
 
 - Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, Google calendar/photos/maps/Play + calendar entity, Airbnb reservations/searches + place, ChatGPT messages/conversations + conversation, …)
@@ -169,7 +176,7 @@ Four phases, shippable independently after A:
 - `ruff` / `black` / `mypy` via `uv sync --extra dev` (not run on Marimo notebooks)
 - `filter_from_widgets`, `has_mb_data`, compare-previous edge cases, LLM `filter_digest` cache keys
 - Notebook: horizontal ranking bars, filter clear buttons, plotly click-to-filter on platform pie and scatter
-- `enrich-musicbrainz --dry-run`; Gitea CI workflow runs tests + `marimo check`
+- `enrich-musicbrainz --dry-run`; CI (GitHub Actions + Gitea) runs tests + `marimo check`
 
 ## Later
 
@@ -204,6 +211,7 @@ Four phases, shippable independently after A:
 |-----|------|
 | [README.md](../README.md) | Setup, Docker, privacy |
 | [WAREHOUSE.md](WAREHOUSE.md) | **Single-writer lock** — UI vs ingest vs enrich |
+| [guides/getting-your-data.md](guides/getting-your-data.md) | Export index; per-service pages under [guides/services/](guides/services/) |
 | [guides/add-a-dump.md](guides/add-a-dump.md) | **Add a dump** checklist (Source + explorer); agents start here |
 | [../AGENTS.md](../AGENTS.md) | Agent entrypoint |
 | [../assessments/dashboard-depth-2026-09.md](../assessments/dashboard-depth-2026-09.md) | Explorer depth scorecard |

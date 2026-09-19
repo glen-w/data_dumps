@@ -6,9 +6,11 @@ Local tools to ingest your own GDPR and app exports into DuckDB, then explore th
 
 The dashboard has no password. Bind it to `127.0.0.1` (Docker Compose already publishes `127.0.0.1:2718`). Do not put it on a shared network.
 
-Ingest drops IPs, emails, phones, ads, and KYC by default. It **keeps** product content such as message text, track and artist names, and mail subjects. Details per source are in [docs/guides/getting-your-data.md](docs/guides/getting-your-data.md).
+Ingest drops IPs, phones, ads, and KYC from the source tables, and those dashboards do not show email addresses. The **Tools** tab lists every address it can find — yours and other people's, including ones only mentioned in chats or mail — and where each one came from. That index is cached under the data root (`warehouse/email_inventory.json`), not in git, and it is not written into the source tables.
 
-Do not commit dumps, extracted files, DuckDB databases, or `.env`. Those paths are already listed in [.gitignore](.gitignore).
+Do not commit dumps, extracted files, DuckDB databases, or `.env`. Those paths are already listed in [.gitignore](.gitignore). This git tree is code and synthetic tests only.
+
+Vulnerability reports: [SECURITY.md](SECURITY.md).
 
 Wall-clock charts use a hardcoded timezone, not your system zone. Most sources use `Europe/Rome`. Slack, Google, Airbnb, and ChatGPT use `Europe/Paris`. Ring uses `Europe/London`.
 
@@ -22,7 +24,7 @@ Wall-clock charts use a hardcoded timezone, not your system zone. Most sources u
 
 Put exports under a data root. The default is `~/Documents/data_dumps_raw`. Override it with `DATA_DUMPS_ROOT`. The DuckDB file is `$DATA_DUMPS_ROOT/warehouse/catalog.duckdb` (or `DATA_DUMPS_WAREHOUSE`).
 
-Spotify Extended Streaming History is the clearest first source. Request steps and the expected zip layout are in the [getting your data](docs/guides/getting-your-data.md#spotify-extended-streaming-history) guide.
+Spotify Extended Streaming History is the clearest first source. Request steps and the expected zip layout are in the [Spotify](docs/guides/services/spotify.md#extended-streaming-history) guide.
 
 ```bash
 uv sync

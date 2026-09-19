@@ -24,6 +24,9 @@ data/
 *.duckdb
 *.parquet
 *.csv
+*.sqlite
+*.sqlite3
+*.db
 inbox/
 Telegram_Export_*/
 

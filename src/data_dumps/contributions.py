@@ -111,6 +111,8 @@ COMPARE_TAB_LABEL = "Compare"
 COMPARE_TAB_ICON = "lucide:columns-2"
 CORRELATE_TAB_LABEL = "Correlations"
 CORRELATE_TAB_ICON = "lucide:git-compare"
+TOOLS_TAB_LABEL = "Tools"
+TOOLS_TAB_ICON = "lucide:wrench"
 
 
 # Detect order matters when loaders could overlap — keep comments next to entries.

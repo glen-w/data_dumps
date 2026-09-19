@@ -47,6 +47,7 @@ def _():
         render_spotify_panel,
         render_telegram_panel,
         render_thunderbird_panel,
+        render_tools_panel,
         render_twitter_panel,
         render_uber_panel,
     )
@@ -63,6 +64,8 @@ def _():
         CORRELATE_TAB_LABEL,
         HOME_TAB_ICON,
         HOME_TAB_LABEL,
+        TOOLS_TAB_ICON,
+        TOOLS_TAB_LABEL,
         explorer_contributions,
     )
     from data_dumps.overview_queries import warehouse_overview
@@ -81,6 +84,7 @@ def _():
     tab_home = _tab_label(HOME_TAB_ICON, HOME_TAB_LABEL)
     tab_compare = _tab_label(COMPARE_TAB_ICON, COMPARE_TAB_LABEL)
     tab_correlate = _tab_label(CORRELATE_TAB_ICON, CORRELATE_TAB_LABEL)
+    tab_tools = _tab_label(TOOLS_TAB_ICON, TOOLS_TAB_LABEL)
 
     # Presence + bounds driven by CONTRIBUTIONS (thin registry).
     _by_slug: dict = {}
@@ -219,6 +223,7 @@ def _():
         render_spotify_panel,
         render_telegram_panel,
         render_thunderbird_panel,
+        render_tools_panel,
         render_twitter_panel,
         render_uber_panel,
         ring_bounds,
@@ -228,6 +233,7 @@ def _():
         tab_compare,
         tab_correlate,
         tab_home,
+        tab_tools,
         tb_bounds,
         tg_bounds,
         tg_dow,
@@ -270,6 +276,7 @@ def _(
     tab_compare,
     tab_correlate,
     tab_home,
+    tab_tools,
     tb_bounds,
     tg_bounds,
     tw_bounds,
@@ -351,7 +358,7 @@ def _(
         )
 
     cross_row = mo.hstack(
-        [_chip(tab_home), _chip(tab_compare), _chip(tab_correlate)],
+        [_chip(tab_home), _chip(tab_compare), _chip(tab_correlate), _chip(tab_tools)],
         justify="start",
         gap=0.35,
     )
@@ -373,6 +380,8 @@ def _(
         shown_caption = cmp_caption
     elif selected == tab_correlate:
         shown_caption = corr_caption
+    elif selected == tab_tools:
+        shown_caption = "Email index"
     else:
         shown_slug = next(
             (
@@ -579,6 +588,12 @@ def _(
 def _(mo, overview, px, render_home_panel, source, tab_home):
     mo.stop(source.value != tab_home, output=None)
     render_home_panel(mo=mo, px=px, overview=overview)
+
+
+@app.cell(hide_code=True)
+def _(conn, mo, render_tools_panel, source, tab_tools):
+    mo.stop(source.value != tab_tools, output=None)
+    render_tools_panel(mo=mo, conn=conn)
 
 
 @app.cell(hide_code=True)

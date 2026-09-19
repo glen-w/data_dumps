@@ -42,17 +42,17 @@ Alan,Turing,https://www.linkedin.com/in/alan,,Bletchley Park,Cryptanalyst,03 Jan
 """
 
 MESSAGES_CSV = """CONVERSATION ID,CONVERSATION TITLE,FROM,SENDER PROFILE URL,TO,RECIPIENT PROFILE URLS,DATE,SUBJECT,CONTENT,FOLDER,ATTACHMENTS
-c1,Ada,Glen Wright,https://linkedin.com/in/glen,Ada Lovelace,https://linkedin.com/in/ada,2026-08-31 21:20:46 UTC,Hi,Hello Ada,INBOX,
-c1,Ada,Ada Lovelace,https://linkedin.com/in/ada,Glen Wright,https://linkedin.com/in/glen,2026-08-31 21:21:00 UTC,,Hello Glen,INBOX,
+c1,Ada,Test User,https://linkedin.com/in/testuser,Ada Lovelace,https://linkedin.com/in/ada,2026-08-31 21:20:46 UTC,Hi,Hello Ada,INBOX,
+c1,Ada,Ada Lovelace,https://linkedin.com/in/ada,Test User,https://linkedin.com/in/testuser,2026-08-31 21:21:00 UTC,,Hello Test,INBOX,
 """
 
 POSITIONS_CSV = """Company Name,Title,Description,Location,Started On,Finished On
-Sciences Po,Adjunct Professor,,Paris,Jan 2015,
-Acme Labs,Knowledge & Data,,Paris,Jul 2023,Feb 2026
+Example University,Lecturer,,Paris,Jan 2015,
+Acme Labs,Engineer,,Paris,Jul 2023,Feb 2026
 """
 
 INVITATIONS_CSV = """From,To,Sent At,Message,Direction,inviterProfileUrl,inviteeProfileUrl
-Glen Wright,Ada Lovelace,"9/5/26, 1:12 AM",,OUTGOING,https://www.linkedin.com/in/glen,https://www.linkedin.com/in/ada
+Test User,Ada Lovelace,"9/5/26, 1:12 AM",,OUTGOING,https://www.linkedin.com/in/testuser,https://www.linkedin.com/in/ada
 """
 
 REACTIONS_CSV = """Date,Type,Link
@@ -68,7 +68,7 @@ COMMENTS_CSV = """Date,Link,Message
 """
 
 COMPANY_FOLLOWS_CSV = """Organization,Followed On
-GESAMP,Sat Sep 05 08:12:14 UTC 2026
+Example Org,Sat Sep 05 08:12:14 UTC 2026
 """
 
 LOGINS_CSV = """Login Date,IP Address,User Agent,Login Type
@@ -148,7 +148,7 @@ def test_load_strips_email_and_skips_logins(tmp_path):
     assert emails_in_values is not None and emails_in_values[0] == 0
 
     me = conn.execute("SELECT display_name FROM linkedin.account").fetchone()
-    assert me is not None and me[0] == "Glen Wright"
+    assert me is not None and me[0] == "Test User"
 
     from_me = conn.execute(
         "SELECT count(*) FROM linkedin.messages WHERE is_from_me"
@@ -190,7 +190,7 @@ def test_linkedin_queries(tmp_path):
     LinkedInSource().load(zip_path, conn)
     bounds = data_bounds(conn)
     assert bounds["min_year"] <= 2020
-    assert bounds["display_name"] == "Glen Wright"
+    assert bounds["display_name"] == "Test User"
     f = FilterState()
     score = scoreboard(conn, f)
     assert score.iloc[0]["connections"] == 2
@@ -198,7 +198,7 @@ def test_linkedin_queries(tmp_path):
     by_year = connections_by_year(conn, f)
     assert 2026 in set(by_year["year"].tolist())
     career = career_timeline(conn)
-    assert "Sciences Po" in career["org"].tolist()
+    assert "Example University" in career["org"].tolist()
     conv = messages_by_conversation(conn, f)
     assert not conv.empty
     mix = activity_mix(conn, f)
