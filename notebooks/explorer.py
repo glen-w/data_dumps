@@ -258,6 +258,24 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
+def _(mo):
+    query_params = mo.query_params()
+    requested_theme = query_params.get("theme")
+    dark_mode = mo.ui.switch(
+        value=(
+            requested_theme == "dark"
+            if requested_theme in {"dark", "light"}
+            else mo.app_meta().theme == "dark"
+        ),
+        label="Dark mode",
+        on_change=lambda enabled: query_params.set(
+            "theme", "dark" if enabled else "light"
+        ),
+    )
+    return (dark_mode,)
+
+
+@app.cell(hide_code=True)
 def _(
     airbnb_bounds,
     amz_bounds,
@@ -266,6 +284,7 @@ def _(
     custom_bounds,
     cmp_bounds,
     corr_bounds,
+    dark_mode,
     duo_bounds,
     explorer_by_slug,
     google_bounds,
@@ -418,12 +437,19 @@ def _(
     logo = Path(__file__).resolve().parent.parent / "assets" / "logo.png"
     header = mo.hstack(
         [
-            mo.image(src=logo, alt="data_dumps", width=48, height=48),
-            mo.md("# data_dumps"),
+            mo.hstack(
+                [
+                    mo.image(src=logo, alt="data_dumps", width=48, height=48),
+                    mo.md("# data_dumps"),
+                ],
+                justify="start",
+                align="center",
+                gap=0.75,
+            ),
+            dark_mode,
         ],
-        justify="start",
+        justify="space-between",
         align="center",
-        gap=0.75,
     )
     chrome = [header]
     if selected == tab_home:
