@@ -24,15 +24,20 @@ MAX_SERIES = 6
 ENTITY_OPTION_LIMIT = 30
 
 SERIES: tuple[SeriesSpec, ...] = COMPARE_SERIES
-_SERIES_BY_ID: dict[str, SeriesSpec] = {s.id: s for s in SERIES}
+
+
+def _series_index() -> dict[str, SeriesSpec]:
+    from data_dumps.contributions import active_compare_series
+
+    return {spec.id: spec for spec in active_compare_series()}
 
 
 def list_available_series(conn: duckdb.DuckDBPyConnection) -> list[SeriesSpec]:
-    return [s for s in SERIES if s.available(conn)]
+    return [spec for spec in _series_index().values() if spec.available(conn)]
 
 
 def series_by_id(series_id: str) -> SeriesSpec | None:
-    return _SERIES_BY_ID.get(series_id)
+    return _series_index().get(series_id)
 
 
 def compare_bounds(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
@@ -83,7 +88,7 @@ def entity_options(
     limit: int = ENTITY_OPTION_LIMIT,
 ) -> list[dict[str, str]]:
     """Top entities for a series picker: ``[{value, label}, ...]``."""
-    spec = _SERIES_BY_ID.get(series_id)
+    spec = series_by_id(series_id)
     if spec is None or not spec.requires_entity or not spec.available(conn):
         return []
     if spec.entity_options is None:
@@ -120,7 +125,7 @@ def fetch_monthly(
 
     frames: list[pd.DataFrame] = []
     for sel in parsed:
-        spec = _SERIES_BY_ID.get(sel.series_id)
+        spec = series_by_id(sel.series_id)
         if spec is None or not spec.available(conn):
             continue
         if spec.requires_entity and not (sel.entity and str(sel.entity).strip()):
@@ -235,7 +240,7 @@ def selection_notes(
         notes.append(f"Only the first {MAX_SERIES} series are used")
         parsed = parsed[:MAX_SERIES]
     for sel in parsed:
-        spec = _SERIES_BY_ID.get(sel.series_id)
+        spec = series_by_id(sel.series_id)
         if spec is None:
             notes.append(f"Unknown series id: {sel.series_id}")
             continue

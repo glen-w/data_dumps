@@ -36,6 +36,11 @@ from data_dumps.explorer_panels.correlate import (
     make_correlate_controls,
     render_correlate_panel,
 )
+from data_dumps.explorer_panels.custom import (
+    CustomControls,
+    make_custom_controls,
+    render_custom_panel,
+)
 from data_dumps.explorer_panels.duolingo import (
     DuolingoControls,
     make_duolingo_controls,
@@ -106,6 +111,7 @@ __all__ = [
     "ChatGPTControls",
     "CompareControls",
     "CorrelateControls",
+    "CustomControls",
     "DuolingoControls",
     "GoogleControls",
     "LinkedInControls",
@@ -124,6 +130,7 @@ __all__ = [
     "make_chatgpt_controls",
     "make_compare_controls",
     "make_correlate_controls",
+    "make_custom_controls",
     "make_duolingo_controls",
     "make_google_controls",
     "make_linkedin_controls",
@@ -142,6 +149,7 @@ __all__ = [
     "render_chatgpt_panel",
     "render_compare_panel",
     "render_correlate_panel",
+    "render_custom_panel",
     "render_duolingo_panel",
     "render_google_panel",
     "render_home_hero",

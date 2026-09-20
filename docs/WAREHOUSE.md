@@ -233,6 +233,16 @@ docker compose run --rm --entrypoint enrich-musicbrainz app --dry-run
 docker compose up app
 ```
 
+### Ingest a custom manifest
+
+A folder or zip with `data_dumps.json` and one CSV, JSON, or JSONL file. Not a scanned plugin. Details: [guides/services/custom.md](guides/services/custom.md).
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest /path/to/folder-with-data_dumps.json`
+3. Start the dashboard again (Custom tab)
+
+A Python loader and panel, if the manifest is not enough, lives only at `$DATA_DUMPS_ROOT/user_contributions.py`.
+
 ## Quick checks
 
 ```bash

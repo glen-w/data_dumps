@@ -60,6 +60,8 @@ Stop `app` before the next ingest. The published port is loopback-only.
 
 Each loader detects its own zip or folder. The same `uv run ingest /path/to/export` command covers Telegram, LinkedIn, Slack, Google Takeout, and the rest. How to request each export, which files `detect()` accepts, and what is dropped: [docs/guides/getting-your-data.md](docs/guides/getting-your-data.md).
 
+A source that is not in that list can still plug in. Put a `data_dumps.json` next to a CSV or JSON file and ingest that folder — the **Custom** tab charts it. A full loader and panel go in one file, `$DATA_DUMPS_ROOT/user_contributions.py`, not a scanned plugin directory. See [Custom](docs/guides/services/custom.md).
+
 After more than one source is loaded, the explorer adds **Compare** and **Correlations** tabs. Those series are registered explicitly in `src/data_dumps/contributions.py`, not discovered from warehouse columns.
 
 ## Optional later

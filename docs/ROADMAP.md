@@ -149,6 +149,12 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Prefer `series_catalog.make_*` factories for new totals; grain/agg stay human-chosen (no warehouse column auto-discovery)
 - No dynamic discovery / entry points; panel imports stay lazy so `uv run ingest` does not pull Marimo
 
+### Custom sources
+
+- A folder or zip with `data_dumps.json` plus one CSV/JSON/JSONL file ingests into `custom.sources` / `custom.events` (time, optional entity, optional value). Email, IP, and phone columns are refused; other columns are not stored
+- Explorer **Custom** tab: source picker, scoreboard, monthly, entity rank, forgotten / comeback, streaks, calendar, weekday × hour. Compare **Custom · events** and a per-source series; Correlations **Custom events**
+- One explicit file `$DATA_DUMPS_ROOT/user_contributions.py` may append `Contribution`s (loader + optional panel). Imported by that path only — not entry points, not a directory scan. `detect` runs after built-ins. See [guides/services/custom.md](guides/services/custom.md)
+
 ### Dashboard upgrades from the open-source landscape
 
 Query + chart + panel additions only (no new deps, no ingest restructuring). References: sleep_android_viz, Encore, Spotify-Unwrapped, TelAnalysis, ConvoMetrics.
@@ -212,7 +218,7 @@ Four phases, shippable independently after A:
 - Last.fm (account deleted)
 - **Mi Band beyond the shipped one-off** — no new metrics, devices, or explorer investment; Sleep may keep using existing `miband.heart_rate` when present
 - Hosted multi-user SaaS
-- Dynamic plugin discovery (setuptools entry points, auto-import of every module) — thin explicit `CONTRIBUTIONS` only
+- Dynamic plugin discovery (setuptools entry points, auto-import of every module, scanning a plugins directory). Built-in dumps stay on the thin `CONTRIBUTIONS` list. The single file `$DATA_DUMPS_ROOT/user_contributions.py` may append contributions; it is loaded by path, not discovered
 - Warehouse column auto-discovery as Compare/Correlations catalog (grain/agg still human-chosen descriptors)
 
 ## Related

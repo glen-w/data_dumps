@@ -41,6 +41,7 @@ Per-service request steps, detect shapes, and keep/drop lists live under [servic
 | [Google](services/google.md) | [Google Takeout](https://takeout.google.com) | Folder of `takeout-*.zip` or extracted `Takeout/` | Google | Calendar, Play, Maps saves, My Activity HTML, Tasks; download every part |
 | [Airbnb](services/airbnb.md) | Account → Privacy → Request your personal data (HTML) | `Airbnb_data_request_*.zip` | Airbnb | Zip name is not on the help page |
 | [ChatGPT](services/chatgpt.md) | Settings → Data controls → Export data | Zip with `conversations-NNN.json` | ChatGPT | Download within 24 hours; not the API platform |
+| [Custom](services/custom.md) | Your own table, not a company export | Folder or zip with `data_dumps.json` | Custom | Optional Python file: `$DATA_DUMPS_ROOT/user_contributions.py` |
 
 ## Tools
 

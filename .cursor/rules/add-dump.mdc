@@ -18,4 +18,4 @@ Must include, unless the guide says it does not apply:
 - Aim for the Wrapped checklist in the guide (compare, streaks, circadian+calendar, forgotten/comeback, bump or scatter, filters) — see [assessments/dashboard-depth-2026-09.md](assessments/dashboard-depth-2026-09.md)
 - Index row in `docs/guides/getting-your-data.md` + `docs/guides/services/<slug>.md` + ROADMAP shipped blurb (+ WAREHOUSE if the path is weird) in the **same session**
 
-Do not expand Mi Band (frozen). Do not add dynamic plugin discovery — append to `CONTRIBUTIONS` only. Ask if the dump is not on disk.
+Do not expand Mi Band (frozen). Do not add dynamic plugin discovery — append to `CONTRIBUTIONS` only. User-owned sources are the custom manifest and the single `DATA_DUMPS_ROOT/user_contributions.py` file, not a plugin scan. Ask if the dump is not on disk.

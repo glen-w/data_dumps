@@ -35,7 +35,6 @@ PRESETS = (
 )
 
 METRICS: tuple[MetricSpec, ...] = CORRELATE_METRICS
-_METRICS_BY_ID: dict[str, MetricSpec] = {m.id: m for m in METRICS}
 
 _PRESET_IDS: dict[str, tuple[str, ...]] = {
     PRESET_LIFE_RHYTHM: (
@@ -64,12 +63,18 @@ _PRESET_IDS: dict[str, tuple[str, ...]] = {
 }
 
 
+def _metrics_index() -> dict[str, MetricSpec]:
+    from data_dumps.contributions import active_correlate_metrics
+
+    return {spec.id: spec for spec in active_correlate_metrics()}
+
+
 def list_available_metrics(conn: duckdb.DuckDBPyConnection) -> list[MetricSpec]:
-    return [m for m in METRICS if m.available(conn)]
+    return [spec for spec in _metrics_index().values() if spec.available(conn)]
 
 
 def metric_by_id(metric_id: str) -> MetricSpec | None:
-    return _METRICS_BY_ID.get(metric_id)
+    return _metrics_index().get(metric_id)
 
 
 def correlate_bounds(conn: duckdb.DuckDBPyConnection) -> dict[str, Any]:
@@ -140,7 +145,7 @@ def fetch_panel(
     ids = list(dict.fromkeys(metric_ids))[:MAX_METRICS]
     frames: list[pd.DataFrame] = []
     for mid in ids:
-        spec = _METRICS_BY_ID.get(mid)
+        spec = metric_by_id(mid)
         if spec is None or not spec.available(conn):
             continue
         if grain == "daily" and not spec.supports_daily:

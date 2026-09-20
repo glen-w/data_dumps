@@ -4,7 +4,9 @@ One append per dump: ingest Source + optional explorer gate/bounds + Compare /
 Correlations series descriptors. No dynamic module discovery, no entry points.
 
 ``ingest.SOURCES`` and Compare/Correlations catalogs are derived from
-``CONTRIBUTIONS``. Explorer panel imports stay lazy (notebooks import panels
+``CONTRIBUTIONS``. ``active_contributions()`` appends the single file
+``$DATA_DUMPS_ROOT/user_contributions.py`` when it exists (imported by path,
+not discovered). Explorer panel imports stay lazy (notebooks import panels
 directly) so ``uv run ingest`` does not pull Marimo/Plotly.
 """
 
@@ -20,6 +22,7 @@ from data_dumps import airbnb_queries as abq
 from data_dumps import amazon_queries as amzq
 from data_dumps import browser_queries as brq
 from data_dumps import chatgpt_queries as cgq
+from data_dumps import custom_queries as cuq
 from data_dumps import duolingo_queries as duoq
 from data_dumps import google_queries as gq
 from data_dumps import linkedin_queries as liq
@@ -41,6 +44,8 @@ from data_dumps.contribution_series import (
     BROWSER_CORRELATE,
     CHATGPT_COMPARE,
     CHATGPT_CORRELATE,
+    CUSTOM_COMPARE,
+    CUSTOM_CORRELATE,
     DUOLINGO_COMPARE,
     DUOLINGO_CORRELATE,
     GOOGLE_COMPARE,
@@ -72,6 +77,7 @@ from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.base import Source
 from data_dumps.sources.browser import BrowserSource
 from data_dumps.sources.chatgpt import ChatGPTSource
+from data_dumps.sources.custom import CustomSource
 from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.google import GoogleSource
 from data_dumps.sources.linkedin import LinkedInSource
@@ -102,6 +108,11 @@ class Contribution:
     data_bounds: BoundsFn | None = None
     compare_series: tuple[SeriesSpec, ...] = field(default_factory=tuple)
     correlate_metrics: tuple[MetricSpec, ...] = field(default_factory=tuple)
+    #: Optional panel hooks for ``$DATA_DUMPS_ROOT/user_contributions.py`` only.
+    #: Built-in tabs keep their notebook cells. Callables must not be imported
+    #: at ingest time (no Marimo at module level in that file).
+    make_controls: Callable[..., Any] | None = None
+    render_panel: Callable[..., Any] | None = None
 
 
 # Cross-cutting explorer tabs (not tied to a Contribution).
@@ -282,9 +293,60 @@ CONTRIBUTIONS: tuple[Contribution, ...] = (
         compare_series=CHATGPT_COMPARE,
         correlate_metrics=CHATGPT_CORRELATE,
     ),
+    # Manifest exports (data_dumps.json). One tab; the panel picks the slug.
+    # Last so a real dump is never claimed just because a manifest was added.
+    Contribution(
+        slug="custom",
+        source=CustomSource(),
+        tab_label="Custom",
+        tab_icon="lucide:puzzle",
+        gate_table=("custom", "events"),
+        data_bounds=cuq.data_bounds,
+        compare_series=CUSTOM_COMPARE,
+        correlate_metrics=CUSTOM_CORRELATE,
+    ),
 )
 
 SOURCES: list[Source] = [c.source for c in CONTRIBUTIONS if c.source is not None]
+
+
+def active_contributions() -> tuple[Contribution, ...]:
+    """Built-in list plus the one user file, if it exists.
+
+    Not a directory scan and not entry points. The user file is appended,
+    so its ``detect`` runs only after every built-in loader has declined.
+    """
+    from data_dumps.user_extensions import load_user_contributions
+
+    extra = load_user_contributions()
+    return CONTRIBUTIONS + extra
+
+
+def active_sources() -> list[Source]:
+    return [c.source for c in active_contributions() if c.source is not None]
+
+
+def active_compare_series() -> tuple[SeriesSpec, ...]:
+    return tuple(
+        spec for item in active_contributions() for spec in item.compare_series
+    )
+
+
+def active_correlate_metrics() -> tuple[MetricSpec, ...]:
+    return tuple(
+        spec for item in active_contributions() for spec in item.correlate_metrics
+    )
+
+
+def user_explorer_contributions() -> list[Contribution]:
+    """Tabs that come from the user file, not the shipped notebook cells."""
+    builtin = {item.slug for item in CONTRIBUTIONS}
+    return [
+        item
+        for item in active_contributions()
+        if item.slug not in builtin and item.tab_label and item.gate_table
+    ]
+
 
 COMPARE_SERIES: tuple[SeriesSpec, ...] = tuple(
     s for c in CONTRIBUTIONS for s in c.compare_series
@@ -295,7 +357,7 @@ CORRELATE_METRICS: tuple[MetricSpec, ...] = tuple(
 
 
 def contribution_by_slug(slug: str) -> Contribution | None:
-    for c in CONTRIBUTIONS:
+    for c in active_contributions():
         if c.slug == slug:
             return c
     return None
@@ -303,14 +365,14 @@ def contribution_by_slug(slug: str) -> Contribution | None:
 
 def explorer_contributions() -> list[Contribution]:
     """Platform tabs (excludes Source-only siblings without a tab label)."""
-    return [c for c in CONTRIBUTIONS if c.tab_label and c.gate_table]
+    return [c for c in active_contributions() if c.tab_label and c.gate_table]
 
 
 def bounds_fns_for_series() -> list[tuple[str, BoundsFn]]:
     """Unique (slug, data_bounds) for sources that expose Compare/Correlate series."""
     seen: set[str] = set()
     out: list[tuple[str, BoundsFn]] = []
-    for c in CONTRIBUTIONS:
+    for c in active_contributions():
         if c.data_bounds is None:
             continue
         if not c.compare_series and not c.correlate_metrics:

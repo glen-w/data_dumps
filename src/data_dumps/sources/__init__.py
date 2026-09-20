@@ -3,6 +3,7 @@ from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.base import Source
 from data_dumps.sources.browser import BrowserSource
 from data_dumps.sources.chatgpt import ChatGPTSource
+from data_dumps.sources.custom import CustomSource
 from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.google import GoogleSource
 from data_dumps.sources.linkedin import LinkedInSource
@@ -36,4 +37,5 @@ __all__ = [
     "GoogleSource",
     "AirbnbSource",
     "ChatGPTSource",
+    "CustomSource",
 ]

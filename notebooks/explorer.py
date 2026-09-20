@@ -17,6 +17,7 @@ def _():
         make_chatgpt_controls,
         make_compare_controls,
         make_correlate_controls,
+        make_custom_controls,
         make_duolingo_controls,
         make_google_controls,
         make_linkedin_controls,
@@ -35,6 +36,7 @@ def _():
         render_chatgpt_panel,
         render_compare_panel,
         render_correlate_panel,
+        render_custom_panel,
         render_duolingo_panel,
         render_google_panel,
         render_home_hero,
@@ -119,6 +121,7 @@ def _():
     has_google = _by_slug["google"]["present"]
     has_airbnb = _by_slug["airbnb"]["present"]
     has_chatgpt = _by_slug["chatgpt"]["present"]
+    has_custom = _by_slug["custom"]["present"]
     sp_bounds = _by_slug["spotify"]["bounds"]
     tg_bounds = _by_slug["telegram"]["bounds"]
     li_bounds = _by_slug["linkedin"]["bounds"]
@@ -135,6 +138,7 @@ def _():
     google_bounds = _by_slug["google"]["bounds"]
     airbnb_bounds = _by_slug["airbnb"]["bounds"]
     chatgpt_bounds = _by_slug["chatgpt"]["bounds"]
+    custom_bounds = _by_slug["custom"]["bounds"]
     cmp_bounds = cmp_data_bounds(conn)
     cmp_series = cmp_list_series(conn)
     has_compare = len(cmp_series) > 0
@@ -154,6 +158,7 @@ def _():
         amz_bounds,
         br_bounds,
         chatgpt_bounds,
+        custom_bounds,
         cmp_bounds,
         cmp_series,
         conn,
@@ -168,6 +173,7 @@ def _():
         has_chatgpt,
         has_compare,
         has_correlate,
+        has_custom,
         has_duolingo,
         has_google,
         has_linkedin,
@@ -188,6 +194,7 @@ def _():
         make_chatgpt_controls,
         make_compare_controls,
         make_correlate_controls,
+        make_custom_controls,
         make_duolingo_controls,
         make_google_controls,
         make_linkedin_controls,
@@ -211,6 +218,7 @@ def _():
         render_chatgpt_panel,
         render_compare_panel,
         render_correlate_panel,
+        render_custom_panel,
         render_duolingo_panel,
         render_google_panel,
         render_home_hero,
@@ -255,6 +263,7 @@ def _(
     amz_bounds,
     br_bounds,
     chatgpt_bounds,
+    custom_bounds,
     cmp_bounds,
     corr_bounds,
     duo_bounds,
@@ -325,6 +334,7 @@ def _(
         "google": _span_caption(google_bounds),
         "airbnb": _span_caption(airbnb_bounds),
         "chatgpt": _span_caption(chatgpt_bounds),
+        "custom": _span_caption(custom_bounds),
     }
     cmp_caption = (
         f"{cmp_bounds['n_series']} series · "
@@ -391,7 +401,12 @@ def _(
             ),
             None,
         )
-        shown_caption = captions.get(shown_slug, "Not ingested")
+        shown_caption = captions.get(shown_slug)
+        if shown_caption is None and shown_slug is not None:
+            meta = explorer_by_slug.get(shown_slug)
+            shown_caption = (
+                _span_caption(meta["bounds"]) if meta else "Not ingested"
+            )
 
     class _Menu:
         def __init__(self, value: str) -> None:
@@ -549,6 +564,14 @@ def _(has_thunderbird, make_thunderbird_controls, mo, tb_bounds):
         else None
     )
     return (tb_controls,)
+
+
+@app.cell(hide_code=True)
+def _(custom_bounds, has_custom, make_custom_controls, mo):
+    custom_controls = (
+        make_custom_controls(mo, custom_bounds) if has_custom and custom_bounds else None
+    )
+    return (custom_controls,)
 
 
 @app.cell(hide_code=True)
@@ -1169,6 +1192,97 @@ def _(
         conn=conn,
         bounds=tb_bounds,
         controls=tb_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    conn,
+    custom_bounds,
+    custom_controls,
+    explorer_by_slug,
+    has_custom,
+    iso_dow,
+    mo,
+    px,
+    render_custom_panel,
+    source,
+):
+    mo.stop(source.value != explorer_by_slug["custom"]["tab_label"], output=None)
+    if not has_custom or custom_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No custom sources yet. Stop this notebook, then ingest a folder or zip "
+                "whose root contains `data_dumps.json`:\n\n"
+                "`uv run ingest ~/Documents/data_dumps_raw/inbox/my-source`"
+            ),
+        )
+    render_custom_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=custom_bounds,
+        controls=custom_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(explorer_by_slug, mo):
+    # Plug-in controls. Do not read widget.value here.
+    from data_dumps.contributions import (
+        user_explorer_contributions as _user_explorer_contributions,
+    )
+
+    plug_controls = {}
+    for _plug in _user_explorer_contributions():
+        _meta = explorer_by_slug.get(_plug.slug)
+        if (
+            _plug.make_controls is None
+            or _meta is None
+            or not _meta["present"]
+            or _meta["bounds"] is None
+        ):
+            continue
+        plug_controls[_plug.slug] = _plug.make_controls(mo, _meta["bounds"])
+    return (plug_controls,)
+
+
+@app.cell(hide_code=True)
+def _(conn, explorer_by_slug, iso_dow, mo, plug_controls, px, source):
+    from data_dumps.contributions import (
+        user_explorer_contributions as _user_explorer_contributions,
+    )
+
+    _plug = next(
+        (
+            item
+            for item in _user_explorer_contributions()
+            if explorer_by_slug.get(item.slug, {}).get("tab_label") == source.value
+        ),
+        None,
+    )
+    mo.stop(_plug is None, output=None)
+    _meta = explorer_by_slug[_plug.slug]
+    _controls = plug_controls.get(_plug.slug)
+    if not _meta["present"] or _plug.render_panel is None or _controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                f"## {_plug.tab_label}\n\n"
+                "This plug-in is registered but has no panel. On its `Contribution` "
+                "in `$DATA_DUMPS_ROOT/user_contributions.py`, set `make_controls` and "
+                "`render_panel`. Do not import Marimo at the top of that file."
+            ),
+        )
+    _plug.render_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=_meta["bounds"],
+        controls=_controls,
         dow_labels=iso_dow,
     )
 

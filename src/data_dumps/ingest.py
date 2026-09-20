@@ -9,14 +9,15 @@ from pathlib import Path
 
 import duckdb
 
-from data_dumps.contributions import SOURCES
+from data_dumps.contributions import SOURCES as SOURCES
+from data_dumps.contributions import active_sources
 from data_dumps.paths import warehouse_db
 from data_dumps.sources.base import Source
 from data_dumps.sources.thunderbird import ThunderbirdSource
 
 
 def pick_source(path: Path) -> Source | None:
-    for source in SOURCES:
+    for source in active_sources():
         if source.detect(path):
             return source
     return None
