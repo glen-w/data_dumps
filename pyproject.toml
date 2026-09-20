@@ -1,6 +1,6 @@
 [project]
 name = "data-dumps"
-version = "0.2.0"
+version = "0.2.1"
 description = "Ingest and explore personal GDPR data exports"
 readme = "README.md"
 license = { text = "MIT" }

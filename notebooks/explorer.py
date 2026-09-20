@@ -259,20 +259,33 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
+    # Marimo resolves theme from ?theme= on load only. DOMPurify strips
+    # onclick, so use a real navigation via href to re-apply the theme.
     query_params = mo.query_params()
     requested_theme = query_params.get("theme")
-    dark_mode = mo.ui.switch(
-        value=(
-            requested_theme == "dark"
-            if requested_theme in {"dark", "light"}
-            else mo.app_meta().theme == "dark"
-        ),
-        label="Dark mode",
-        on_change=lambda enabled: query_params.set(
-            "theme", "dark" if enabled else "light"
-        ),
+    is_dark = (
+        requested_theme == "dark"
+        if requested_theme in {"dark", "light"}
+        else mo.app_meta().theme == "dark"
     )
-    return (dark_mode,)
+    next_theme = "light" if is_dark else "dark"
+    theme_label = "Switch to light mode" if is_dark else "Switch to dark mode"
+    theme_icon = mo.icon(
+        "lucide:sun" if is_dark else "lucide:moon",
+        size=18,
+    ).text
+    theme_toggle = mo.Html(
+        f"""
+<a href="?theme={next_theme}" aria-label="{theme_label}" title="{theme_label}"
+  style="display:inline-flex;align-items:center;justify-content:center;
+    width:2.25rem;height:2.25rem;padding:0;border:1px solid var(--muted);
+    border-radius:6px;background:var(--background);color:var(--foreground);
+    text-decoration:none;">
+  {theme_icon}
+</a>
+"""
+    )
+    return (theme_toggle,)
 
 
 @app.cell(hide_code=True)
@@ -284,7 +297,6 @@ def _(
     custom_bounds,
     cmp_bounds,
     corr_bounds,
-    dark_mode,
     duo_bounds,
     explorer_by_slug,
     google_bounds,
@@ -307,6 +319,7 @@ def _(
     tab_tools,
     tb_bounds,
     tg_bounds,
+    theme_toggle,
     tw_bounds,
     uber_bounds,
 ):
@@ -437,19 +450,19 @@ def _(
     logo = Path(__file__).resolve().parent.parent / "assets" / "logo.png"
     header = mo.hstack(
         [
-            mo.hstack(
+            mo.vstack(
                 [
-                    mo.image(src=logo, alt="data_dumps", width=48, height=48),
+                    mo.image(src=logo, alt="data_dumps", width=60, height=60),
                     mo.md("# data_dumps"),
                 ],
                 justify="start",
-                align="center",
-                gap=0.75,
+                align="start",
+                gap=0.25,
             ),
-            dark_mode,
+            theme_toggle,
         ],
         justify="space-between",
-        align="center",
+        align="start",
     )
     chrome = [header]
     if selected == tab_home:
