@@ -23,6 +23,7 @@ def _():
         make_google_controls,
         make_linkedin_controls,
         make_miband_controls,
+        make_ollama_controls,
         make_ring_controls,
         make_slack_controls,
         make_sleep_controls,
@@ -45,6 +46,7 @@ def _():
         render_home_panel,
         render_linkedin_panel,
         render_miband_panel,
+        render_ollama_panel,
         render_ring_panel,
         render_slack_panel,
         render_sleep_panel,
@@ -124,6 +126,7 @@ def _():
     has_airbnb = _by_slug["airbnb"]["present"]
     has_chatgpt = _by_slug["chatgpt"]["present"]
     has_cursor_history = _by_slug["cursor_history"]["present"]
+    has_ollama = _by_slug["ollama"]["present"]
     has_custom = _by_slug["custom"]["present"]
     sp_bounds = _by_slug["spotify"]["bounds"]
     tg_bounds = _by_slug["telegram"]["bounds"]
@@ -142,6 +145,7 @@ def _():
     airbnb_bounds = _by_slug["airbnb"]["bounds"]
     chatgpt_bounds = _by_slug["chatgpt"]["bounds"]
     cursor_history_bounds = _by_slug["cursor_history"]["bounds"]
+    ollama_bounds = _by_slug["ollama"]["bounds"]
     custom_bounds = _by_slug["custom"]["bounds"]
     cmp_bounds = cmp_data_bounds(conn)
     cmp_series = cmp_list_series(conn)
@@ -164,6 +168,7 @@ def _():
         chatgpt_bounds,
         cursor_history_bounds,
         custom_bounds,
+        ollama_bounds,
         cmp_bounds,
         cmp_series,
         conn,
@@ -180,6 +185,7 @@ def _():
         has_correlate,
         has_cursor_history,
         has_custom,
+        has_ollama,
         has_duolingo,
         has_google,
         has_linkedin,
@@ -206,6 +212,7 @@ def _():
         make_google_controls,
         make_linkedin_controls,
         make_miband_controls,
+        make_ollama_controls,
         make_ring_controls,
         make_slack_controls,
         make_sleep_controls,
@@ -233,6 +240,7 @@ def _():
         render_home_panel,
         render_linkedin_panel,
         render_miband_panel,
+        render_ollama_panel,
         render_ring_panel,
         render_slack_panel,
         render_sleep_panel,
@@ -304,6 +312,7 @@ def _(
     chatgpt_bounds,
     cursor_history_bounds,
     custom_bounds,
+    ollama_bounds,
     cmp_bounds,
     corr_bounds,
     duo_bounds,
@@ -376,6 +385,7 @@ def _(
         "airbnb": _span_caption(airbnb_bounds),
         "chatgpt": _span_caption(chatgpt_bounds),
         "cursor_history": _span_caption(cursor_history_bounds),
+        "ollama": _span_caption(ollama_bounds),
         "custom": _span_caption(custom_bounds),
     }
     cmp_caption = (
@@ -569,6 +579,16 @@ def _(cursor_history_bounds, has_cursor_history, make_cursor_history_controls, m
         else None
     )
     return (cursor_history_controls,)
+
+
+@app.cell(hide_code=True)
+def _(has_ollama, make_ollama_controls, mo, ollama_bounds):
+    ollama_controls = (
+        make_ollama_controls(mo, ollama_bounds)
+        if has_ollama and ollama_bounds
+        else None
+    )
+    return (ollama_controls,)
 
 
 @app.cell(hide_code=True)
@@ -1059,6 +1079,38 @@ def _(
         conn=conn,
         bounds=cursor_history_bounds,
         controls=cursor_history_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    conn,
+    explorer_by_slug,
+    has_ollama,
+    iso_dow,
+    mo,
+    ollama_bounds,
+    ollama_controls,
+    px,
+    render_ollama_panel,
+    source,
+):
+    mo.stop(source.value != explorer_by_slug["ollama"]["tab_label"], output=None)
+    if not has_ollama or ollama_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `ollama.messages` in the warehouse. Stop this notebook, then:\n\n"
+                '`uv run ingest "$HOME/Library/Application Support/Ollama"`'
+            ),
+        )
+    render_ollama_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=ollama_bounds,
+        controls=ollama_controls,
         dow_labels=iso_dow,
     )
 

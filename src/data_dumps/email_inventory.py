@@ -85,6 +85,8 @@ class TextScan:
 TEXT_SCANS: tuple[TextScan, ...] = (
     TextScan("ChatGPT", "mentioned in chat", "chatgpt", "messages", "text"),
     TextScan("Cursor", "mentioned in chat", "cursor_history", "messages", "text"),
+    TextScan("Ollama", "mentioned in chat", "ollama", "messages", "text"),
+    TextScan("Ollama", "mentioned in thinking", "ollama", "messages", "thinking"),
     TextScan("Telegram", "mentioned in message", "telegram", "messages", "text"),
     TextScan("Slack", "mentioned in message", "slack", "messages", "text"),
     TextScan("LinkedIn", "mentioned in message", "linkedin", "messages", "content"),

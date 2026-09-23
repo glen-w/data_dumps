@@ -124,6 +124,14 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Compare / Correlations: messages + sessions; Compare entity = session
 - Local TZ: `Europe/Paris`
 
+### Ollama app history
+
+- Live app SQLite (`~/Library/Application Support/Ollama/db.sqlite`, or `~/.ollama/db.sqlite`) → `ollama.chats|messages|tool_calls|attachments`
+- Message and thinking text kept; attachment blobs, `users` email, `settings.device_id`, and `browser_state` dropped; `~/.ollama` models and keys are not opened
+- Explorer Ollama tab: period-compare scoreboard, streaks, model stack + rank bump, thinking by model, circadian + calendar, chat list + click-lock transcript, scatter, depth/length, reply latency, tool mix, attachment metadata, forgotten/comebacks, word clouds, optional narrative
+- Compare / Correlations: messages + chats; Compare entity = chat
+- Local TZ: `Europe/Paris`
+
 ### Tools — email index
 
 - Explorer **Tools** tab lists every email address found in the exports: account fields the source tabs skip, other people's profiles and contacts, and addresses only mentioned in chats, tweets, subjects, or mail bodies
@@ -141,7 +149,7 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 
 ### Compare tab (cross-source)
 
-- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, Google calendar/photos/maps/Play + calendar entity, Airbnb reservations/searches + place, ChatGPT messages/conversations + conversation, …)
+- Explorer **Compare** tab: pick source totals and entity/thread series (Telegram chat/reactions, Slack channel/person, LinkedIn conversation/connections/reactions/shares, Spotify artist/searches, Thunderbird contact/signals, Twitter account/DMs, Browser URLs last-seen / search URLs, Ring events/motion/app/flips, Sleep snore/noise, Amazon orders/searches/Alexa/Kindle/Audible/Video/Music, Slack active people, Duolingo progress/inventory/league/language, Uber trips/Eats/city, Google calendar/photos/maps/Play + calendar entity, Airbnb reservations/searches + place, ChatGPT messages/conversations + conversation, Cursor messages/sessions + session, Ollama messages/chats + chat, …)
 - Monthly multiviewer overlay with each series as **% of its own max**; Pearson correlation heatmap on aligned shapes; raw values table alongside
 - Series descriptors live in `contribution_series/` (one module per source; `make_compare_total` / `make_compare_entity` / `make_correlate_metric` helpers in `series_catalog.py`); catalogs merge from [`contributions.CONTRIBUTIONS`](../src/data_dumps/contributions.py)
 

@@ -20,6 +20,7 @@ from data_dumps.contribution_series.duolingo import DUOLINGO_COMPARE, DUOLINGO_C
 from data_dumps.contribution_series.google import GOOGLE_COMPARE, GOOGLE_CORRELATE
 from data_dumps.contribution_series.linkedin import LINKEDIN_COMPARE, LINKEDIN_CORRELATE
 from data_dumps.contribution_series.miband import MIBAND_COMPARE, MIBAND_CORRELATE
+from data_dumps.contribution_series.ollama import OLLAMA_COMPARE, OLLAMA_CORRELATE
 from data_dumps.contribution_series.ring import RING_COMPARE, RING_CORRELATE
 from data_dumps.contribution_series.slack import SLACK_COMPARE, SLACK_CORRELATE
 from data_dumps.contribution_series.sleep import SLEEP_COMPARE, SLEEP_CORRELATE
@@ -51,6 +52,8 @@ __all__ = [
     "AMAZON_CORRELATE",
     "MIBAND_COMPARE",
     "MIBAND_CORRELATE",
+    "OLLAMA_COMPARE",
+    "OLLAMA_CORRELATE",
     "BROWSER_COMPARE",
     "BROWSER_CORRELATE",
     "RING_COMPARE",

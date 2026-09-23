@@ -9,6 +9,7 @@ from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.google import GoogleSource
 from data_dumps.sources.linkedin import LinkedInSource
 from data_dumps.sources.miband import MiBandSource
+from data_dumps.sources.ollama import OllamaSource
 from data_dumps.sources.ring import RingSource
 from data_dumps.sources.slack import SlackSource
 from data_dumps.sources.sleep import SleepSource
@@ -29,6 +30,7 @@ __all__ = [
     "SlackSource",
     "SleepSource",
     "MiBandSource",
+    "OllamaSource",
     "BrowserSource",
     "ThunderbirdSource",
     "RingSource",

@@ -32,6 +32,7 @@ from data_dumps.explorer_panels import (
     make_google_controls,
     make_linkedin_controls,
     make_miband_controls,
+    make_ollama_controls,
     make_ring_controls,
     make_slack_controls,
     make_sleep_controls,
@@ -51,6 +52,7 @@ from data_dumps.explorer_panels import (
     render_home_panel,
     render_linkedin_panel,
     render_miband_panel,
+    render_ollama_panel,
     render_ring_panel,
     render_slack_panel,
     render_sleep_panel,
@@ -68,6 +70,7 @@ from data_dumps.sources.cursor_history import CursorHistorySource
 from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.google import GoogleSource
 from data_dumps.sources.linkedin import LinkedInSource
+from data_dumps.sources.ollama import OllamaSource
 from data_dumps.sources.ring import RingSource
 from data_dumps.sources.slack import SlackSource
 from data_dumps.sources.sleep import SleepSource
@@ -82,6 +85,7 @@ from .test_cursor_history_ingest import make_mini_cursor_history_dir
 from .test_duolingo_ingest import make_mini_duolingo_zip
 from .test_google_ingest import make_mini_google_dir
 from .test_linkedin_ingest import make_mini_linkedin_zip
+from .test_ollama_ingest import make_mini_ollama_db
 from .test_ring_ingest import make_mini_ring_zip
 from .test_slack_ingest import ALICE, make_mini_slack_zip
 from .test_sleep_queries import _make_zip as make_sleep_zip
@@ -641,6 +645,45 @@ def test_render_cursor_history_panel(cursor_history_conn):
         "Rhythm",
         "Sessions",
         "Forgotten",
+    ):
+        assert needle in html, needle
+
+
+@pytest.fixture()
+def ollama_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data_root"))
+    conn = duckdb.connect(str(tmp_path / "ol_wh.duckdb"))
+    OllamaSource().load(make_mini_ollama_db(tmp_path), conn)
+    return conn
+
+
+def test_render_ollama_panel(ollama_conn):
+    from data_dumps import ollama_queries as olq
+
+    bounds = olq.data_bounds(ollama_conn)
+    controls = make_ollama_controls(mo, bounds)
+    html = render_ollama_panel(
+        mo=mo,
+        px=px,
+        conn=ollama_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in (
+        "Ollama",
+        "Scoreboard",
+        "Streaks",
+        "Volume",
+        "Models",
+        "Depth",
+        "Reply latency",
+        "Tools",
+        "Attachments",
+        "Rhythm",
+        "Chats",
+        "Forgotten",
+        "Language",
     ):
         assert needle in html, needle
 

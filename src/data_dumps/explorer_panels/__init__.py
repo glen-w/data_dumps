@@ -26,11 +26,6 @@ from data_dumps.explorer_panels.chatgpt import (
     make_chatgpt_controls,
     render_chatgpt_panel,
 )
-from data_dumps.explorer_panels.cursor_history import (
-    CursorHistoryControls,
-    make_cursor_history_controls,
-    render_cursor_history_panel,
-)
 from data_dumps.explorer_panels.compare import (
     CompareControls,
     make_compare_controls,
@@ -40,6 +35,11 @@ from data_dumps.explorer_panels.correlate import (
     CorrelateControls,
     make_correlate_controls,
     render_correlate_panel,
+)
+from data_dumps.explorer_panels.cursor_history import (
+    CursorHistoryControls,
+    make_cursor_history_controls,
+    render_cursor_history_panel,
 )
 from data_dumps.explorer_panels.custom import (
     CustomControls,
@@ -66,6 +66,11 @@ from data_dumps.explorer_panels.miband import (
     MiBandControls,
     make_miband_controls,
     render_miband_panel,
+)
+from data_dumps.explorer_panels.ollama import (
+    OllamaControls,
+    make_ollama_controls,
+    render_ollama_panel,
 )
 from data_dumps.explorer_panels.ring import (
     RingControls,
@@ -122,6 +127,7 @@ __all__ = [
     "GoogleControls",
     "LinkedInControls",
     "MiBandControls",
+    "OllamaControls",
     "RingControls",
     "SlackControls",
     "SleepControls",
@@ -142,6 +148,7 @@ __all__ = [
     "make_google_controls",
     "make_linkedin_controls",
     "make_miband_controls",
+    "make_ollama_controls",
     "make_ring_controls",
     "make_slack_controls",
     "make_sleep_controls",
@@ -164,6 +171,7 @@ __all__ = [
     "render_home_panel",
     "render_linkedin_panel",
     "render_miband_panel",
+    "render_ollama_panel",
     "render_ring_panel",
     "render_slack_panel",
     "render_sleep_panel",

@@ -28,6 +28,7 @@ from data_dumps import duolingo_queries as duoq
 from data_dumps import google_queries as gq
 from data_dumps import linkedin_queries as liq
 from data_dumps import miband_queries as mbq
+from data_dumps import ollama_queries as olq
 from data_dumps import ring_queries as ringq
 from data_dumps import slack_queries as skq
 from data_dumps import sleep_queries as slq
@@ -57,6 +58,8 @@ from data_dumps.contribution_series import (
     LINKEDIN_CORRELATE,
     MIBAND_COMPARE,
     MIBAND_CORRELATE,
+    OLLAMA_COMPARE,
+    OLLAMA_CORRELATE,
     RING_COMPARE,
     RING_CORRELATE,
     SLACK_COMPARE,
@@ -86,6 +89,7 @@ from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.google import GoogleSource
 from data_dumps.sources.linkedin import LinkedInSource
 from data_dumps.sources.miband import MiBandSource
+from data_dumps.sources.ollama import OllamaSource
 from data_dumps.sources.ring import RingSource
 from data_dumps.sources.slack import SlackSource
 from data_dumps.sources.sleep import SleepSource
@@ -306,6 +310,16 @@ CONTRIBUTIONS: tuple[Contribution, ...] = (
         data_bounds=chq.data_bounds,
         compare_series=CURSOR_HISTORY_COMPARE,
         correlate_metrics=CURSOR_HISTORY_CORRELATE,
+    ),
+    Contribution(
+        slug="ollama",
+        source=OllamaSource(),
+        tab_label="Ollama",
+        tab_icon="lucide:cpu",
+        gate_table=("ollama", "messages"),
+        data_bounds=olq.data_bounds,
+        compare_series=OLLAMA_COMPARE,
+        correlate_metrics=OLLAMA_CORRELATE,
     ),
     # Manifest exports (data_dumps.json). One tab; the panel picks the slug.
     # Last so a real dump is never claimed just because a manifest was added.

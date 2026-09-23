@@ -180,6 +180,14 @@ Keep-list: `EXPORT_MANIFEST.md`, `composer-headers-inventory.json`, `json/*.json
 
 **Refresh.** Re-run the same `ingest` after a new Desktop export. When `raw/cursor_history/source_path.txt` still points at that export path, rematerialize is skipped (hardlinks kept) and tables are rebuilt. For a fast transcript delta, rsync new `~/.cursor/projects/*/agent-transcripts/**/*.jsonl` into the export’s `agent-transcripts/` then re-ingest; composer JSON still wins on UUID overlap. Live `state.vscdb` reads are out of scope for v1 (lock fights + ~30 GB). Warehouse message/tool text redacts common API-key shapes; raw files are unchanged.
 
+### Ingest Ollama app history
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest "$HOME/Library/Application Support/Ollama"`
+3. Start the dashboard again — Ollama tab
+
+On Linux the same file is `~/.ollama/db.sqlite`. The loader snapshots the live database (WAL included) and does not copy `db.sqlite` into `raw/ollama/`. Kept: chat titles, message and thinking text, model name, tool name plus truncated args, attachment filename / extension / byte size. Dropped: `users` (email), `settings` (device id), `browser_state`, attachment blobs, and model files / `id_ed25519` under `~/.ollama`. Rebuild later from `raw/ollama/*.jsonl`. Local timestamps use `Europe/Paris`.
+
 ### Tools email index
 
 The Tools tab does not ingest a new dump. It reads the open warehouse (message text, Thunderbird from/to) plus original export files the loaders skip (account emails, Slack profiles, Google contacts, Amazon mail files) and, when it can see the profile, Thunderbird message bodies. Addresses are not written back into source tables. Docker needs the profile mounted read-only (`DATA_DUMPS_TB_PROFILE`); the repo compose and the laptop compose both do that. A cache file `warehouse/email_inventory.json` sits next to `catalog.duckdb` (outside git). Opening Tools rebuilds it when inputs change; that does not need the warehouse write lock. `uv run email-inventory` prints counts and does need a free warehouse, because it opens `catalog.duckdb`.
