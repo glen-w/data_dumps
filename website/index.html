@@ -80,7 +80,16 @@
           </p>
           <div class="feature-grid">
             <div class="feature">
-              <h3>Ingest</h3>
+              <h3>
+                <span class="mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <ellipse cx="12" cy="6.5" rx="7" ry="2.6" />
+                    <path d="M5 6.5v5.5c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6V6.5" />
+                    <path d="M5 12v5.5c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6V12" />
+                  </svg>
+                </span>
+                Ingest
+              </h3>
               <p>
                 Drop an export on <code>uv run ingest</code>. Loaders write
                 into one DuckDB file under your data root, not into the git
@@ -88,14 +97,30 @@
               </p>
             </div>
             <div class="feature">
-              <h3>Explore</h3>
+              <h3>
+                <span class="mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="8" />
+                    <path d="m14.8 9.2-1.6 4.1-4.1 1.6 1.6-4.1z" />
+                  </svg>
+                </span>
+                Explore
+              </h3>
               <p>
                 A Marimo dashboard on loopback. After more than one source is
                 loaded, Compare and Correlations tabs appear.
               </p>
             </div>
             <div class="feature">
-              <h3>Privacy</h3>
+              <h3>
+                <span class="mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3.5 18.5 6v5.5c0 3.6-2.6 6-6.5 7.5-3.9-1.5-6.5-3.9-6.5-7.5V6z" />
+                    <path d="m9 12.2 2 2 4-4.2" />
+                  </svg>
+                </span>
+                Privacy
+              </h3>
               <p>
                 Source tables drop IPs, phones, ads, and KYC, and they do not
                 show email addresses. The dashboard has no password — bind it
@@ -103,7 +128,15 @@
               </p>
             </div>
             <div class="feature">
-              <h3>Docker, optional</h3>
+              <h3>
+                <span class="mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z" />
+                    <path d="m12 12 8-4.5M12 12v9M12 12 4 7.5" />
+                  </svg>
+                </span>
+                Docker, optional
+              </h3>
               <p>
                 The image is code only. Compose bind-mounts your data root and
                 publishes <code>127.0.0.1:2718</code>.
