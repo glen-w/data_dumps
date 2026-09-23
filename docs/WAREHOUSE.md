@@ -170,6 +170,16 @@ Keep-list HTML: reservations, search_history, reviews, wishlists. Profile is rea
 
 Keep-list: `conversations-*.json`, `shared_conversations.json`, `conversation_asset_file_names.json`, `library_files.json`, stripped `account.json`. Not copied: `.dat` media, `chat.html`, email/phone from `user.json`, `ads.json`.
 
+### Ingest Cursor History
+
+1. **Stop** Marimo or `docker compose stop app`
+2. `uv run ingest /Users/89298/Desktop/cursor-history-export` (or `raw/cursor_history/` after the first load)
+3. Start the dashboard again — Cursor tab
+
+Keep-list: `EXPORT_MANIFEST.md`, `composer-headers-inventory.json`, `json/*.json`, `agent-transcripts/**/*.jsonl`, small summary indexes. Not copied: live `state.vscdb`, `markdown/` (redundant with JSON), Composer backup zips, logs/pids. Prefer the portable Desktop export over opening the live global DB.
+
+**Refresh.** Re-run the same `ingest` after a new Desktop export. When `raw/cursor_history/source_path.txt` still points at that export path, rematerialize is skipped (hardlinks kept) and tables are rebuilt. For a fast transcript delta, rsync new `~/.cursor/projects/*/agent-transcripts/**/*.jsonl` into the export’s `agent-transcripts/` then re-ingest; composer JSON still wins on UUID overlap. Live `state.vscdb` reads are out of scope for v1 (lock fights + ~30 GB). Warehouse message/tool text redacts common API-key shapes; raw files are unchanged.
+
 ### Tools email index
 
 The Tools tab does not ingest a new dump. It reads the open warehouse (message text, Thunderbird from/to) plus original export files the loaders skip (account emails, Slack profiles, Google contacts, Amazon mail files) and, when it can see the profile, Thunderbird message bodies. Addresses are not written back into source tables. Docker needs the profile mounted read-only (`DATA_DUMPS_TB_PROFILE`); the repo compose and the laptop compose both do that. A cache file `warehouse/email_inventory.json` sits next to `catalog.duckdb` (outside git). Opening Tools rebuilds it when inputs change; that does not need the warehouse write lock. `uv run email-inventory` prints counts and does need a free warehouse, because it opens `catalog.duckdb`.

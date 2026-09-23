@@ -16,7 +16,7 @@ uv run marimo run notebooks/explorer.py --host 127.0.0.1 --port 2718
 
 `ingest` picks a loader by file shape. If nothing matches, it exits with `no loader matched this path`.
 
-Wall-clock columns use a hardcoded zone, not the machine timezone: `Europe/Rome` for most sources, `Europe/Paris` for Slack, Google, Airbnb, and ChatGPT, `Europe/London` for Ring.
+Wall-clock columns use a hardcoded zone, not the machine timezone: `Europe/Rome` for most sources, `Europe/Paris` for Slack, Google, Airbnb, ChatGPT, and Cursor History, `Europe/London` for Ring.
 
 Per-service request steps, detect shapes, and keep/drop lists live under [services/](services/). Add quirks there as they turn up; this table is the index. Request steps were checked against official help on 2026-09-19. Timings and zip names that help pages do not state are marked as such on the service page.
 
@@ -41,6 +41,7 @@ Per-service request steps, detect shapes, and keep/drop lists live under [servic
 | [Google](services/google.md) | [Google Takeout](https://takeout.google.com) | Folder of `takeout-*.zip` or extracted `Takeout/` | Google | Calendar, Play, Maps saves, My Activity HTML, Tasks; download every part |
 | [Airbnb](services/airbnb.md) | Account → Privacy → Request your personal data (HTML) | `Airbnb_data_request_*.zip` | Airbnb | Zip name is not on the help page |
 | [ChatGPT](services/chatgpt.md) | Settings → Data controls → Export data | Zip with `conversations-NNN.json` | ChatGPT | Download within 24 hours; not the API platform |
+| [Cursor History](services/cursor_history.md) | Local `cursor-history` / Desktop export | Folder with `EXPORT_MANIFEST.md` + `json/` | Cursor | Prefer portable export; not live `state.vscdb` |
 | [Custom](services/custom.md) | Your own table, not a company export | Folder or zip with `data_dumps.json` | Custom | Optional Python file: `$DATA_DUMPS_ROOT/user_contributions.py` |
 
 ## Tools

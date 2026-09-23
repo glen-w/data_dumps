@@ -26,6 +26,11 @@ from data_dumps.explorer_panels.chatgpt import (
     make_chatgpt_controls,
     render_chatgpt_panel,
 )
+from data_dumps.explorer_panels.cursor_history import (
+    CursorHistoryControls,
+    make_cursor_history_controls,
+    render_cursor_history_panel,
+)
 from data_dumps.explorer_panels.compare import (
     CompareControls,
     make_compare_controls,
@@ -109,6 +114,7 @@ __all__ = [
     "AmazonControls",
     "BrowserControls",
     "ChatGPTControls",
+    "CursorHistoryControls",
     "CompareControls",
     "CorrelateControls",
     "CustomControls",
@@ -128,6 +134,7 @@ __all__ = [
     "make_amazon_controls",
     "make_browser_controls",
     "make_chatgpt_controls",
+    "make_cursor_history_controls",
     "make_compare_controls",
     "make_correlate_controls",
     "make_custom_controls",
@@ -147,6 +154,7 @@ __all__ = [
     "render_amazon_panel",
     "render_browser_panel",
     "render_chatgpt_panel",
+    "render_cursor_history_panel",
     "render_compare_panel",
     "render_correlate_panel",
     "render_custom_panel",

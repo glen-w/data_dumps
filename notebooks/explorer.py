@@ -17,6 +17,7 @@ def _():
         make_chatgpt_controls,
         make_compare_controls,
         make_correlate_controls,
+        make_cursor_history_controls,
         make_custom_controls,
         make_duolingo_controls,
         make_google_controls,
@@ -36,6 +37,7 @@ def _():
         render_chatgpt_panel,
         render_compare_panel,
         render_correlate_panel,
+        render_cursor_history_panel,
         render_custom_panel,
         render_duolingo_panel,
         render_google_panel,
@@ -121,6 +123,7 @@ def _():
     has_google = _by_slug["google"]["present"]
     has_airbnb = _by_slug["airbnb"]["present"]
     has_chatgpt = _by_slug["chatgpt"]["present"]
+    has_cursor_history = _by_slug["cursor_history"]["present"]
     has_custom = _by_slug["custom"]["present"]
     sp_bounds = _by_slug["spotify"]["bounds"]
     tg_bounds = _by_slug["telegram"]["bounds"]
@@ -138,6 +141,7 @@ def _():
     google_bounds = _by_slug["google"]["bounds"]
     airbnb_bounds = _by_slug["airbnb"]["bounds"]
     chatgpt_bounds = _by_slug["chatgpt"]["bounds"]
+    cursor_history_bounds = _by_slug["cursor_history"]["bounds"]
     custom_bounds = _by_slug["custom"]["bounds"]
     cmp_bounds = cmp_data_bounds(conn)
     cmp_series = cmp_list_series(conn)
@@ -158,6 +162,7 @@ def _():
         amz_bounds,
         br_bounds,
         chatgpt_bounds,
+        cursor_history_bounds,
         custom_bounds,
         cmp_bounds,
         cmp_series,
@@ -173,6 +178,7 @@ def _():
         has_chatgpt,
         has_compare,
         has_correlate,
+        has_cursor_history,
         has_custom,
         has_duolingo,
         has_google,
@@ -194,6 +200,7 @@ def _():
         make_chatgpt_controls,
         make_compare_controls,
         make_correlate_controls,
+        make_cursor_history_controls,
         make_custom_controls,
         make_duolingo_controls,
         make_google_controls,
@@ -218,6 +225,7 @@ def _():
         render_chatgpt_panel,
         render_compare_panel,
         render_correlate_panel,
+        render_cursor_history_panel,
         render_custom_panel,
         render_duolingo_panel,
         render_google_panel,
@@ -294,6 +302,7 @@ def _(
     amz_bounds,
     br_bounds,
     chatgpt_bounds,
+    cursor_history_bounds,
     custom_bounds,
     cmp_bounds,
     corr_bounds,
@@ -366,6 +375,7 @@ def _(
         "google": _span_caption(google_bounds),
         "airbnb": _span_caption(airbnb_bounds),
         "chatgpt": _span_caption(chatgpt_bounds),
+        "cursor_history": _span_caption(cursor_history_bounds),
         "custom": _span_caption(custom_bounds),
     }
     cmp_caption = (
@@ -549,6 +559,16 @@ def _(chatgpt_bounds, has_chatgpt, make_chatgpt_controls, mo):
         else None
     )
     return (chatgpt_controls,)
+
+
+@app.cell(hide_code=True)
+def _(cursor_history_bounds, has_cursor_history, make_cursor_history_controls, mo):
+    cursor_history_controls = (
+        make_cursor_history_controls(mo, cursor_history_bounds)
+        if has_cursor_history and cursor_history_bounds
+        else None
+    )
+    return (cursor_history_controls,)
 
 
 @app.cell(hide_code=True)
@@ -1005,6 +1025,40 @@ def _(
         conn=conn,
         bounds=chatgpt_bounds,
         controls=chatgpt_controls,
+        dow_labels=iso_dow,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    conn,
+    cursor_history_bounds,
+    cursor_history_controls,
+    explorer_by_slug,
+    has_cursor_history,
+    iso_dow,
+    mo,
+    px,
+    render_cursor_history_panel,
+    source,
+):
+    mo.stop(
+        source.value != explorer_by_slug["cursor_history"]["tab_label"], output=None
+    )
+    if not has_cursor_history or cursor_history_controls is None:
+        mo.stop(
+            True,
+            mo.md(
+                "No `cursor_history.messages` in the warehouse. Stop this notebook, then:\n\n"
+                "`uv run ingest ~/Desktop/cursor-history-export`"
+            ),
+        )
+    render_cursor_history_panel(
+        mo=mo,
+        px=px,
+        conn=conn,
+        bounds=cursor_history_bounds,
+        controls=cursor_history_controls,
         dow_labels=iso_dow,
     )
 

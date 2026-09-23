@@ -27,6 +27,7 @@ from data_dumps.explorer_panels import (
     make_chatgpt_controls,
     make_compare_controls,
     make_correlate_controls,
+    make_cursor_history_controls,
     make_duolingo_controls,
     make_google_controls,
     make_linkedin_controls,
@@ -43,6 +44,7 @@ from data_dumps.explorer_panels import (
     render_chatgpt_panel,
     render_compare_panel,
     render_correlate_panel,
+    render_cursor_history_panel,
     render_duolingo_panel,
     render_google_panel,
     render_home_hero,
@@ -62,6 +64,7 @@ from data_dumps.sources.airbnb import AirbnbSource
 from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.browser import BrowserSource
 from data_dumps.sources.chatgpt import ChatGPTSource
+from data_dumps.sources.cursor_history import CursorHistorySource
 from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.google import GoogleSource
 from data_dumps.sources.linkedin import LinkedInSource
@@ -75,6 +78,7 @@ from .conftest import make_plays_conn
 from .test_airbnb_ingest import make_mini_airbnb_zip
 from .test_amazon_ingest import make_mini_amazon_dir
 from .test_chatgpt_ingest import make_mini_chatgpt_zip
+from .test_cursor_history_ingest import make_mini_cursor_history_dir
 from .test_duolingo_ingest import make_mini_duolingo_zip
 from .test_google_ingest import make_mini_google_dir
 from .test_linkedin_ingest import make_mini_linkedin_zip
@@ -601,6 +605,42 @@ def test_render_chatgpt_panel(chatgpt_conn):
         "Thinking",
         "Conversation flags",
         "Assets",
+    ):
+        assert needle in html, needle
+
+
+@pytest.fixture()
+def cursor_history_conn(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DUMPS_ROOT", str(tmp_path / "data_root"))
+    conn = duckdb.connect(str(tmp_path / "ch_wh.duckdb"))
+    CursorHistorySource().load(make_mini_cursor_history_dir(tmp_path), conn)
+    return conn
+
+
+def test_render_cursor_history_panel(cursor_history_conn):
+    from data_dumps import cursor_history_queries as chq
+
+    bounds = chq.data_bounds(cursor_history_conn)
+    controls = make_cursor_history_controls(mo, bounds)
+    html = render_cursor_history_panel(
+        mo=mo,
+        px=px,
+        conn=cursor_history_conn,
+        bounds=bounds,
+        controls=controls,
+        dow_labels=ISO_DOW,
+    )._repr_html_()
+    for needle in (
+        "Cursor History",
+        "Scoreboard",
+        "Streaks",
+        "Volume",
+        "Tools",
+        "Depth",
+        "Reply latency",
+        "Rhythm",
+        "Sessions",
+        "Forgotten",
     ):
         assert needle in html, needle
 

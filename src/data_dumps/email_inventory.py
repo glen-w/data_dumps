@@ -84,6 +84,7 @@ class TextScan:
 # string can say *why* the address is there, not only that it occurred.
 TEXT_SCANS: tuple[TextScan, ...] = (
     TextScan("ChatGPT", "mentioned in chat", "chatgpt", "messages", "text"),
+    TextScan("Cursor", "mentioned in chat", "cursor_history", "messages", "text"),
     TextScan("Telegram", "mentioned in message", "telegram", "messages", "text"),
     TextScan("Slack", "mentioned in message", "slack", "messages", "text"),
     TextScan("LinkedIn", "mentioned in message", "linkedin", "messages", "content"),

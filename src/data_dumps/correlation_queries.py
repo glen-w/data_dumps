@@ -53,6 +53,7 @@ _PRESET_IDS: dict[str, tuple[str, ...]] = {
         "linkedin_events",
         "thunderbird_messages",
         "chatgpt_messages",
+        "cursor_history_messages",
     ),
     PRESET_SLEEP_BODY: (
         "sleep_hours",

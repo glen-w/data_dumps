@@ -11,6 +11,10 @@ from data_dumps.contribution_series.airbnb import AIRBNB_COMPARE, AIRBNB_CORRELA
 from data_dumps.contribution_series.amazon import AMAZON_COMPARE, AMAZON_CORRELATE
 from data_dumps.contribution_series.browser import BROWSER_COMPARE, BROWSER_CORRELATE
 from data_dumps.contribution_series.chatgpt import CHATGPT_COMPARE, CHATGPT_CORRELATE
+from data_dumps.contribution_series.cursor_history import (
+    CURSOR_HISTORY_COMPARE,
+    CURSOR_HISTORY_CORRELATE,
+)
 from data_dumps.contribution_series.custom import CUSTOM_COMPARE, CUSTOM_CORRELATE
 from data_dumps.contribution_series.duolingo import DUOLINGO_COMPARE, DUOLINGO_CORRELATE
 from data_dumps.contribution_series.google import GOOGLE_COMPARE, GOOGLE_CORRELATE
@@ -61,6 +65,8 @@ __all__ = [
     "AIRBNB_CORRELATE",
     "CHATGPT_COMPARE",
     "CHATGPT_CORRELATE",
+    "CURSOR_HISTORY_COMPARE",
+    "CURSOR_HISTORY_CORRELATE",
     "CUSTOM_COMPARE",
     "CUSTOM_CORRELATE",
 ]

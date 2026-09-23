@@ -33,6 +33,7 @@ def test_sources_derived_from_contributions():
     assert "spotify" in names
     assert "spotify_account" in names
     assert "amazon" in names
+    assert "cursor_history" in names
     assert len(SOURCES) == len({id(s) for s in SOURCES})
 
 
@@ -41,6 +42,9 @@ def test_series_merged_from_contributions():
     corr_ids = {m.id for m in CORRELATE_METRICS}
     assert "spotify_hours" in compare_ids
     assert "browser_urls_last_seen" in compare_ids
+    assert "cursor_history_messages" in compare_ids
+    assert "cursor_history_sessions" in compare_ids
+    assert "cursor_history_messages" in corr_ids
     assert "ring_events" in compare_ids
     assert "sleep_snore" in compare_ids
     assert "amazon_alexa" in compare_ids

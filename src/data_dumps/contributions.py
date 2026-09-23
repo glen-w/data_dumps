@@ -22,6 +22,7 @@ from data_dumps import airbnb_queries as abq
 from data_dumps import amazon_queries as amzq
 from data_dumps import browser_queries as brq
 from data_dumps import chatgpt_queries as cgq
+from data_dumps import cursor_history_queries as chq
 from data_dumps import custom_queries as cuq
 from data_dumps import duolingo_queries as duoq
 from data_dumps import google_queries as gq
@@ -44,6 +45,8 @@ from data_dumps.contribution_series import (
     BROWSER_CORRELATE,
     CHATGPT_COMPARE,
     CHATGPT_CORRELATE,
+    CURSOR_HISTORY_COMPARE,
+    CURSOR_HISTORY_CORRELATE,
     CUSTOM_COMPARE,
     CUSTOM_CORRELATE,
     DUOLINGO_COMPARE,
@@ -77,6 +80,7 @@ from data_dumps.sources.amazon import AmazonSource
 from data_dumps.sources.base import Source
 from data_dumps.sources.browser import BrowserSource
 from data_dumps.sources.chatgpt import ChatGPTSource
+from data_dumps.sources.cursor_history import CursorHistorySource
 from data_dumps.sources.custom import CustomSource
 from data_dumps.sources.duolingo import DuolingoSource
 from data_dumps.sources.google import GoogleSource
@@ -292,6 +296,16 @@ CONTRIBUTIONS: tuple[Contribution, ...] = (
         data_bounds=cgq.data_bounds,
         compare_series=CHATGPT_COMPARE,
         correlate_metrics=CHATGPT_CORRELATE,
+    ),
+    Contribution(
+        slug="cursor_history",
+        source=CursorHistorySource(),
+        tab_label="Cursor",
+        tab_icon="lucide:square-terminal",
+        gate_table=("cursor_history", "messages"),
+        data_bounds=chq.data_bounds,
+        compare_series=CURSOR_HISTORY_COMPARE,
+        correlate_metrics=CURSOR_HISTORY_CORRELATE,
     ),
     # Manifest exports (data_dumps.json). One tab; the panel picks the slug.
     # Last so a real dump is never claimed just because a manifest was added.

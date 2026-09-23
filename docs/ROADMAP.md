@@ -116,6 +116,14 @@ Where `data_dumps` is headed. Guidance, not a commitment calendar.
 - Compare / Correlations: messages + conversations; Compare entity = conversation
 - Local TZ: `Europe/Paris`
 
+### Cursor History
+
+- Desktop `cursor-history` / `direct_export.py` folder (`EXPORT_MANIFEST.md` + `json/` + `agent-transcripts/`) → `cursor_history.sessions|messages|tool_calls|models`
+- Message text kept with warehouse-only secret redaction; tool args/results truncated; live `state.vscdb` and Markdown dual-export not copied into raw
+- Explorer Cursor tab: scoreboard (+ depth / tool density / thinking+diff counts), streaks, volume, tool family stack + rank bump, mode/project/subagent mix, prompt length + session depth + tool density, reply latency, circadian + calendar, message text search, session list + click-lock transcript, scatter, forgotten/comebacks, optional narrative
+- Compare / Correlations: messages + sessions; Compare entity = session
+- Local TZ: `Europe/Paris`
+
 ### Tools — email index
 
 - Explorer **Tools** tab lists every email address found in the exports: account fields the source tabs skip, other people's profiles and contacts, and addresses only mentioned in chats, tweets, subjects, or mail bodies
